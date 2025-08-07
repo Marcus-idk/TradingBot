@@ -26,10 +26,9 @@ Classes:
 Functions:
 - `generate(prompt)` - Generate text response from LLM (async, uses config from init)
 - `validate_connection()` - Test if provider is properly configured (async, zero-cost)
-- `close()` - Graceful shutdown, cleanup client connections (async)
 
 Constructor:
-- `__init__(api_key, temperature, **kwargs)` - Configure provider behavior once
+- `__init__(api_key, model_name, temperature, **kwargs)` - Configure provider behavior once
 
 #### providers/ - LLM Provider Implementations
 Organization folder for provider implementations (no __init__.py).

@@ -15,6 +15,3 @@ class LLMProvider(ABC):
     async def validate_connection(self) -> bool:
         pass
     
-    @abstractmethod
-    async def close(self) -> None:
-        pass

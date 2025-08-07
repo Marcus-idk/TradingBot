@@ -33,6 +33,3 @@ class GeminiProvider(LLMProvider):
             return True
         except Exception:
             return False
-    
-    async def close(self) -> None:
-        await self.client.session.close()

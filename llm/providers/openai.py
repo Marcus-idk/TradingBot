@@ -29,5 +29,3 @@ class OpenAIProvider(LLMProvider):
         except Exception:
             return False
     
-    async def close(self) -> None:
-        await self.client.aclose()
