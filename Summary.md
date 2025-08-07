@@ -1,40 +1,47 @@
 # TradingBot Codebase Summary
 
-**Note**: The `.claude/` directory contains Claude Code configuration files and should be ignored when analyzing the codebase structure.
-
-<!-- 
-FORMATTING EXAMPLE FOR FUTURE DOCUMENTATION:
-
 ## Technical Stack
-- **Language** - Description and version
-- **Framework** - Purpose and version
-- **Tools** - What they're used for
+- **Python** - Core language for financial libraries and LLM integrations
+- **Async/Await** - For concurrent API calls to multiple data sources
+- **GitHub Actions** - Scheduled execution every 30 minutes
 
 ## Project Structure
 
-### filename.py
-Purpose: Brief description of what this file does and its role in the system.
+### llm/ - LLM Provider Module
 
-Data Structures:
-- `ClassName` - What this class represents and its purpose
-- `DataType` - Structure for holding specific information
+#### __init__.py
+Purpose: Clean public API exports for LLM providers.
+
+Exports:
+- `LLMProvider` - Abstract base class
+- `OpenAIProvider` - OpenAI implementation
+- `GeminiProvider` - Google Gemini implementation
+
+#### base.py
+Purpose: Abstract base class defining the contract for all LLM providers.
+
+Classes:
+- `LLMProvider` - Abstract base with required methods for all providers
 
 Functions:
-- `function_name(params)` - What this function does and returns
-- `another_function()` - Brief description of functionality
+- `generate(prompt)` - Generate text response from LLM (async, uses config from init)
+- `validate_connection()` - Test if provider is properly configured (async, zero-cost)
+- `close()` - Graceful shutdown, cleanup client connections (async)
 
-### folder_name/ - Folder Description
+Constructor:
+- `__init__(api_key, temperature, **kwargs)` - Configure provider behavior once
 
-#### module.py
-Purpose: What this module handles in the system.
+#### providers/ - LLM Provider Implementations
+Organization folder for provider implementations (no __init__.py).
 
-Functions:
-- `key_function(args)` - Main functionality description
-- `helper_function()` - Supporting functionality
+##### providers/openai.py
+Purpose: OpenAI provider implementation using AsyncOpenAI client.
 
-Global Variables:
-- `CONSTANT_NAME` - What this constant represents
+Classes:
+- `OpenAIProvider(LLMProvider)` - Implements OpenAI chat completions API
 
-## Output Files
-Brief description of generated files and their formats.
--->
+##### providers/gemini.py
+Purpose: Google Gemini provider implementation using new unified SDK.
+
+Classes:
+- `GeminiProvider(LLMProvider)` - Implements Google Gemini generate content API
