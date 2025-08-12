@@ -4,6 +4,7 @@
 - **Python** - Core language for financial libraries and LLM integrations
 - **Async/Await** - For concurrent API calls to multiple data sources
 - **GitHub Actions** - Scheduled execution every 30 minutes
+- **Environment Variables** - Use `load_dotenv(override=True)` to force reload .env files
 
 ## Project Structure
 
