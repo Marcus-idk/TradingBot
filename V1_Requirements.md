@@ -50,10 +50,27 @@ Build an automated trading bot that leverages LLMs for fundamental analysis to g
 
 ### Implementation Plan
 1. **Abstract DataSource Interface**: Clean provider pattern like LLMs
-2. **Concrete Implementations**: One file per data source
-3. **Data Models**: Standardized DTOs for all data types
-4. **Aggregation Service**: Coordinate multiple data sources
-5. **Error Handling**: Failover between primary/backup sources
+2. **Data Models**: Standardized DTOs for all data types  
+3. **Configuration Management**: API keys and provider settings
+4. **Concrete Implementations**: One file per data source
+5. **Aggregation Service**: Coordinate multiple data sources
+
+### File Structure
+```
+data/
+├── __init__.py          # Clean exports
+├── base.py              # Abstract DataSource interface  
+├── models.py            # Data models/DTOs
+├── config.py            # Configuration management
+├── aggregator.py        # Simple data combination
+└── providers/
+    ├── __init__.py
+    ├── finnhub.py       # Stock data
+    ├── polygon.py       # Market data
+    ├── rss.py           # News feeds
+    ├── reddit.py        # Social sentiment
+    └── sec_edgar.py     # SEC filings
+```
 
 ### Cost Estimate for v0.2
 - **Minimal**: $0/month (use all free tiers)
@@ -101,6 +118,14 @@ Raw Data → Specialized LLM Agents → Final Decision Agent → User
 - 📋 **Trading Agents** (v0.3+)
 - 📋 **Orchestration** (v0.3+)
 - 📋 **Scheduling** (v0.3+)
+- 📋 **Production Infrastructure** (v1.0)
+
+### Production Infrastructure Additions
+- **Rate Limiting**: Per-provider API throttling to prevent bans
+- **Caching Layer**: TTL-based caching to reduce API calls and costs
+- **Data Validation**: Financial data accuracy and freshness checks
+- **Error Handling**: Circuit breaker patterns and graceful degradation
+- **Monitoring**: Comprehensive logging and health checks
 
 ### Success Metrics
 - **Performance**: Beat buy-and-hold strategy
