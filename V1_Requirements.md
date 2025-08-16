@@ -1,4 +1,4 @@
-# Trading Bot V1 Requirements
+# Trading Bot Development Plan
 
 ## Project Goal
 Build an automated trading bot that leverages LLMs for fundamental analysis to gain an edge over retail traders. The bot will monitor existing holdings and provide hold/sell recommendations every 30 minutes.
@@ -6,49 +6,110 @@ Build an automated trading bot that leverages LLMs for fundamental analysis to g
 ## Core Strategy
 - **Target Competition**: Retail traders (not institutional HFT firms)
 - **Edge**: LLM analyzing hundreds of sources 24/7 vs manual traders reading 2-3 sources
-- **V1 Scope**: Monitor existing positions only (no new trade discovery)
+- **Final Scope**: Monitor existing positions only (no new trade discovery)
 
-## Data Sources (6 APIs)
+---
 
-### Price and News Data
-- **Finnhub** (Primary): Stock prices + financial news
-- **Polygon.io** (Backup): Price data + news when Finnhub fails
+## v0.1 - LLM Foundation ✅ **COMPLETED**
+
+### What's Built
+- **LLM Provider Module**: Abstract base class with clean provider pattern
+- **OpenAI Provider**: GPT-5 with reasoning, tools, function calling
+- **Gemini Provider**: Gemini 2.5 Flash with code execution, thinking config
+- **Comprehensive Testing**: SHA-256 validation tests for both providers
+- **Async Implementation**: Production-ready async/await pattern
+
+### LLM Selection Strategy
+- **Gemini 2.5 Flash**: Cost-effective for specialist analyst roles
+- **GPT-5**: Premium model for final trading decisions
+
+### Status: ✅ **Production Ready**
+
+---
+
+## v0.2 - Data Source Integrations 🔄 **NEXT PHASE**
+
+### Target Data Sources (5 APIs)
+
+#### Price and News Data
+- **Finnhub** (Primary): Stock/crypto prices + financial news
+  - Free: 60 calls/min → Paid: $50/month unlimited
+- **Polygon.io** (Backup): Price data + news when Finnhub fails  
+  - Free: 5 calls/min (useless) → Paid: $99/month minimum
 - **RSS Feeds** (Always-on): Unlimited news backup source
+  - Cost: **FREE** from major financial outlets
 
-### Crowd Sentiment Analysis  
+#### Crowd Sentiment Analysis
 - **Reddit API** (via PRAW): Retail trader sentiment and discussions
-- **X/Twitter API**: Real-time social sentiment and trending topics
+  - Free: 100 queries/min (non-commercial) → Paid: Contact for pricing
 
-### Official Company Data
+#### Official Company Data  
 - **SEC EDGAR**: Earnings reports, insider trading, official filings
+  - Cost: **FREE** (10 requests/sec limit)
+  - Note: Stocks only, crypto doesn't have SEC filings
 
-## LLM Processing Architecture
+### Implementation Plan
+1. **Abstract DataSource Interface**: Clean provider pattern like LLMs
+2. **Concrete Implementations**: One file per data source
+3. **Data Models**: Standardized DTOs for all data types
+4. **Aggregation Service**: Coordinate multiple data sources
+5. **Error Handling**: Failover between primary/backup sources
 
-### Multi-Agent Approach
+### Cost Estimate for v0.2
+- **Minimal**: $0/month (use all free tiers)
+- **Recommended**: $50/month (Finnhub paid tier)
+- **Premium**: $150/month (Finnhub + Polygon.io)
+
+---
+
+## v0.3+ - Trading Intelligence Layer 📋 **FUTURE PHASES**
+
+### Multi-Agent Architecture
 ```
 Raw Data → Specialized LLM Agents → Final Decision Agent → User
 ```
 
-### Agent Roles
+#### Agent Roles
 1. **News Analyst LLM**: Processes Finnhub + RSS financial news
-2. **Sentiment Analyst LLM**: Analyzes Reddit + X social sentiment  
+2. **Sentiment Analyst LLM**: Analyzes Reddit social sentiment  
 3. **SEC Filings Analyst LLM**: Reviews EDGAR official company data
 4. **Head Trader LLM**: Synthesizes all data + current holdings for final decision
 
-### LLM Selection
-- **Gemini 2.5 Flash**: Cost-effective for the 3 specialist analyst roles
-- **GPT-5**: Premium model for final trading decisions
+### Core Trading Logic
+- **Portfolio Management**: Current holdings tracking
+- **Signal Generation**: Trading signals and recommendations
+- **Decision Engine**: HOLD/SELL recommendation logic
 
-## Technical Stack
-- **Python**: Best financial libraries, all APIs have Python SDKs
-- **GitHub Actions**: Free scheduling and execution
+### Orchestration & Infrastructure
+- **Scheduling**: GitHub Actions every 30 minutes during market hours
 - **Storage**: Results append to file in GitHub repo
+- **Output Format**: Holdings analysis + summaries + recommendations
 
-## Output Format
-- **Frequency**: Every 30 minutes during market hours
-- **Content**: Holdings analysis + News/Sentiment/SEC summaries + HOLD/SELL recommendations
+### Technical Implementation
+- **File Structure**: Enterprise-grade Clean Architecture
+- **Configuration**: Environment-based API key management
+- **Logging**: Structured logging for debugging and monitoring
+- **Testing**: Integration tests for end-to-end workflows
 
-## Cost & Risk
-- **Cost**: ~$10-30/month (API calls + LLM usage)
-- **Risk Management**: No actual trade execution, recommendations only
-- **Success Metric**: Beat buy-and-hold strategy
+---
+
+## v1.0 - Complete Trading Bot 🎯 **FINAL TARGET**
+
+### Full Feature Set
+- ✅ **LLM Providers** (v0.1)
+- 🔄 **Data Sources** (v0.2)  
+- 📋 **Trading Agents** (v0.3+)
+- 📋 **Orchestration** (v0.3+)
+- 📋 **Scheduling** (v0.3+)
+
+### Success Metrics
+- **Performance**: Beat buy-and-hold strategy
+- **Reliability**: 99%+ uptime for data collection
+- **Cost Efficiency**: Stay within $10-50/month budget
+- **Risk Management**: Recommendations only, no actual trade execution
+
+### Final Technical Stack
+- **Python**: Financial libraries, all APIs have Python SDKs
+- **GitHub Actions**: Free scheduling and execution
+- **Clean Architecture**: Scalable, maintainable codebase
+- **Async/Await**: High-performance concurrent API calls
