@@ -24,17 +24,17 @@ class OpenAIProvider(LLMProvider):
         self.client = AsyncOpenAI(api_key=api_key)
 
     async def generate(self, prompt: str) -> str:
-        args = {
-            "model": self.model_name,
-            "input": prompt,
-            "temperature": self.temperature,
-            **self.config
-        }
-        
-        if self.reasoning:
+        args = {"model": self.model_name, "input": prompt, **self.config}
+
+        if self.temperature is not None:
+            args["temperature"] = self.temperature
+
+        if self.reasoning is not None:
             args["reasoning"] = self.reasoning
+
         if self.tools:
             args["tools"] = self.tools
+
         if self.tool_choice:
             args["tool_choice"] = self.tool_choice
 
