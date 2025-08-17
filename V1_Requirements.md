@@ -33,7 +33,7 @@ Build an automated trading bot that leverages LLMs for fundamental analysis to g
 
 #### Core Components
 - **Data Models**: NewsItem, PriceData DTOs with validation
-- **Storage Layer**: SQLite schema, CRUD operations
+- **Storage Layer**: SQLite schema with temporary raw data tables + persistent analysis results
 - **Abstract Interface**: Type-safe DataSource classes (NewsDataSource, PriceDataSource)
 - **Local Testing**: Test with mock/hardcoded data
 
@@ -150,7 +150,10 @@ data/ (adds to v0.22)
 Every 5min: scheduler → providers.fetch_incremental(last_seen_id) 
 → [Raw API Response → Provider converts to NewsItem/PriceData] 
 → deduplication.is_processed() → storage.store(standardized_models) 
-→ filters.is_urgent() → [urgent: trigger LLM | normal: store for 30min batch]
+→ filters.is_urgent() → [urgent: trigger LLM | normal: accumulate for 30min batch]
+
+Every 30min: LLM agents process accumulated data → update analysis_results → 
+[SUCCESS: delete processed raw data | FAILURE: preserve raw data for retry]
 ```
 
 #### Provider Responsibility
@@ -256,48 +259,50 @@ data/
 
 ### Multi-Agent Architecture
 ```
-Stored Data → Specialized LLM Agents → Final Decision Agent → User
+30-Min Raw Data Batches → Specialist LLM Agents → Persistent Analysis Results → Head Trader LLM → Trading Decisions
 ```
 
-#### Agent Roles (Process Stored Data Only)
-1. **News Analyst LLM**: Processes stored Finnhub + RSS financial news
-2. **Sentiment Analyst LLM**: Analyzes stored Reddit social sentiment  
-3. **SEC Filings Analyst LLM**: Reviews stored EDGAR official company data
-4. **Head Trader LLM**: Synthesizes all filtered data + current holdings for final decision
+#### Agent Roles (Process 30-Minute Data Batches)
+1. **News Analyst LLM**: Processes 30-min batches of Finnhub + RSS financial news
+2. **Sentiment Analyst LLM**: Analyzes 30-min batches of Reddit social sentiment  
+3. **SEC Filings Analyst LLM**: Reviews 30-min batches of EDGAR official company data
+4. **Head Trader LLM**: Synthesizes all specialist analysis results + current holdings for final decision
 
 #### Agent Processing Strategy
 Each specialist LLM agent uses a **sort + rank** approach instead of numerical scoring:
 
 **News Analyst LLM:**
-- Input: Batch of stored NewsItem objects from Finnhub + RSS
-- Output: Two ranked lists
+- Input: 30-minute batch of NewsItem objects + previous analysis results
+- Output: Updated analysis for each symbol (stored persistently)
   - **Bullish News**: Positive market impact items, ranked by importance
   - **Bearish News**: Negative market impact items, ranked by severity
-- Ranking criteria: Market relevance, company impact, timing sensitivity
+- Updates: Previous analysis + new 30-min data → refreshed analysis per symbol
 
 **Sentiment Analyst LLM:**
-- Input: Batch of stored Reddit posts/comments
-- Output: Two ranked lists  
+- Input: 30-minute batch of Reddit posts/comments + previous analysis results
+- Output: Updated sentiment analysis for each symbol (stored persistently)
   - **Positive Sentiment**: Optimistic retail trader discussions, ranked by influence
   - **Negative Sentiment**: Pessimistic retail trader discussions, ranked by concern level
-- Ranking criteria: Discussion volume, credibility indicators, emotional intensity
+- Updates: Previous sentiment + new 30-min data → refreshed sentiment per symbol
 
 **SEC Filings Analyst LLM:**
-- Input: Batch of stored regulatory filings
-- Output: Two ranked lists
+- Input: 30-minute batch of regulatory filings + previous analysis results
+- Output: Updated regulatory analysis for each symbol (stored persistently)
   - **Positive Filings**: Beneficial regulatory news, ranked by impact
   - **Negative Filings**: Concerning regulatory news, ranked by risk level  
-- Ranking criteria: Legal significance, financial impact, compliance implications
+- Updates: Previous filings analysis + new 30-min data → refreshed regulatory view per symbol
 
 **Head Trader LLM:**
-- Input: All ranked lists from specialist agents + current portfolio holdings
-- Output: Final trading recommendations (HOLD/SELL) with confidence levels
-- Decision logic: Weighs bullish vs bearish signals, considers position sizing and risk
+- Input: All specialist analysis results (persistent) + current portfolio holdings
+- Output: Final trading recommendations per symbol (stored persistently)
+- Decision logic: Synthesizes all specialist views → HOLD/SELL recommendations with confidence levels
 
 #### LLM Trigger Conditions
-- **Urgent Events**: Immediate processing when keywords detected
-- **Scheduled Analysis**: Every 30 minutes on accumulated filtered dataset
-- **Data Source**: Always from local storage, never direct API calls
+- **Urgent Events**: Immediate processing when keywords detected (processes raw data immediately)
+- **Scheduled Analysis**: Every 30 minutes on accumulated 30-min batch
+- **Data Cleanup**: After **successful** LLM analysis, raw data is deleted and analysis results are preserved
+- **Error Handling**: If specialist LLMs or Head Trader fail to update analysis results, raw data is **preserved** for retry
+- **Data Source**: LLMs process raw data batches, Head Trader reads persistent analysis results
 
 ### Core Trading Logic
 - **Portfolio Management**: Current holdings tracking
@@ -315,6 +320,7 @@ Each specialist LLM agent uses a **sort + rank** approach instead of numerical s
 ### Technical Implementation
 - **File Structure**: Enterprise-grade Clean Architecture
 - **Configuration**: Environment-based API key management
+- **Performance Indexes**: Add SQLite indexes based on LLM query patterns (symbol+time, stance filtering)
 - **Logging**: Structured logging for debugging and monitoring
 - **Testing**: Integration tests for end-to-end workflows
 

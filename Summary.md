@@ -143,6 +143,33 @@ Design Choices:
   - Float: Used for ratios and scores (sentiment_score, change_percent_24h) where minor precision loss is acceptable
   - Example: `0.1 + 0.2 == 0.3` is False with float, True with Decimal
 
+#### schema.sql
+Purpose: SQLite database schema with expert performance optimizations for 5-minute polling cycles.
+
+Database Architecture:
+- **Temporary Raw Data** - 30-minute staging tables deleted after successful LLM processing
+- **Persistent Analysis Results** - LLM memory that accumulates and updates over time
+- **Failure Recovery** - Raw data preserved if any LLM processing fails
+
+Tables:
+- `news_items` - Temporary storage for news articles (PRIMARY KEY: symbol, url)
+- `price_data` - Temporary storage for financial price data (PRIMARY KEY: symbol, timestamp_unix)
+- `analysis_results` - Persistent LLM analysis results per (symbol, analysis_type) with structured reasoning
+- `holdings` - Portfolio tracking with break-even calculations (PRIMARY KEY: symbol)
+
+Expert Optimizations:
+- **WAL Mode** - Allows concurrent reads during writes (prevents database locks)
+- **Busy Timeout** - 5-second wait instead of instant failure when database busy
+- **WITHOUT ROWID** - Performance optimization for natural primary keys
+- **URL Normalization** - Strip tracking parameters for cross-provider deduplication
+- **Scaled Integers** - Store financial prices as integers (price × 1,000,000) for exact precision
+- **Price Deduplication** - One price per (symbol, timestamp) regardless of data source
+- **Extended Hours Tracking** - is_extended field to distinguish regular vs pre/post-market hours
+- **Volume Strategy** - Plain integers for stocks (whole shares), micros only for fractional crypto volumes
+- **Structured Analysis** - Rich JSON format with actual prices, targets, and detailed reasoning
+- **Quick Stance Filter** - Bullish/neutral/bearish classification for rapid signal filtering
+- **Break-Even Tracking** - Portfolio cost basis with trading fees factored into break-even price
+
 #### API_Reference.md
 Purpose: Comprehensive documentation of 5 data source APIs for trading bot integration.
 
