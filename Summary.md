@@ -140,7 +140,7 @@ Classes:
 - `PriceData` - Data model for financial price/market data from various sources
   - Required fields: symbol, timestamp (datetime), price (Decimal)
   - Optional fields: volume, session (Session enum for REG/PRE/POST market hours)
-  - Input validation in __post_init__ (non-empty symbol, non-negative price/volume, timezone handling)
+  - Input validation in __post_init__ (non-empty symbol, price must be > 0, volume ≥ 0, timezone handling)
 - `AnalysisResult` - Data model for LLM analysis results
   - Required fields: symbol, analysis_type (AnalysisType enum), model_name, stance (Stance enum), confidence_score (0.0-1.0), last_updated (datetime), result_json
   - Optional fields: created_at (datetime)
@@ -148,15 +148,16 @@ Classes:
 - `Holdings` - Data model for portfolio positions
   - Required fields: symbol, quantity (Decimal), break_even_price (Decimal), total_cost (Decimal)
   - Optional fields: notes, created_at (datetime), updated_at (datetime)
-  - Input validation in __post_init__ (non-empty symbol, non-negative financial values, timezone handling)
+  - Input validation in __post_init__ (non-empty symbol, positive financial values, timezone handling)
 
 Features:
 - Complete model set for v0.2 requirements (storage + LLM analysis + portfolio tracking)
 - Robust input validation with automatic string trimming and timezone normalization
-- URL validation for news items and JSON validation for analysis results
+- URL validation for news items and JSON syntax validation for analysis results
 - Uses @dataclass for clean field definitions and automatic methods
-- Decimal precision for financial data to prevent floating-point errors
+- Decimal precision for financial data stored as TEXT strings to prevent floating-point errors
 - Enum validation for structured data consistency
+- Positive value validation (price, quantity, costs must be > 0, not just >= 0)
 
 #### schema.sql
 Purpose: SQLite database schema with expert performance optimizations for 5-minute polling cycles.
@@ -176,14 +177,16 @@ Expert Optimizations:
 - **WAL Mode** - Allows concurrent reads during writes (prevents database locks)
 - **Busy Timeout** - 5-second wait instead of instant failure when database busy
 - **WITHOUT ROWID** - Performance optimization for natural primary keys
-- **ISO Timestamps Only** - Human-readable ISO format for easier querying and debugging
+- **ISO Timestamps Only** - Human-readable ISO format (YYYY-MM-DDTHH:MM:SSZ) for easier querying and debugging
 - **URL Normalization** - Strip tracking parameters for cross-provider deduplication
-- **Scaled Integers** - Store financial prices as integers (price × 1,000,000) for exact precision
+- **TEXT Decimal Storage** - Store financial values as TEXT strings for exact precision (no floating-point errors)
+- **Database CHECK Constraints** - Validate decimal TEXT fields can be cast to positive REAL values
 - **Price Deduplication** - One price per (symbol, timestamp_iso) regardless of data source
 - **Session Tracking** - session field with enum values (REG/PRE/POST) to distinguish trading sessions
-- **Volume Strategy** - Plain integers for stocks (whole shares), micros only for fractional crypto volumes
-- **Structured Analysis** - Rich JSON format with stance filtering and confidence scoring
-- **Quick Stance Filter** - CHECK constraints for BULL/BEAR/NEUTRAL classification
+- **Volume Strategy** - INTEGER storage for whole shares only (fractional volumes not supported in v0.2)
+- **Structured Analysis** - Rich JSON format with syntax validation and stance filtering
+- **JSON Validation** - CHECK constraints and Python validation for properly formed JSON content
+- **Positive Value Enforcement** - All financial values must be > 0 (price, quantity, costs)
 - **Simplified Holdings** - Essential fields only (quantity, break-even, total cost) for v0.2 core functionality
 
 #### API_Reference.md

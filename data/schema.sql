@@ -24,7 +24,7 @@ CREATE TABLE news_items (
     content TEXT,                       -- Full article body (short retention)
     published_iso TEXT NOT NULL,        -- ISO format: "2024-01-15T10:30:00Z"
     source TEXT NOT NULL,               -- finnhub, polygon, rss, etc.
-    created_at_iso TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (symbol, url)
 ) WITHOUT ROWID;
 
@@ -32,10 +32,10 @@ CREATE TABLE news_items (
 CREATE TABLE price_data (
     symbol TEXT NOT NULL,
     timestamp_iso TEXT NOT NULL,        -- When the bar closed (UTC): "2024-01-15T10:30:00Z"
-    price_micros INTEGER NOT NULL,      -- Close price × 1,000,000 for exact precision
-    volume INTEGER,                     -- Traded amount (whole shares for stocks)
+    price TEXT NOT NULL CHECK(CAST(price AS REAL) > 0), -- Close price (exact decimal as string)
+    volume INTEGER CHECK(volume >= 0),  -- Traded amount (whole shares for stocks)
     session TEXT DEFAULT 'REG' CHECK(session IN ('REG', 'PRE', 'POST')),  -- REG=regular, PRE=pre-market, POST=post-market
-    created_at_iso TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (symbol, timestamp_iso)
 ) WITHOUT ROWID;
 
@@ -50,10 +50,10 @@ CREATE TABLE analysis_results (
     analysis_type TEXT NOT NULL CHECK(analysis_type IN ('news_analysis', 'sentiment_analysis', 'sec_filings', 'head_trader')),
     model_name TEXT NOT NULL,           -- "gpt-5", "gemini-2.5-flash"
     stance TEXT NOT NULL CHECK(stance IN ('BULL', 'BEAR', 'NEUTRAL')),
-    confidence_score REAL NOT NULL,     -- 0.0 to 1.0
+    confidence_score REAL NOT NULL CHECK(confidence_score BETWEEN 0 AND 1), -- 0.0 to 1.0
     last_updated_iso TEXT NOT NULL,     -- ISO format: "2024-01-15T10:30:00Z"
-    result_json TEXT NOT NULL,          -- LLM analysis in JSON format
-    created_at_iso TEXT NOT NULL DEFAULT (datetime('now')),
+    result_json TEXT NOT NULL CHECK(json_valid(result_json) AND json_type(result_json) = 'object'), -- LLM analysis in JSON format
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (symbol, analysis_type)
 ) WITHOUT ROWID;
 
@@ -64,12 +64,12 @@ CREATE TABLE analysis_results (
 
 CREATE TABLE holdings (
     symbol TEXT NOT NULL,
-    quantity_micros INTEGER NOT NULL,   -- Position size × 1,000,000 (supports fractional)
-    break_even_micros INTEGER NOT NULL, -- Break even price × 1,000,000
-    total_cost_micros INTEGER NOT NULL, -- Total cost basis × 1,000,000
+    quantity TEXT NOT NULL CHECK(CAST(quantity AS REAL) > 0), -- Position size (exact decimal as string)
+    break_even_price TEXT NOT NULL CHECK(CAST(break_even_price AS REAL) > 0), -- Break even price (exact decimal as string)
+    total_cost TEXT NOT NULL CHECK(CAST(total_cost AS REAL) > 0), -- Total cost basis (exact decimal as string)
     notes TEXT,                         -- Optional notes about position
-    created_at_iso TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at_iso TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    updated_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (symbol)
 ) WITHOUT ROWID;
 

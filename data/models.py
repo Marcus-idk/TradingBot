@@ -4,6 +4,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Optional
 from urllib.parse import urlparse
+import json
 
 class Session(Enum):
     REG = "REG"      # Regular trading session
@@ -57,7 +58,7 @@ class PriceData:
         self.symbol = self.symbol.strip()
         if not self.symbol: raise ValueError("symbol cannot be empty")
         if self.timestamp.tzinfo is None: self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
-        if self.price < 0: raise ValueError("price must be >= 0")
+        if self.price <= 0: raise ValueError("price must be > 0")
         if self.volume is not None and self.volume < 0: raise ValueError("volume must be >= 0")
         if not isinstance(self.session, Session): 
             raise ValueError("session must be a Session enum value")
@@ -80,6 +81,12 @@ class AnalysisResult:
         if not self.symbol: raise ValueError("symbol cannot be empty")
         if not self.model_name: raise ValueError("model_name cannot be empty")
         if not self.result_json: raise ValueError("result_json cannot be empty")
+        try:
+            parsed_json = json.loads(self.result_json)
+            if not isinstance(parsed_json, dict):
+                raise ValueError("result_json must be a JSON object")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"result_json must be valid JSON: {e}")
         if not isinstance(self.analysis_type, AnalysisType):
             raise ValueError("analysis_type must be an AnalysisType enum value")
         if not isinstance(self.stance, Stance):
@@ -106,9 +113,9 @@ class Holdings:
         if self.notes is not None:
             self.notes = self.notes.strip()
         if not self.symbol: raise ValueError("symbol cannot be empty")
-        if self.quantity < 0: raise ValueError("quantity must be >= 0")
-        if self.break_even_price < 0: raise ValueError("break_even_price must be >= 0")
-        if self.total_cost < 0: raise ValueError("total_cost must be >= 0")
+        if self.quantity <= 0: raise ValueError("quantity must be > 0")
+        if self.break_even_price <= 0: raise ValueError("break_even_price must be > 0")
+        if self.total_cost <= 0: raise ValueError("total_cost must be > 0")
         if self.created_at is not None and self.created_at.tzinfo is None:
             self.created_at = self.created_at.replace(tzinfo=timezone.utc)
         if self.updated_at is not None and self.updated_at.tzinfo is None:
