@@ -1,3 +1,9 @@
+"""
+Storage operations tests.
+Tests CRUD operations, type conversions, and SQLite database functionality.
+Uses Windows-safe cleanup patterns for WAL mode databases.
+"""
+
 import sys
 from pathlib import Path
 import pytest
@@ -21,20 +27,6 @@ from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
     Session, Stance, AnalysisType
 )
-
-# =============================================================================
-# PHASE 2: STORAGE OPERATIONS TESTS
-# =============================================================================
-# File: test_data_storage.py
-# Focus: CRUD operations, type conversions, deduplication
-# Dependencies: Phase 1 models + database initialization
-# Status: COMPLETED
-#
-# Windows SQLite Testing Pattern:
-# - Use mkstemp() + os.close() instead of NamedTemporaryFile to avoid handle conflicts
-# - Each test creates isolated file-backed DB (required for WAL mode production parity)
-# - cleanup_sqlite_artifacts() handles Windows-safe teardown (WAL→DELETE, proper deletion order)
-# =============================================================================
 
 
 def cleanup_sqlite_artifacts(db_path: str) -> None:

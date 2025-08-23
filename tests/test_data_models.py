@@ -1,3 +1,8 @@
+"""
+Data model validation tests.
+Tests all __post_init__ validation logic (pure Python, no database).
+"""
+
 import sys
 from pathlib import Path
 import pytest
@@ -13,13 +18,6 @@ from data.models import (
     Session, Stance, AnalysisType
 )
 
-# =============================================================================
-# PHASE 1: DATA MODEL VALIDATION TESTS  
-# =============================================================================
-# File: test_data_models.py
-# Focus: All __post_init__ validation logic (pure Python, no database)
-# Dependencies: None
-# Status: COMPLETED with all critical gaps fixed
 
 class TestNewsItem:
     """Test NewsItem model validation"""
