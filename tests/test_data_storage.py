@@ -181,10 +181,10 @@ class TestTypeConversions:
         assert result == expected
     
     def test_datetime_to_iso_format_naive(self):
-        """Test naive datetime conversion to ISO format"""
+        """Test naive datetime conversion to ISO format (treated as UTC)"""
         dt = datetime(2024, 1, 15, 10, 30, 45)
         result = _datetime_to_iso(dt)
-        expected = "2024-01-15T10:30:45"  # No Z suffix for naive
+        expected = "2024-01-15T10:30:45Z"  # Z suffix added (naive treated as UTC)
         assert result == expected
     
     def test_datetime_to_iso_strips_microseconds(self):
