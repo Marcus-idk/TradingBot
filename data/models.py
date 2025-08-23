@@ -44,7 +44,10 @@ class NewsItem:
         if not self.headline: raise ValueError("headline cannot be empty")
         if not self.source: raise ValueError("source cannot be empty")
         if not _valid_http_url(self.url): raise ValueError("url must be http(s)")
-        if self.published.tzinfo is None: self.published = self.published.replace(tzinfo=timezone.utc)
+        if self.published.tzinfo is None: 
+            self.published = self.published.replace(tzinfo=timezone.utc)
+        else:
+            self.published = self.published.astimezone(timezone.utc)
 
 @dataclass
 class PriceData:
@@ -57,7 +60,10 @@ class PriceData:
     def __post_init__(self):
         self.symbol = self.symbol.strip()
         if not self.symbol: raise ValueError("symbol cannot be empty")
-        if self.timestamp.tzinfo is None: self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
+        if self.timestamp.tzinfo is None: 
+            self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
+        else:
+            self.timestamp = self.timestamp.astimezone(timezone.utc)
         if self.price <= 0: raise ValueError("price must be > 0")
         if self.volume is not None and self.volume < 0: raise ValueError("volume must be >= 0")
         if not isinstance(self.session, Session): 
@@ -95,8 +101,13 @@ class AnalysisResult:
             raise ValueError("confidence_score must be between 0.0 and 1.0")
         if self.last_updated.tzinfo is None: 
             self.last_updated = self.last_updated.replace(tzinfo=timezone.utc)
-        if self.created_at is not None and self.created_at.tzinfo is None:
-            self.created_at = self.created_at.replace(tzinfo=timezone.utc)
+        else:
+            self.last_updated = self.last_updated.astimezone(timezone.utc)
+        if self.created_at is not None:
+            if self.created_at.tzinfo is None:
+                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
+            else:
+                self.created_at = self.created_at.astimezone(timezone.utc)
 
 @dataclass
 class Holdings:
@@ -116,7 +127,13 @@ class Holdings:
         if self.quantity <= 0: raise ValueError("quantity must be > 0")
         if self.break_even_price <= 0: raise ValueError("break_even_price must be > 0")
         if self.total_cost <= 0: raise ValueError("total_cost must be > 0")
-        if self.created_at is not None and self.created_at.tzinfo is None:
-            self.created_at = self.created_at.replace(tzinfo=timezone.utc)
-        if self.updated_at is not None and self.updated_at.tzinfo is None:
-            self.updated_at = self.updated_at.replace(tzinfo=timezone.utc)
+        if self.created_at is not None:
+            if self.created_at.tzinfo is None:
+                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
+            else:
+                self.created_at = self.created_at.astimezone(timezone.utc)
+        if self.updated_at is not None:
+            if self.updated_at.tzinfo is None:
+                self.updated_at = self.updated_at.replace(tzinfo=timezone.utc)
+            else:
+                self.updated_at = self.updated_at.astimezone(timezone.utc)

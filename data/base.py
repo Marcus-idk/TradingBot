@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .models import NewsItem, PriceData
 
@@ -68,7 +68,7 @@ class DataSource(ABC):
         if not isinstance(timestamp, datetime):
             raise TypeError(f"timestamp must be a datetime object, got {type(timestamp).__name__}")
         
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if timestamp > now:
             raise ValueError(f"timestamp cannot be in the future: {timestamp} > {now}")
             
