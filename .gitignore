@@ -211,3 +211,5 @@ __marimo__/
 
 # Visual Studio Code
 .vscode
+
+tempFiles/

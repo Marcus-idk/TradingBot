@@ -68,6 +68,12 @@ class DataSource(ABC):
         if not isinstance(timestamp, datetime):
             raise TypeError(f"timestamp must be a datetime object, got {type(timestamp).__name__}")
         
+        # Normalize to UTC like models do
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(timezone.utc)
+        
         now = datetime.now(timezone.utc)
         if timestamp > now:
             raise ValueError(f"timestamp cannot be in the future: {timestamp} > {now}")
