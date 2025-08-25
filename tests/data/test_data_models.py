@@ -11,7 +11,7 @@ from decimal import Decimal
 import json
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,

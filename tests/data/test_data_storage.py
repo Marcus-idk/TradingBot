@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 # Add tests directory to path to import conftest
 sys.path.append(str(Path(__file__).parent))
 
@@ -75,22 +75,16 @@ class TestDatabaseInitialization:
             expected_tables = ['analysis_results', 'holdings', 'news_items', 'price_data']
             assert tables == expected_tables, f"Expected {expected_tables}, got {tables}"
     
-    def test_schema_file_not_found_raises_error(self):
+    def test_schema_file_not_found_raises_error(self, monkeypatch):
         """Test FileNotFoundError when schema.sql is missing"""
         with tempfile.NamedTemporaryFile(suffix='.db') as tmp_file:
-            # Temporarily move schema.sql to cause FileNotFoundError
-            schema_path = Path(__file__).parent.parent / 'data' / 'schema.sql'
-            backup_path = schema_path.with_suffix('.sql.backup')
+            # Monkeypatch os.path.exists to simulate missing schema.sql
+            original_exists = os.path.exists
+            monkeypatch.setattr(os.path, 'exists', 
+                lambda path: False if 'schema.sql' in path else original_exists(path))
             
-            if schema_path.exists():
-                schema_path.rename(backup_path)
-                
-                try:
-                    with pytest.raises(FileNotFoundError, match="Schema file not found"):
-                        init_database(tmp_file.name)
-                finally:
-                    # Restore schema.sql
-                    backup_path.rename(schema_path)
+            with pytest.raises(FileNotFoundError, match="Schema file not found"):
+                init_database(tmp_file.name)
     
     def test_wal_mode_enabled(self, temp_db_path):
         """Test WAL mode is properly enabled (requires file-backed DB)"""

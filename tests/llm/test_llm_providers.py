@@ -7,7 +7,7 @@ import hashlib
 import re
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
 from llm import OpenAIProvider, GeminiProvider
