@@ -1,16 +1,14 @@
-import asyncio
 import os
-import sys
-from pathlib import Path
 import base64
 import hashlib
 import re
-
-# Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent.parent))
+import pytest
 
 from dotenv import load_dotenv
 from llm import OpenAIProvider, GeminiProvider
+
+# Mark all tests in this module as integration and network tests
+pytestmark = [pytest.mark.integration, pytest.mark.network]
 
 load_dotenv(override=True)
 
@@ -27,6 +25,7 @@ def extract_hex64(s: str) -> str:
 
 # Tests
 
+@pytest.mark.asyncio
 async def test_openai():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -40,6 +39,7 @@ async def test_openai():
     assert len(response) > 0
     print("OpenAI: Connection Good")
 
+@pytest.mark.asyncio
 async def test_gemini():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -54,6 +54,7 @@ async def test_gemini():
     print("Gemini: Connection Good")
 
 
+@pytest.mark.asyncio
 async def test_openai_tools_hash():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -83,6 +84,7 @@ async def test_openai_tools_hash():
     else:
         print("OpenAI: Code interpreter may not be working")
 
+@pytest.mark.asyncio
 async def test_gemini_tools_hash():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -111,9 +113,3 @@ async def test_gemini_tools_hash():
         print("Gemini: Code execution working correctly (SHA-256 test)")
     else:
         print("Gemini: Code execution may not be working")
-
-if __name__ == "__main__":
-    asyncio.run(test_openai())
-    asyncio.run(test_gemini())
-    asyncio.run(test_openai_tools_hash())
-    asyncio.run(test_gemini_tools_hash())

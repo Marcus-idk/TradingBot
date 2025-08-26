@@ -3,15 +3,10 @@ Data model validation tests.
 Tests all __post_init__ validation logic (pure Python, no database).
 """
 
-import sys
-from pathlib import Path
 import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 import json
-
-# Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
@@ -493,5 +488,3 @@ class TestHoldings:
         assert item.notes == "Buy more shares"
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

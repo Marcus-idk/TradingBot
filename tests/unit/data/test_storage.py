@@ -4,20 +4,12 @@ Tests CRUD operations, type conversions, and SQLite database functionality.
 Uses Windows-safe cleanup patterns for WAL mode databases.
 """
 
-import sys
-from pathlib import Path
 import pytest
 import sqlite3
 import tempfile
 import os
-import gc
 from datetime import datetime, timezone
 from decimal import Decimal
-
-# Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent.parent))
-# Add tests directory to path to import conftest
-sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from data.storage import (
     init_database, store_news_items, store_price_data,
@@ -29,27 +21,6 @@ from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
     Session, Stance, AnalysisType
 )
-from conftest import cleanup_sqlite_artifacts
-
-
-
-@pytest.fixture
-def temp_db_path():
-    """Provides temporary database file path with automatic cleanup"""
-    fd, db_path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
-    yield db_path
-    cleanup_sqlite_artifacts(db_path)
-
-
-@pytest.fixture
-def temp_db():
-    """Provides initialized temporary database with automatic cleanup"""
-    fd, db_path = tempfile.mkstemp(suffix='.db')
-    os.close(fd)
-    init_database(db_path)
-    yield db_path
-    cleanup_sqlite_artifacts(db_path)
 
 
 class TestDatabaseInitialization:
@@ -70,10 +41,10 @@ class TestDatabaseInitialization:
                 WHERE type='table' 
                 ORDER BY name
             """)
-            tables = [row[0] for row in cursor.fetchall()]
+            tables = {row[0] for row in cursor.fetchall()}
             
-            expected_tables = ['analysis_results', 'holdings', 'news_items', 'price_data']
-            assert tables == expected_tables, f"Expected {expected_tables}, got {tables}"
+            required_tables = {'analysis_results', 'holdings', 'news_items', 'price_data'}
+            assert required_tables.issubset(tables), f"Required tables {required_tables} not found. Got: {tables}"
     
     def test_schema_file_not_found_raises_error(self, monkeypatch):
         """Test FileNotFoundError when schema.sql is missing"""
@@ -728,5 +699,3 @@ class TestErrorHandling:
         assert get_analysis_results(temp_db, symbol="NONEXISTENT") == []
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])

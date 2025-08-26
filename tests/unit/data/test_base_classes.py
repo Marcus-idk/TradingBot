@@ -8,14 +8,9 @@ Tests for abstract base classes and their contracts:
 - Abstract method enforcement
 """
 
-import sys
-from pathlib import Path
 import pytest
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
-
-# Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from data.base import (
     DataSource, 

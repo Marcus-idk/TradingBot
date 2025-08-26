@@ -5,20 +5,10 @@ Uses direct SQL operations to validate constraint enforcement.
 """
 
 import sqlite3
-import os
-import sys
-import tempfile
 import gc
 import pytest
 
-# Add parent directory to path to import data module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-# Add tests directory to path to import conftest
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from data.storage import init_database
-from conftest import cleanup_sqlite_artifacts
-
 
 
 def has_json1_support(db_path: str) -> bool:
@@ -31,25 +21,14 @@ def has_json1_support(db_path: str) -> bool:
         return False
 
 
-@pytest.fixture
-def test_db():
-    """Windows-safe temporary database with schema for constraint testing."""
-    fd, db_path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)  # Close file handle immediately for Windows
-    
-    try:
-        init_database(db_path)
-        yield db_path
-    finally:
-        cleanup_sqlite_artifacts(db_path)
 
 
 class TestNotNullConstraints:
     """Test NOT NULL constraints across all tables."""
     
-    def test_news_items_required_fields(self, test_db):
+    def test_news_items_required_fields(self, temp_db):
         """Test NOT NULL constraints on news_items table."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Test symbol NOT NULL
@@ -73,9 +52,9 @@ class TestNotNullConstraints:
                     VALUES ('AAPL', 'http://test.com', NULL, '2024-01-01T10:00:00Z', 'test')
                 """)
     
-    def test_price_data_required_fields(self, test_db):
+    def test_price_data_required_fields(self, temp_db):
         """Test NOT NULL constraints on price_data table."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Test symbol NOT NULL
@@ -99,9 +78,9 @@ class TestNotNullConstraints:
                     VALUES ('AAPL', '2024-01-01T10:00:00Z', NULL)
                 """)
     
-    def test_analysis_results_required_fields(self, test_db):
+    def test_analysis_results_required_fields(self, temp_db):
         """Test NOT NULL constraints on analysis_results table."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Test model_name NOT NULL
@@ -120,9 +99,9 @@ class TestNotNullConstraints:
                     VALUES ('AAPL', 'news_analysis', 'gpt-4', 'BULL', 0.85, '2024-01-01T10:00:00Z', NULL)
                 """)
     
-    def test_holdings_required_fields(self, test_db):
+    def test_holdings_required_fields(self, temp_db):
         """Test NOT NULL constraints on holdings table."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Test quantity NOT NULL
@@ -142,9 +121,9 @@ class TestNotNullConstraints:
 class TestFinancialConstraints:
     """Test positive value constraints for financial fields."""
     
-    def test_price_must_be_positive(self, test_db):
+    def test_price_must_be_positive(self, temp_db):
         """Test price > 0 constraint in price_data."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: small positive price
@@ -167,9 +146,9 @@ class TestFinancialConstraints:
                     VALUES ('AAPL', '2024-01-01T12:00:00Z', '-1.50')
                 """)
     
-    def test_price_boundary_values(self, test_db):
+    def test_price_boundary_values(self, temp_db):
         """Test price constraint with boundary values."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: very small positive
@@ -191,9 +170,9 @@ class TestFinancialConstraints:
                     VALUES ('TEST3', '2024-01-01T10:00:00Z', 'not_a_number')
                 """)
     
-    def test_holdings_quantity_positive(self, test_db):
+    def test_holdings_quantity_positive(self, temp_db):
         """Test quantity > 0 constraint in holdings."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: positive quantity
@@ -209,9 +188,9 @@ class TestFinancialConstraints:
                     VALUES ('TSLA', '0', '200.00', '0')
                 """)
     
-    def test_holdings_break_even_positive(self, test_db):
+    def test_holdings_break_even_positive(self, temp_db):
         """Test break_even_price > 0 constraint in holdings."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: zero break_even_price
@@ -228,9 +207,9 @@ class TestFinancialConstraints:
                     VALUES ('GOOGL', '5', '-100.00', '500.00')
                 """)
     
-    def test_holdings_total_cost_positive(self, test_db):
+    def test_holdings_total_cost_positive(self, temp_db):
         """Test total_cost > 0 constraint in holdings."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: zero total_cost
@@ -251,9 +230,9 @@ class TestFinancialConstraints:
 class TestPrimaryKeyConstraints:
     """Test primary key uniqueness constraints."""
     
-    def test_news_items_composite_key(self, test_db):
+    def test_news_items_composite_key(self, temp_db):
         """Test (symbol, url) composite primary key on news_items."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -275,9 +254,9 @@ class TestPrimaryKeyConstraints:
                 VALUES ('TSLA', 'http://example.com/1', 'Tesla News', '2024-01-01T10:00:00Z', 'test')
             """)
     
-    def test_price_data_composite_key(self, test_db):
+    def test_price_data_composite_key(self, temp_db):
         """Test (symbol, timestamp_iso) composite primary key on price_data."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -299,9 +278,9 @@ class TestPrimaryKeyConstraints:
                 VALUES ('AAPL', '2024-01-01T11:00:00Z', '151.00')
             """)
     
-    def test_analysis_results_composite_key(self, test_db):
+    def test_analysis_results_composite_key(self, temp_db):
         """Test (symbol, analysis_type) composite primary key on analysis_results."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -319,9 +298,9 @@ class TestPrimaryKeyConstraints:
                     VALUES ('AAPL', 'news_analysis', 'claude', 'BEAR', 0.60, '2024-01-01T11:00:00Z', '{}')
                 """)
     
-    def test_holdings_single_key(self, test_db):
+    def test_holdings_single_key(self, temp_db):
         """Test symbol primary key on holdings."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -341,9 +320,9 @@ class TestPrimaryKeyConstraints:
 class TestVolumeConstraints:
     """Test volume >= 0 constraint with NULL handling."""
     
-    def test_volume_non_negative(self, test_db):
+    def test_volume_non_negative(self, temp_db):
         """Test volume >= 0 constraint in price_data."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: zero volume
@@ -365,9 +344,9 @@ class TestVolumeConstraints:
                     VALUES ('AAPL', '2024-01-01T12:00:00Z', '150.00', -1)
                 """)
     
-    def test_volume_null_allowed(self, test_db):
+    def test_volume_null_allowed(self, temp_db):
         """Test that NULL volume is allowed."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: NULL volume (should pass CHECK constraint)
@@ -387,9 +366,9 @@ class TestVolumeConstraints:
 class TestEnumConstraints:
     """Test enum value constraints."""
     
-    def test_session_enum_values(self, test_db):
+    def test_session_enum_values(self, temp_db):
         """Test session IN ('REG', 'PRE', 'POST') constraint."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid values (using realistic US market hours in UTC)
@@ -415,9 +394,9 @@ class TestEnumConstraints:
                     VALUES ('TEST', '2024-01-01T15:00:00Z', '150.00', 'EXTENDED')
                 """)
     
-    def test_stance_enum_values(self, test_db):
+    def test_stance_enum_values(self, temp_db):
         """Test stance IN ('BULL', 'BEAR', 'NEUTRAL') constraint."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid values
@@ -436,9 +415,9 @@ class TestEnumConstraints:
                     VALUES ('TEST', 'sentiment_analysis', 'gpt-4', 'bull', 0.75, '2024-01-01T10:00:00Z', '{}')
                 """)
     
-    def test_analysis_type_enum_values(self, test_db):
+    def test_analysis_type_enum_values(self, temp_db):
         """Test analysis_type enum constraint."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid values
@@ -462,9 +441,9 @@ class TestEnumConstraints:
 class TestConfidenceScoreRange:
     """Test confidence score BETWEEN 0 AND 1 constraint."""
     
-    def test_confidence_score_boundaries(self, test_db):
+    def test_confidence_score_boundaries(self, temp_db):
         """Test confidence_score boundary values."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: exactly 0.0
@@ -488,9 +467,9 @@ class TestConfidenceScoreRange:
                 VALUES ('TEST3', 'news_analysis', 'gpt-4', 'BEAR', 0.5, '2024-01-01T10:00:00Z', '{}')
             """)
     
-    def test_confidence_score_out_of_range(self, test_db):
+    def test_confidence_score_out_of_range(self, temp_db):
         """Test confidence_score values outside 0-1 range."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: below 0
@@ -513,12 +492,12 @@ class TestConfidenceScoreRange:
 class TestJSONConstraints:
     """Test JSON validation constraints (conditional on JSON1 extension)."""
     
-    def test_json_valid_constraint(self, test_db):
+    def test_json_valid_constraint(self, temp_db):
         """Test json_valid() constraint."""
-        if not has_json1_support(test_db):
+        if not has_json1_support(temp_db):
             pytest.skip("SQLite JSON1 extension not available")
         
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: proper JSON object
@@ -536,12 +515,12 @@ class TestJSONConstraints:
                     VALUES ('TEST2', 'news_analysis', 'gpt-4', 'BULL', 0.85, '2024-01-01T10:00:00Z', '{invalid json')
                 """)
     
-    def test_json_type_object_constraint(self, test_db):
+    def test_json_type_object_constraint(self, temp_db):
         """Test json_type() = 'object' constraint."""
-        if not has_json1_support(test_db):
+        if not has_json1_support(temp_db):
             pytest.skip("SQLite JSON1 extension not available")
         
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: JSON object
@@ -571,9 +550,9 @@ class TestJSONConstraints:
 class TestDefaultValues:
     """Test default value behavior."""
     
-    def test_session_default_reg(self, test_db):
+    def test_session_default_reg(self, temp_db):
         """Test session defaults to 'REG' when not specified."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Insert without specifying session
@@ -589,9 +568,9 @@ class TestDefaultValues:
             """).fetchone()
             assert result[0] == 'REG'
     
-    def test_timestamp_defaults(self, test_db):
+    def test_timestamp_defaults(self, temp_db):
         """Test created_at_iso defaults to current timestamp."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Insert without specifying created_at_iso
@@ -615,9 +594,9 @@ class TestDefaultValues:
 class TestTableStructure:
     """Test table structure and optimizations."""
     
-    def test_without_rowid_optimization(self, test_db):
+    def test_without_rowid_optimization(self, temp_db):
         """Test that all tables use WITHOUT ROWID optimization."""
-        with sqlite3.connect(test_db) as conn:
+        with sqlite3.connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Get all table creation SQL
@@ -639,6 +618,3 @@ class TestTableStructure:
             assert 'holdings' in table_names
 
 
-if __name__ == "__main__":
-    # Run tests with pytest
-    pytest.main([__file__, "-v"])
