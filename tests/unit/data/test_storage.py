@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 # Add project root to Python path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 # Add tests directory to path to import conftest
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from data.storage import (
     init_database, store_news_items, store_price_data,

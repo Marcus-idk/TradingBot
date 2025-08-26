@@ -12,9 +12,9 @@ import gc
 import pytest
 
 # Add parent directory to path to import data module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 # Add tests directory to path to import conftest
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from data.storage import init_database
 from conftest import cleanup_sqlite_artifacts
