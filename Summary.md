@@ -100,11 +100,26 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
   - Methods: `async generate(prompt: str) -> str` (text + tool outputs), `async validate_connection() -> bool`.
 
 ## Tests (high level)
+- Layout: unit tests under `tests/unit/`, integration tests under `tests/integration/` (e.g., LLM providers in `tests/integration/llm/`, data integration tests in `tests/integration/data/`). Shared fixtures live in `tests/conftest.py` and `tests/fixtures/`.
+- Markers: `integration` and `network` markers are registered in `pytest.ini`.
+  - Run unit only: `pytest -m "not integration and not network"`
+  - Run integration/network: `pytest -m "integration or network"`
 - Models: field validation, enums, UTC normalization.
 - Storage: CRUD, type conversions, deduplication, WAL behavior.
 - Schema: NOT NULL/CHECK/PK constraints, JSON object, defaults, WITHOUT ROWID.
 - Base classes: DataSource contracts and exceptions.
-- LLM: connectivity and tool behavior (skips if keys absent).
+- LLM: provider connectivity/tool behavior (requires API keys; see tests/integration/llm/).
+- Data Integration: organized into focused test files:
+  - `test_roundtrip_e2e.py` — complete data flow and cross-model consistency
+  - `test_dedup_news.py` — URL normalization and cross-provider deduplication
+  - `test_timezone_pipeline.py` — UTC timezone handling throughout pipeline
+  - `test_decimal_precision.py` — financial precision preservation with extreme values
+  - `test_schema_constraints.py` — database constraint validation and rollback
+  - `test_wal_sqlite.py` — WAL mode functionality and concurrent operations
+
+Notes:
+- Async tests require `pytest-asyncio` (already in `requirements.txt`).
+- SQLite JSON1 is required by `init_database`; ensure your Python/SQLite has JSON1 (e.g., `pysqlite3-binary` on Windows).
 
 ## Next Steps
 - Implement providers under `data/providers/` (Finnhub, RSS, etc.) using `DataSource` contracts.
