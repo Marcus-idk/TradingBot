@@ -183,8 +183,8 @@ data/
   - `test_roundtrip_e2e.py` — end-to-end flows; upsert invariants; duplicate prevention
   - `test_dedup_news.py` — URL normalization and cross-provider deduplication
   - `test_timezone_pipeline.py` — UTC handling across pipeline (generic tz conversion)
-  - `test_decimal_precision.py` — Decimal precision preservation on TEXT columns
+  - `test_decimal_precision.py` — Decimal precision preservation with extreme values
   - `test_schema_constraints.py` — DB CHECK/enum/JSON constraints and rollback
-  - `test_wal_sqlite.py` — WAL mode and concurrent read/write stability
+  - `test_wal_sqlite.py` — WAL mode functionality and concurrent read/write stability
 - LLM integration tests live in `tests/integration/llm/` and are gated by API keys.
 - JSON1 required: `init_database` fails fast if JSON1 is missing.
