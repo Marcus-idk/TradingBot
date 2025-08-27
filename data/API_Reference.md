@@ -1,7 +1,7 @@
 # Data Source APIs Reference
 
 ## Overview
-This document outlines the 5 data sources we'll integrate for both cryptocurrency and stock trading data.
+This document outlines the 5 data sources planned for US equities (stocks). Cryptocurrency is out of scope for the current milestone and may be considered later.
 
 ---
 
@@ -20,7 +20,6 @@ This document outlines the 5 data sources we'll integrate for both cryptocurrenc
 
 ### Data Coverage:
 - ✅ Stocks (US markets)
-- ✅ Cryptocurrency
 - ✅ Financial news
 - ✅ Market data
 
@@ -46,7 +45,6 @@ This document outlines the 5 data sources we'll integrate for both cryptocurrenc
 
 ### Data Coverage:
 - ✅ Stocks (US markets)
-- ✅ Cryptocurrency
 - ❌ News content
 - ✅ Advanced market metrics
 
@@ -72,7 +70,6 @@ This document outlines the 5 data sources we'll integrate for both cryptocurrenc
 
 ### Data Coverage:
 - ✅ Stocks (company news)
-- ✅ Cryptocurrency (general news)
 - ✅ Economic indicators
 - ✅ Market analysis
 
@@ -98,7 +95,6 @@ This document outlines the 5 data sources we'll integrate for both cryptocurrenc
 
 ### Data Coverage:
 - ✅ Stocks (r/stocks, r/investing)
-- ✅ Cryptocurrency (r/cryptocurrency)
 - ✅ Social sentiment
 - ✅ Retail trader behavior
 
@@ -171,6 +167,6 @@ API → Raw Data → models.py (NewsItem/PriceData) → storage.py (SQLite) → 
 - Basic filtering system
 
 ### v0.25: All 5 APIs
-- Complete data collection
+- Complete data collection (US equities)
 - Enhanced error handling
 - Production-ready system

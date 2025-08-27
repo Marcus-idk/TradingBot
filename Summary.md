@@ -110,9 +110,9 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 - Base classes: DataSource contracts and exceptions.
 - LLM: provider connectivity/tool behavior (requires API keys; see tests/integration/llm/).
 - Data Integration: organized into focused test files:
-  - `test_roundtrip_e2e.py` — complete data flow and cross-model consistency
+  - `test_roundtrip_e2e.py` — complete data flow and cross-model consistency; includes upsert invariants and duplicate prevention
   - `test_dedup_news.py` — URL normalization and cross-provider deduplication
-  - `test_timezone_pipeline.py` — UTC timezone handling throughout pipeline
+  - `test_timezone_pipeline.py` — UTC timezone handling throughout pipeline (generic timezone conversion; not a DST semantics test)
   - `test_decimal_precision.py` — financial precision preservation with extreme values
   - `test_schema_constraints.py` — database constraint validation and rollback
   - `test_wal_sqlite.py` — WAL mode functionality and concurrent operations
