@@ -303,13 +303,13 @@ class TestTimezonePipeline:
         # PHASE 6: TEST BOUNDARY TIMEZONE SCENARIOS
         print("Phase 6: Testing boundary timezone scenarios...")
         
-        # Test DST transitions and edge cases - simulate Eastern Daylight Time (EDT) which is UTC-4
+        # Test timezone conversion with UTC-4 (Eastern Daylight Time)
         edt_tz = timezone(timedelta(hours=-4))
-        dst_transition = datetime(2024, 3, 10, 2, 30, tzinfo=edt_tz)  # Spring DST transition
+        test_time = datetime(2024, 3, 10, 2, 30, tzinfo=edt_tz)  # UTC-4 timezone conversion
         
         boundary_news = NewsItem(
             symbol="BOUNDARY", url="https://example.com/boundary", headline="Boundary Test",
-            source="Test Source", published=dst_transition
+            source="Test Source", published=test_time
         )
         
         store_news_items(temp_db, [boundary_news])
@@ -317,7 +317,7 @@ class TestTimezonePipeline:
                          if item['symbol'] == 'BOUNDARY']
         
         assert len(boundary_result) == 1
-        # DST transition should be properly handled and stored as UTC
+        # Timezone conversion should be properly handled and stored as UTC
         assert boundary_result[0]['published_iso'].endswith('Z')
         
         print("All timezone consistency tests passed!")

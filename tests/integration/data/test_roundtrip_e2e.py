@@ -342,3 +342,226 @@ class TestDataRoundtrip:
         assert price_results[0]['price'] == "150.00"
         assert analysis_results[0]['stance'] == "BULL"
         assert holdings_results[0]['quantity'] == "100"
+
+    def test_upsert_invariants(self, temp_db):
+        """
+        Test that upsert operations preserve created_at but update other timestamps.
+        
+        This test validates:
+        1. Holdings upsert preserves created_at, advances updated_at
+        2. AnalysisResult upsert preserves created_at, advances last_updated
+        """
+        # Set up initial timestamps
+        initial_time = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        update_time = datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc)
+        
+        # TEST HOLDINGS UPSERT BEHAVIOR
+        
+        # 1. Create and store initial Holdings
+        initial_holdings = Holdings(
+            symbol="TEST",
+            quantity=Decimal('100'),
+            break_even_price=Decimal('50.00'),
+            total_cost=Decimal('5000.00'),
+            notes="Initial position",
+            created_at=initial_time,
+            updated_at=initial_time
+        )
+        upsert_holdings(temp_db, initial_holdings)
+        
+        # Verify initial storage
+        holdings_results = [h for h in get_all_holdings(temp_db) if h['symbol'] == 'TEST']
+        assert len(holdings_results) == 1
+        initial_stored = holdings_results[0]
+        assert initial_stored['created_at_iso'] == "2024-01-15T10:00:00Z"
+        assert initial_stored['updated_at_iso'] == "2024-01-15T10:00:00Z"
+        assert initial_stored['quantity'] == "100"
+        assert initial_stored['notes'] == "Initial position"
+        
+        # 2. Update the Holdings (same symbol, different values)
+        updated_holdings = Holdings(
+            symbol="TEST",  # Same symbol - triggers upsert update
+            quantity=Decimal('150'),  # Changed
+            break_even_price=Decimal('45.00'),  # Changed  
+            total_cost=Decimal('6750.00'),  # Changed
+            notes="Updated position",  # Changed
+            created_at=update_time,  # This should be IGNORED (preserve original)
+            updated_at=update_time   # This should be updated
+        )
+        upsert_holdings(temp_db, updated_holdings)
+        
+        # 3. Verify upsert behavior
+        holdings_results = [h for h in get_all_holdings(temp_db) if h['symbol'] == 'TEST']
+        assert len(holdings_results) == 1, "Should still be only one record after upsert"
+        
+        updated_stored = holdings_results[0]
+        # created_at should be PRESERVED (not changed to update_time)
+        assert updated_stored['created_at_iso'] == "2024-01-15T10:00:00Z", "created_at should be preserved during upsert"
+        # updated_at should be ADVANCED (changed to update_time)  
+        assert updated_stored['updated_at_iso'] == "2024-01-15T11:00:00Z", "updated_at should advance during upsert"
+        # Other fields should be updated
+        assert updated_stored['quantity'] == "150", "quantity should be updated"
+        assert updated_stored['break_even_price'] == "45.00", "break_even_price should be updated"  
+        assert updated_stored['total_cost'] == "6750.00", "total_cost should be updated"
+        assert updated_stored['notes'] == "Updated position", "notes should be updated"
+        
+        # TEST ANALYSIS RESULT UPSERT BEHAVIOR
+        
+        # 1. Create and store initial AnalysisResult
+        initial_analysis = AnalysisResult(
+            symbol="TEST",
+            analysis_type=AnalysisType.NEWS_ANALYSIS,
+            model_name="test-model",
+            stance=Stance.BULL,
+            confidence_score=0.8,
+            last_updated=initial_time,
+            result_json='{"initial": "analysis"}',
+            created_at=initial_time
+        )
+        upsert_analysis_result(temp_db, initial_analysis)
+        
+        # Verify initial storage
+        analysis_results = get_analysis_results(temp_db, "TEST")
+        assert len(analysis_results) == 1
+        initial_analysis_stored = analysis_results[0]
+        assert initial_analysis_stored['created_at_iso'] == "2024-01-15T10:00:00Z"
+        assert initial_analysis_stored['last_updated_iso'] == "2024-01-15T10:00:00Z"
+        assert initial_analysis_stored['stance'] == "BULL"
+        assert initial_analysis_stored['confidence_score'] == 0.8
+        
+        # 2. Update the AnalysisResult (same symbol+analysis_type, different values)
+        updated_analysis = AnalysisResult(
+            symbol="TEST",  # Same symbol
+            analysis_type=AnalysisType.NEWS_ANALYSIS,  # Same analysis_type - triggers upsert update
+            model_name="updated-model",  # Changed
+            stance=Stance.BEAR,  # Changed
+            confidence_score=0.6,  # Changed
+            last_updated=update_time,  # This should be updated
+            result_json='{"updated": "analysis"}',  # Changed
+            created_at=update_time  # This should be IGNORED (preserve original)
+        )
+        upsert_analysis_result(temp_db, updated_analysis)
+        
+        # 3. Verify upsert behavior
+        analysis_results = get_analysis_results(temp_db, "TEST")
+        assert len(analysis_results) == 1, "Should still be only one record after upsert"
+        
+        updated_analysis_stored = analysis_results[0]
+        # created_at should be PRESERVED (not changed to update_time)
+        assert updated_analysis_stored['created_at_iso'] == "2024-01-15T10:00:00Z", "created_at should be preserved during upsert"
+        # last_updated should be ADVANCED (changed to update_time)
+        assert updated_analysis_stored['last_updated_iso'] == "2024-01-15T11:00:00Z", "last_updated should advance during upsert"
+        # Other fields should be updated
+        assert updated_analysis_stored['model_name'] == "updated-model", "model_name should be updated"
+        assert updated_analysis_stored['stance'] == "BEAR", "stance should be updated"
+        assert updated_analysis_stored['confidence_score'] == 0.6, "confidence_score should be updated"
+        assert updated_analysis_stored['result_json'] == '{"updated": "analysis"}', "result_json should be updated"
+
+    def test_duplicate_price_prevention(self, temp_db):
+        """
+        Test that duplicate price data (same symbol + timestamp) is prevented by INSERT OR IGNORE.
+        
+        This test validates:
+        1. First price data is stored successfully
+        2. Second price data with same symbol+timestamp is ignored
+        3. Only the first price data is preserved
+        4. Different timestamps for same symbol are stored normally
+        """
+        test_timestamp = datetime(2024, 1, 15, 14, 30, 0, tzinfo=timezone.utc)
+        different_timestamp = datetime(2024, 1, 15, 14, 31, 0, tzinfo=timezone.utc)
+        
+        # 1. Store first price data
+        first_price = [PriceData(
+            symbol="DUP_TEST",
+            timestamp=test_timestamp,
+            price=Decimal('100.00'),
+            volume=1000,
+            session=Session.REG
+        )]
+        store_price_data(temp_db, first_price)
+        
+        # Verify first price is stored
+        price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
+                        if p['symbol'] == 'DUP_TEST']
+        assert len(price_results) == 1, "First price should be stored"
+        stored_price = price_results[0]
+        assert stored_price['price'] == "100.00", "First price should be 100.00"
+        assert stored_price['volume'] == 1000, "First volume should be 1000"
+        assert stored_price['timestamp_iso'] == "2024-01-15T14:30:00Z", "Timestamp should match"
+        
+        # 2. Attempt to store duplicate price data (same symbol + timestamp, different values)
+        duplicate_price = [PriceData(
+            symbol="DUP_TEST",  # Same symbol
+            timestamp=test_timestamp,  # Same timestamp - should trigger duplicate key
+            price=Decimal('200.00'),  # Different price (should be ignored)
+            volume=2000,  # Different volume (should be ignored)
+            session=Session.POST  # Different session (should be ignored)
+        )]
+        store_price_data(temp_db, duplicate_price)
+        
+        # 3. Verify duplicate was ignored - still only one record with original values
+        price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
+                        if p['symbol'] == 'DUP_TEST']
+        assert len(price_results) == 1, "Should still be only one price record after duplicate attempt"
+        
+        preserved_price = price_results[0]
+        # Original values should be preserved (duplicate ignored)
+        assert preserved_price['price'] == "100.00", "Original price should be preserved (duplicate ignored)"
+        assert preserved_price['volume'] == 1000, "Original volume should be preserved (duplicate ignored)"
+        assert preserved_price['session'] == "REG", "Original session should be preserved (duplicate ignored)"
+        assert preserved_price['timestamp_iso'] == "2024-01-15T14:30:00Z", "Original timestamp should be preserved"
+        
+        # 4. Verify different timestamp for same symbol IS stored normally
+        different_time_price = [PriceData(
+            symbol="DUP_TEST",  # Same symbol
+            timestamp=different_timestamp,  # DIFFERENT timestamp - should be stored
+            price=Decimal('150.00'),  # Different price
+            volume=1500,  # Different volume  
+            session=Session.PRE  # Different session
+        )]
+        store_price_data(temp_db, different_time_price)
+        
+        # Should now have 2 records for the symbol
+        price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
+                        if p['symbol'] == 'DUP_TEST']
+        assert len(price_results) == 2, "Should now have 2 price records for different timestamps"
+        
+        # Sort by timestamp to verify both records
+        price_results.sort(key=lambda x: x['timestamp_iso'])
+        
+        first_record = price_results[0]  # Earlier timestamp
+        assert first_record['timestamp_iso'] == "2024-01-15T14:30:00Z"
+        assert first_record['price'] == "100.00"
+        assert first_record['volume'] == 1000
+        assert first_record['session'] == "REG"
+        
+        second_record = price_results[1]  # Later timestamp
+        assert second_record['timestamp_iso'] == "2024-01-15T14:31:00Z"
+        assert second_record['price'] == "150.00"  
+        assert second_record['volume'] == 1500
+        assert second_record['session'] == "PRE"
+        
+        # 5. Test duplicate prevention across different symbols (should NOT prevent storage)
+        different_symbol_price = [PriceData(
+            symbol="DIFFERENT_SYMBOL",  # DIFFERENT symbol
+            timestamp=test_timestamp,  # Same timestamp as first test - should be allowed
+            price=Decimal('300.00'),
+            volume=3000,
+            session=Session.POST
+        )]
+        store_price_data(temp_db, different_symbol_price)
+        
+        # Should now have 3 total records (2 for DUP_TEST, 1 for DIFFERENT_SYMBOL)
+        all_price_results = get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))
+        dup_test_results = [p for p in all_price_results if p['symbol'] == 'DUP_TEST']
+        different_symbol_results = [p for p in all_price_results if p['symbol'] == 'DIFFERENT_SYMBOL']
+        
+        assert len(dup_test_results) == 2, "Should still have 2 records for DUP_TEST"
+        assert len(different_symbol_results) == 1, "Should have 1 record for DIFFERENT_SYMBOL"
+        
+        # Verify the different symbol record was stored correctly
+        diff_symbol_record = different_symbol_results[0]
+        assert diff_symbol_record['price'] == "300.00"
+        assert diff_symbol_record['volume'] == 3000
+        assert diff_symbol_record['session'] == "POST"
+        assert diff_symbol_record['timestamp_iso'] == "2024-01-15T14:30:00Z"
