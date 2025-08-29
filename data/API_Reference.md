@@ -15,8 +15,8 @@ This document outlines the 5 data sources planned for US equities (stocks). Cryp
 - Company profiles and metrics
 
 ### Rate Limits:
-- **Free tier**: 60 calls/minute
-- **Paid tier**: 300+ calls/minute ($25/month)
+- Vary by plan; free tier is typically ~60 calls/minute. Confirm current plan-specific limits in your Finnhub dashboard.
+- Paid tiers increase limits (e.g., 300+/min), subject to change.
 
 ### Data Coverage:
 - ✅ Stocks (US markets)
@@ -27,6 +27,18 @@ This document outlines the 5 data sources planned for US equities (stocks). Cryp
 - REST API with JSON responses
 - Incremental fetch via timestamp filtering
 - Primary source for v0.2.1
+
+### Endpoints Used in v0.2.1 (Concise)
+- Company News (per symbol):
+  - Method/Path: `GET /company-news`
+  - Params: `symbol` (ticker), `from` (YYYY-MM-DD), `to` (YYYY-MM-DD), `token` (API key)
+  - Returns: array of objects with fields including `datetime` (epoch seconds, UTC), `headline`, `source`, `summary`, `url`, `id`, `category`, `image`, `related`.
+  - Notes: We map `headline`, `url`, `source`, `datetime→published`, `summary→content`; `symbol` comes from the request symbol. Finnhub docs don’t explicitly state whether `to` is inclusive; we treat it as inclusive and still filter client‑side to `published > since` to avoid duplicates.
+- Quote (per symbol):
+  - Method/Path: `GET /quote`
+  - Params: `symbol` (ticker), `token` (API key)
+  - Returns: object with keys `c` (current price), `h` (high), `l` (low), `o` (open), `pc` (prev close), `t` (epoch seconds), and often `d`, `dp`.
+  - Notes: We map `c→price` (must be > 0), `t→timestamp` (fallback to now if 0 — defensive), `volume=None`, `session=REG`.
 
 ---
 

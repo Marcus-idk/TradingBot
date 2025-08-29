@@ -122,6 +122,23 @@ Notes:
 - Async tests require `pytest-asyncio` (ensure it is installed).
 - SQLite JSON1 is required by `init_database`; ensure your Python/SQLite has JSON1 (e.g., `pysqlite3-binary` on Windows).
 
+## Providers (v0.2.1)
+
+### Finnhub Integration ✅
+- `data/providers/finnhub.py` — Complete Finnhub API integration
+- Classes:
+  - `FinnhubClient` — HTTP wrapper with retry logic for 429/5xx errors, authentication, and timeouts
+  - `FinnhubNewsProvider(NewsDataSource)` — Fetches company news from `/company-news` endpoint
+  - `FinnhubPriceProvider(PriceDataSource)` — Fetches real-time quotes from `/quote` endpoint
+- Features:
+  - Incremental news fetching with UTC date ranges and client-side filtering
+  - Real-time price quotes with Decimal precision for financial data
+  - Proper error handling (auth failures don't retry, server errors retry with jittered backoff)
+  - URL validation and article filtering (skips invalid headlines, URLs, timestamps)
+  - UTC timestamp normalization throughout
+  - Symbol-based data fetching for configured stock lists
+
 ## Next Steps
-- Implement providers under `data/providers/` (Finnhub, RSS, etc.) using `DataSource` contracts.
-- Add timezone helpers for UTC↔US/Eastern when implementing trading/session logic.
+- Add scheduler in `data/scheduler.py` to orchestrate polling and storage
+- Implement RSS provider for additional news sources (v0.2.3)
+- Add timezone helpers for UTC↔US/Eastern when implementing trading/session logic
