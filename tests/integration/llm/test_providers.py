@@ -29,8 +29,7 @@ def extract_hex64(s: str) -> str:
 async def test_openai():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("Skipping OpenAI test - no API key")
-        return
+        pytest.fail("OPENAI_API_KEY not found in environment variables")
     
     provider = OpenAIProvider(api_key=api_key, model_name="gpt-5")
     assert await provider.validate_connection()
@@ -43,8 +42,7 @@ async def test_openai():
 async def test_gemini():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("Skipping Gemini test - no API key")
-        return
+        pytest.fail("GEMINI_API_KEY not found in environment variables")
     
     provider = GeminiProvider(api_key=api_key, model_name="gemini-2.5-flash")
     assert await provider.validate_connection()
@@ -58,8 +56,7 @@ async def test_gemini():
 async def test_openai_tools_hash():
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("Skipping OpenAI tools-hash test - no API key")
-        return
+        pytest.fail("OPENAI_API_KEY not found in environment variables")
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
@@ -88,8 +85,7 @@ async def test_openai_tools_hash():
 async def test_gemini_tools_hash():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        print("Skipping Gemini tools-hash test - no API key")
-        return
+        pytest.fail("GEMINI_API_KEY not found in environment variables")
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
