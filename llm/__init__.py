@@ -12,5 +12,3 @@ __all__ = [
     'OpenAIProvider', 
     'GeminiProvider'
 ]
-
-__version__ = "1.0.0"
