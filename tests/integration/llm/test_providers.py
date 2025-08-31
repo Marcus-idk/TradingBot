@@ -6,6 +6,7 @@ import pytest
 
 from dotenv import load_dotenv
 from llm import OpenAIProvider, GeminiProvider
+from config.llm import OpenAISettings, GeminiSettings
 
 # Mark all tests in this module as integration and network tests
 pytestmark = [pytest.mark.integration, pytest.mark.network]
@@ -27,11 +28,12 @@ def extract_hex64(s: str) -> str:
 
 @pytest.mark.asyncio
 async def test_openai():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        pytest.fail("OPENAI_API_KEY not found in environment variables")
-    
-    provider = OpenAIProvider(api_key=api_key, model_name="gpt-5")
+    try:
+        openai_settings = OpenAISettings.from_env()
+    except ValueError as e:
+        pytest.fail(str(e))
+
+    provider = OpenAIProvider(settings=openai_settings, model_name="gpt-5")
     assert await provider.validate_connection()
     
     response = await provider.generate("Say 'test successful'")
@@ -40,11 +42,12 @@ async def test_openai():
 
 @pytest.mark.asyncio
 async def test_gemini():
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        pytest.fail("GEMINI_API_KEY not found in environment variables")
-    
-    provider = GeminiProvider(api_key=api_key, model_name="gemini-2.5-flash")
+    try:
+        gemini_settings = GeminiSettings.from_env()
+    except ValueError as e:
+        pytest.fail(str(e))
+
+    provider = GeminiProvider(settings=gemini_settings, model_name="gemini-2.5-flash")
     assert await provider.validate_connection()
     
     response = await provider.generate("Say 'test successful'")
@@ -54,9 +57,10 @@ async def test_gemini():
 
 @pytest.mark.asyncio
 async def test_openai_tools_hash():
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        pytest.fail("OPENAI_API_KEY not found in environment variables")
+    try:
+        openai_settings = OpenAISettings.from_env()
+    except ValueError as e:
+        pytest.fail(str(e))
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
@@ -67,7 +71,7 @@ async def test_openai_tools_hash():
 
     # With tools
     provider_with_tools = OpenAIProvider(
-        api_key=api_key,
+        settings=openai_settings,
         model_name="gpt-5",
         tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
         tool_choice="auto"
@@ -83,9 +87,10 @@ async def test_openai_tools_hash():
 
 @pytest.mark.asyncio
 async def test_gemini_tools_hash():
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        pytest.fail("GEMINI_API_KEY not found in environment variables")
+    try:
+        gemini_settings = GeminiSettings.from_env()
+    except ValueError as e:
+        pytest.fail(str(e))
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
@@ -96,10 +101,9 @@ async def test_gemini_tools_hash():
 
     # With code execution
     provider_with_tools = GeminiProvider(
-        api_key=api_key,
+        settings=gemini_settings,
         model_name="gemini-2.5-flash",
-        tools=[{"code_execution": {}}],
-        tool_choice="auto"
+        tools=[{"code_execution": {}}]
     )
     out_with_tools = await provider_with_tools.generate(prompt)
 

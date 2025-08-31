@@ -94,12 +94,14 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 
 ### OpenAI
 - `class OpenAIProvider(LLMProvider)`
-  - Init params: `api_key: str`, `model_name: str`, `temperature: Optional[float] = None`, `reasoning: Optional[Dict] = None`, `tools: Optional[List[Dict]] = None`, `tool_choice: Optional[str | Dict] = None`, `**kwargs` (e.g., `max_output_tokens`, `top_p`).
+  - Init params: `settings: OpenAISettings`, `model_name: str`, `temperature: Optional[float] = None`, `reasoning: Optional[Dict] = None`, `tools: Optional[List[Dict]] = None`, `tool_choice: Optional[str | Dict] = None`, `**kwargs` (e.g., `max_output_tokens`, `top_p`).
   - Methods: `async generate(prompt: str) -> str` (Responses API; returns text), `async validate_connection() -> bool`.
 
 ### Gemini
 - `class GeminiProvider(LLMProvider)`
-  - Init params: `api_key: str`, `model_name: str`, `temperature: Optional[float] = None`, `tools: Optional[List[Dict]] = None`, `tool_choice: Optional[str] = None`, `thinking_config: Optional[Dict] = None`, `**kwargs` (e.g., `response_mime_type`).
+  - Init params: `settings: GeminiSettings`, `model_name: str`, `temperature: Optional[float] = None`, `tools: Optional[List[Dict]] = None`, `tool_choice: Optional[str] = None`, `thinking_config: Optional[Dict] = None`, `**kwargs` (e.g., `response_mime_type`).
+  - API keys: Use `config.llm.OpenAISettings.from_env()` / `config.llm.GeminiSettings.from_env()` to load keys from env, then pass the settings object to providers.
+  - Gemini tool-choice: only set `tool_choice` when your `tools` include `function_declarations`. If using only `code_execution`, omit `tool_choice`.
   - Methods: `async generate(prompt: str) -> str` (text + tool outputs), `async validate_connection() -> bool`.
 
 ## Tests (high level)

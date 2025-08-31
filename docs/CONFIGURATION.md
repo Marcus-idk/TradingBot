@@ -16,6 +16,17 @@
 
 ---
 
+## Environment Variables
+
+### Data Providers
+- `FINNHUB_API_KEY` - API key for Finnhub market data provider
+
+### LLM Providers  
+- `OPENAI_API_KEY` - API key for OpenAI (GPT models)
+- `GEMINI_API_KEY` - API key for Google Gemini models
+
+---
+
 ## Layout (current)
 ```
 config/
@@ -24,7 +35,9 @@ config/
 │   ├── __init__.py
 │   └── finnhub.py           # FinnhubSettings
 └── llm/
-    └── __init__.py          # (future provider settings live here)
+    ├── __init__.py
+    ├── openai.py            # OpenAISettings
+    └── gemini.py            # GeminiSettings
 ```
 
 ---
@@ -49,6 +62,30 @@ class FinnhubSettings:
             raise ValueError("FINNHUB_API_KEY is required")
         return FinnhubSettings(api_key=key)
 ```
+
+- LLM settings (OpenAI and Gemini):
+```python
+# config/llm/openai.py
+@dataclass(frozen=True)
+class OpenAISettings:
+    api_key: str
+    
+    @staticmethod
+    def from_env(env=None):
+        # Reads OPENAI_API_KEY from environment
+        ...
+
+# config/llm/gemini.py  
+@dataclass(frozen=True)
+class GeminiSettings:
+    api_key: str
+    
+    @staticmethod
+    def from_env(env=None):
+        # Reads GEMINI_API_KEY from environment
+        ...
+```
+
 - Environment loading: call `load_dotenv()` once in the entry point (CLI/tests/GHA). No wrapper function is needed.
 
 ---

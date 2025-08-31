@@ -3,8 +3,8 @@
 ## OpenAIProvider
 
 ### Constructor Fields
-- **`api_key: str`** — your API key.  
-  `OpenAIProvider(..., api_key=OPENAI_KEY, ...)`
+- **`settings: OpenAISettings`** — holds your API key loaded from env.  
+  `OpenAIProvider(..., settings=OpenAISettings.from_env(), ...)`
 
 - **`model_name: str`** — any Responses-capable model (e.g., `"o4-mini"`, `"gpt-4o"`, `"gpt-5"`).  
   `OpenAIProvider(..., model_name="o4-mini", ...)`
@@ -54,8 +54,8 @@
 ## GeminiProvider
 
 ### Constructor Fields
-- **`api_key: str`** — your API key.  
-  `GeminiProvider(..., api_key=GEMINI_KEY, ...)`
+- **`settings: GeminiSettings`** — holds your API key loaded from env.  
+  `GeminiProvider(..., settings=GeminiSettings.from_env(), ...)`
 
 - **`model_name: str`** — e.g., `"gemini-2.5-flash"`, `"gemini-2.5-pro"`.  
   `GeminiProvider(..., model_name="gemini-2.5-flash", ...)`
@@ -92,6 +92,7 @@
   - **Function-calling control:**  
     `tool_config={"function_calling_config":{"mode":"ANY" | "NONE"}}`  
     `automatic_function_calling={"disable": True | False}`  
+    Note: Only applies when you pass `function_declarations` in `tools`. If you use only `{"code_execution":{}}`, leave `tool_choice` unset; setting it can cause INVALID_ARGUMENT.
   - **Structured output:**  
     `response_mime_type="application/json"`  
     `response_schema={"type":"object","properties":{...},"required":[...]}`  
@@ -108,7 +109,7 @@
 ### OpenAI
 ```python
 openai_llm = OpenAIProvider(
-    api_key=OPENAI_KEY,
+    settings=OpenAISettings.from_env(),
     model_name="gpt-5",
     temperature=0.3,
     reasoning={"effort":"medium"},
@@ -121,12 +122,71 @@ text = await openai_llm.generate("Calculate 392817 * 74837291")
 ### Gemini
 ```python
 gemini = GeminiProvider(
-    api_key=GEMINI_KEY,
+    settings=GeminiSettings.from_env(),
     model_name="gemini-2.5-flash",
     temperature=0.7,
-    tools=[{"code_execution":{}},{"url_context":{}}],
+    tools=[{"code_execution":{}},{"url_context":{}}],  # no tool_choice with code-exec only
     thinking_config={"thinking_budget":1024},
     response_mime_type="text/markdown"
 )
 text = await gemini.generate("Summarize feature X in 5 bullets.")
 ```
+
+### Gemini Tool Choice + Code Execution (Gotcha)
+- If your `tools` include only `{"code_execution":{}}`, do not set `tool_choice`.
+- `tool_choice` controls function calling. It requires `function_declarations` to be present.
+- If you set `tool_choice` without functions, the API may return INVALID_ARGUMENT.
+
+---
+
+## Using Settings for API Keys (Recommended)
+
+Instead of managing API keys directly, you can use the settings modules from `config/llm/`:
+
+### OpenAI with Settings (required)
+```python
+from dotenv import load_dotenv
+from config.llm.openai import OpenAISettings
+from llm.providers.openai import OpenAIProvider
+
+# Load environment variables (only at entry points/tests)
+load_dotenv(override=True)
+
+# Create settings from environment
+settings = OpenAISettings.from_env()
+
+# Pass settings object into provider
+openai_llm = OpenAIProvider(
+    settings=settings,
+    model_name="gpt-5",
+    temperature=0.3
+)
+text = await openai_llm.generate("Your prompt here")
+```
+
+### Gemini with Settings (required)
+```python
+from dotenv import load_dotenv
+from config.llm.gemini import GeminiSettings
+from llm.providers.gemini import GeminiProvider
+
+# Load environment variables (only at entry points/tests)
+load_dotenv(override=True)
+
+# Create settings from environment
+settings = GeminiSettings.from_env()
+
+# Pass settings object into provider
+gemini_llm = GeminiProvider(
+    settings=settings,
+    model_name="gemini-2.5-flash",
+    temperature=0.7
+)
+text = await gemini_llm.generate("Your prompt here")
+```
+
+### Environment Variables
+- **OpenAI**: Set `OPENAI_API_KEY` in your `.env` file or environment
+- **Gemini**: Set `GEMINI_API_KEY` in your `.env` file or environment
+
+Both settings classes validate that API keys are present and non-empty, raising `ValueError` if missing.

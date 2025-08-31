@@ -2,13 +2,14 @@ from google import genai
 from google.genai import types
 from typing import Optional, List, Dict
 from ..base import LLMProvider
+from config.llm import GeminiSettings
 
 
 class GeminiProvider(LLMProvider):
     
     def __init__(
         self,
-        api_key: str,
+        settings: GeminiSettings,
         model_name: str,
         temperature: Optional[float] = None,
         tools: Optional[List[Dict]] = None,
@@ -16,13 +17,14 @@ class GeminiProvider(LLMProvider):
         thinking_config: Optional[Dict] = None,
         **kwargs
     ):
-        super().__init__(api_key, **kwargs)
+        super().__init__(**kwargs)
+        self.settings = settings
         self.model_name = model_name
         self.temperature = temperature
         self.tools = tools
         self.tool_choice = tool_choice
         self.thinking_config = thinking_config
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=settings.api_key)
 
     async def generate(self, prompt: str) -> str:
         cfg = {
