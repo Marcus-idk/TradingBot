@@ -1,0 +1,117 @@
+import asyncio
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from typing import Any, Dict, Optional
+
+import httpx
+
+from data.base import DataSourceError
+from utils.retry import RetryableError, retry_and_call
+
+
+def parse_retry_after(value: Optional[str]) -> Optional[float]:
+    """Parse Retry-After header value (numeric seconds or HTTP-date).
+
+    Returns seconds to wait (floored at 0.0), or None if parsing fails.
+    """
+    if not value:
+        return None
+
+    try:
+        # Try parsing as numeric seconds (most common: "120")
+        return max(0.0, float(value))
+    except ValueError:
+        # Not numeric, continue to try HTTP-date format
+        pass
+
+    try:
+        # Try parsing as HTTP-date ("Thu, 01 Dec 2024 15:30:00 GMT")
+        retry_time = parsedate_to_datetime(value)
+        now = datetime.now(timezone.utc)
+        seconds = (retry_time - now).total_seconds()
+        # Floor at 0.0 to handle past dates (don't wait negative time!)
+        return max(0.0, seconds)
+    except (ValueError, TypeError, AttributeError):
+        # Parsing failed completely, fall back to exponential backoff
+        return None
+
+
+async def get_json_with_retry(
+    url: str,
+    *,
+    params: Optional[Dict[str, Any]] = None,
+    timeout: float,
+    max_retries: int,
+    base: float = 0.25,
+    mult: float = 2.0,
+    jitter: float = 0.1,
+) -> Any:
+    """Minimal HTTP GET with retries and JSON parsing.
+
+    Only handles: GET, query params, 200/204, 4xx/5xx, Retry-After, and network timeouts.
+    Focused on actual usage patterns - no unused complexity!
+    """
+
+    async def _op() -> Any:
+        """Single HTTP attempt - will be called by retry_and_call up to max_retries+1 times."""
+        try:
+            # Use asyncio.to_thread to avoid blocking the event loop
+            response = await asyncio.to_thread(
+                lambda: httpx.get(url, params=params, timeout=timeout)
+            )
+
+            # SUCCESS CASES
+            if response.status_code == 200:
+                try:
+                    return response.json()  # Parse and return JSON data
+                except Exception as e:
+                    # JSON parsing failed - this is a server/data problem, don't retry
+                    raise DataSourceError(f"Invalid JSON response from {url}: {e}")
+
+            if response.status_code == 204:
+                return None  # No Content - valid empty response
+
+            # CLIENT ERRORS (don't retry - our request is bad)
+            if response.status_code in (401, 403):
+                # Auth failure - retrying won't help, API key is invalid
+                raise DataSourceError(f"Authentication failed (status {response.status_code})")
+
+            if 400 <= response.status_code < 500 and response.status_code != 429:
+                # Other 4xx errors - bad request, not found, etc. Don't retry.
+                raise DataSourceError(f"Client error (status {response.status_code})")
+
+            # RETRYABLE ERRORS (server problems or rate limits)
+            if response.status_code == 429 or response.status_code >= 500:
+                # Rate limit (429) or server error (5xx) - these can be temporary
+                retry_after = parse_retry_after(response.headers.get("Retry-After"))
+                raise RetryableError(
+                    f"Transient error (status {response.status_code})",
+                    retry_after=retry_after,  # Honor server's requested wait time
+                )
+
+            # Should never get here, but handle gracefully
+            raise DataSourceError(f"Unexpected HTTP status: {response.status_code}")
+
+        # NETWORK PROBLEMS (retryable)
+        except httpx.TimeoutException:
+            # Request timed out - server might be slow, worth retrying
+            raise RetryableError("Network/timeout", retry_after=None)
+        except httpx.TransportError:
+            # Connection failed - network issue, DNS problem, etc.
+            raise RetryableError("Network/timeout", retry_after=None)
+        except (RetryableError, DataSourceError):
+            # Re-raise our own exceptions unchanged
+            raise
+        except Exception as e:
+            # Any other unexpected error - don't retry unknown problems
+            raise DataSourceError(f"Unexpected error during HTTP request: {e}")
+
+    # Call the retry wrapper - will run _op() up to max_retries+1 times
+    # (1 initial attempt + max_retries additional attempts)
+    return await retry_and_call(
+        _op,
+        attempts=max_retries + 1,  # Total attempts (1 + retries)
+        base=base,
+        mult=mult,
+        jitter=jitter,
+    )

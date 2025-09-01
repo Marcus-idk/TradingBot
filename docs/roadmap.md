@@ -56,7 +56,7 @@ data/
 
 ## v0.2.1 — Single API Integration 📡
 - Goal: Add Finnhub; local polling only
-- Components: Finnhub provider (news + price), basic scheduler, config package (API key)
+- Components: Finnhub provider (news + price), minimal HTTP helper (`utils/http.get_json_with_retry`), basic scheduler, config package (API key)
 - Success: Connects, fetches, stores locally; dedup works; manual polling
 - Data retention + watermarks:
   - Add state table `last_seen(key TEXT PRIMARY KEY, value TEXT NOT NULL)`.

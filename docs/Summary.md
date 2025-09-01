@@ -11,6 +11,7 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 - `config/` — typed settings per provider (data + LLM) and optional env loader.
 - `data/` — data models, base abstractions, SQLite schema and storage ops, docs.
 - `llm/` — LLM provider base + OpenAI/Gemini implementations and docs.
+- `utils/` — shared helpers (`retry_and_call`, minimal HTTP `get_json_with_retry`).
 - `tests/` — model validation, storage CRUD, schema constraints, base-class contracts, LLM connectivity (skips without keys).
 
 ## Data Module
@@ -147,6 +148,7 @@ Notes:
     - `RetryableError(retry_after: Optional[float])` signals retryable failures and can honor HTTP `Retry-After` seconds when provided.
     - Backoff: `base * (mult ** attempt) ± jitter` (min 0.1s).
     - Uses `await asyncio.sleep(delay)`, yielding only the current task (event loop keeps other work running).
+  - HTTP helper: `utils/http.py:get_json_with_retry(url, *, params, timeout, max_retries)` performs GET-only requests with the same retry policy; returns JSON (200) or `None` (204). Auth and non-429 4xx raise `DataSourceError`; 429/5xx and network timeouts raise `RetryableError` (honors `Retry-After`).
 
 ## Next Steps
 - Add scheduler in `data/scheduler.py` to orchestrate polling and storage

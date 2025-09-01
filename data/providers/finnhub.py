@@ -7,17 +7,14 @@ This module provides:
 - FinnhubPriceProvider: Real-time quotes via /quote endpoint
 """
 
-import asyncio
-import random
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
-import httpx
 
 from config.providers.finnhub import FinnhubSettings
 from data.base import NewsDataSource, PriceDataSource, DataSourceError
 from data.models import NewsItem, PriceData, Session
-from utils.retry import retry_and_call, RetryableError
+from utils.http import get_json_with_retry
 
 class FinnhubClient:
     """
@@ -50,53 +47,16 @@ class FinnhubClient:
         Raises:
             DataSourceError: On authentication, client, or persistent server errors
         """
-        if params is None:
-            params = {}
-        params['token'] = self.settings.api_key
+        # Build URL and merge params with API token
         url = f"{self.settings.base_url}{path}"
-        timeout = self.settings.timeout_seconds
-
-        async def _op():
-            def _do_request():
-                return httpx.get(url, params=params, timeout=timeout)
-            
-            response = await asyncio.to_thread(_do_request)
-            status = response.status_code
-
-            # Auth/client errors (non-retryable)
-            if status in (401, 403):
-                raise DataSourceError(f"Authentication failed (status {status})")
-            if 400 <= status < 500 and status != 429:
-                raise DataSourceError(f"Client error (status {status})")
-
-            # Success
-            if status == 200:
-                try:
-                    return response.json()
-                except ValueError as e:
-                    raise DataSourceError(f"Invalid JSON response: {e}")
-
-            # 429/5xx → retryable; honor Retry-After if present
-            if status >= 500 or status == 429:
-                ra = response.headers.get('Retry-After')
-                retry_after = None
-                if ra:
-                    try:
-                        retry_after = float(ra)
-                    except ValueError:
-                        retry_after = None
-                raise RetryableError(f"Transient error (status {status})", retry_after=retry_after)
-
-            # Anything unexpected
-            raise DataSourceError(f"Unexpected HTTP status: {status}")
-
-        # attempts mirrors prior behavior: range(max_retries + 1)
-        return await retry_and_call(
-            _op,
-            attempts=self.settings.max_retries + 1,
-            base=0.25,
-            mult=2.0,
-            jitter=0.1,
+        params = {**(params or {}), 'token': self.settings.api_key}
+        
+        # Use centralized HTTP retry helper
+        return await get_json_with_retry(
+            url,
+            params=params,
+            timeout=self.settings.timeout_seconds,
+            max_retries=self.settings.max_retries,
         )
 
 

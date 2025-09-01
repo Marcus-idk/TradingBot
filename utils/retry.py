@@ -34,5 +34,5 @@ async def retry_and_call(
                 0.1, base * (mult ** attempt) + random.uniform(-jitter, jitter)
             )
             await asyncio.sleep(delay)
-    # Should be unreachable; keep mypy happy
+    # Should be unreachable;
     raise last_exc if last_exc else RuntimeError("retry_and_call: no result and no exception")
