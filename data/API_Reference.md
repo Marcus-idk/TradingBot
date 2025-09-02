@@ -156,8 +156,8 @@ SEC EDGAR: 1 call/5min = 12 calls/hour (well within limits)
 
 ### Cost Structure
 - **v0.2.1**: $0/month (Finnhub free only)
-- **v0.23**: $0/month (All free tiers)
-- **v0.25**: $0-50/month (Optional paid tiers for reliability)
+- **v0.2.3**: $0/month (All free tiers)
+- **v0.2.4**: $0-50/month (Optional paid tiers for reliability)
 
 ### Data Flow
 ```
@@ -173,12 +173,12 @@ API → Raw Data → models.py (NewsItem/PriceData) → storage.py (SQLite) → 
 - Local polling and storage
 - Foundation testing
 
-### v0.23: + RSS Feeds  
+### v0.2.3: + RSS Feeds  
 - Two data sources
 - Cross-source deduplication
 - Basic filtering system
 
-### v0.25: All 5 APIs
+### v0.2.4: All 5 APIs
 - Complete data collection (US equities)
 - Enhanced error handling
 - Production-ready system

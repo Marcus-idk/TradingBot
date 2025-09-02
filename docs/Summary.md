@@ -50,7 +50,7 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 - `class PriceDataSource(DataSource)`
   - `async fetch_incremental(since: Optional[datetime]) -> List[PriceData]`.
 
-- Exceptions: `DataSourceError`, `RateLimitError(DataSourceError)`.
+- Exceptions: `DataSourceError` (data providers). Retryable failures are surfaced as `RetryableError` by the shared HTTP helper (`utils/retry.py`).
 
 ### Storage (`data/storage.py`)
 - Helpers
@@ -89,7 +89,7 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 
 ### Base
 - `class LLMProvider(ABC)`
-  - `__init__(api_key: str, **kwargs)` — stores API key and provider config.
+  - `__init__(**kwargs)` — stores provider-specific config (e.g., extra SDK params). API keys live in provider-specific `settings` objects.
   - `async generate(prompt: str) -> str` — abstract.
   - `async validate_connection() -> bool` — abstract.
 
@@ -142,6 +142,9 @@ Notes:
   - URL validation and article filtering (skips invalid headlines, URLs, timestamps)
   - UTC timestamp normalization throughout
   - Symbol-based data fetching for configured stock lists
+
+- Config:
+  - `config/providers/finnhub.py` — `FinnhubSettings.from_env()` loads `FINNHUB_API_KEY`; retry/timeouts set via centralized `config/retry.py` (`DEFAULT_DATA_RETRY`).
 
 - Retry helper:
   - Use the shared helper in `utils/retry.py` (`retry_and_call(...)`) to wrap transient operations.

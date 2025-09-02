@@ -117,7 +117,7 @@ config/ (GH secrets integration via env)
 - Goal: Second source + filtering
 - Components: RSS provider; keyword filtering (urgent); enhanced scheduler; UTC standardization
 - Success: Finnhub + RSS; urgent detection; cross-source dedup; end-to-end ready; unblock LLM (v0.3)
-- Files (adds to v0.22):
+- Files (adds to v0.2.2):
 ```
 data/
 ├── filters.py           # is_urgent(), URGENT_KEYWORDS
