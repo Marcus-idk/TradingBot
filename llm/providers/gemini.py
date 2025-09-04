@@ -28,9 +28,7 @@ class GeminiProvider(LLMProvider):
         self.thinking_config = thinking_config
         self.client = genai.Client(
             api_key=settings.api_key,
-            client_options={
-                "timeout": settings.retry_config.timeout_seconds
-            }
+            http_options=types.HttpOptions(timeout=settings.retry_config.timeout_seconds * 1000)
         )
 
     async def generate(self, prompt: str) -> str:
