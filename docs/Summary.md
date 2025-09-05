@@ -1,18 +1,18 @@
 # TradingBot — Concise Overview
 
 ## Core Idea
-Automated US equities bot that polls data sources, stores all timestamps in UTC, runs LLM-based analysis, and makes trading decisions using US/Eastern (ET) session logic. Storage is SQLite with strict constraints and deduplication.
+Framework for US equities data collection and LLM-ready storage. Current scope: strict UTC models, SQLite with constraints/dedup, and LLM provider integrations (OpenAI, Gemini). Automated polling/scheduling and trading decisions are not implemented yet; session support exists but no ET conversion or trading engine is present.
 
 ## Time Policy
 - Persistence: UTC everywhere (ISO `YYYY-MM-DDTHH:MM:SSZ`).
-- Trading logic: Convert UTC to US/Eastern for session-aware decisions (REG, PRE, POST).
+- Sessions: `Session = {REG, PRE, POST}` is available in models. ET conversion helpers and session-detection logic are not implemented yet; providers currently normalize datetimes to UTC and, where needed, default `session` (e.g., Finnhub quotes use `Session.REG`).
 
 ## Project Structure
-- `config/` — typed settings per provider (data + LLM) and optional env loader.
+- `config/` — typed settings per provider (data + LLM) and env loaders.
 - `data/` — data models, base abstractions, SQLite schema and storage ops, docs.
 - `llm/` — LLM provider base + OpenAI/Gemini implementations and docs.
 - `utils/` — shared helpers (`retry_and_call`, minimal HTTP `get_json_with_retry`).
-- `tests/` — model validation, storage CRUD, schema constraints, base-class contracts, LLM connectivity (skips without keys).
+- `tests/` — model validation, storage CRUD, schema constraints, base-class contracts, LLM connectivity (integration/network-marked; gated by API keys and network availability).
 
 ## Data Module
 
@@ -24,7 +24,7 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
 ### Models (dataclasses)
 - `NewsItem(symbol: str, url: str, headline: str, published: datetime, source: str, content: Optional[str])`
   - Purpose: Financial news item.
-  - Behavior: Trims strings; validates `url` scheme http/https; normalizes `published` → UTC.
+  - Behavior: Trims `symbol`, `url`, `headline`, `source` (preserves `content` as-is); validates `url` scheme http/https; normalizes `published` → UTC.
 
 - `PriceData(symbol: str, timestamp: datetime, price: Decimal, volume: Optional[int] = None, session: Session = Session.REG)`
   - Purpose: Price/market datapoint.
@@ -71,10 +71,10 @@ Automated US equities bot that polls data sources, stores all timestamps in UTC,
   - `commit_llm_batch(db_path: str, cutoff: datetime) -> Dict[str, int]` — atomic prune: set `llm_last_run_iso=cutoff` and delete `news_items/price_data` where `created_at_iso ≤ cutoff`.
 
 - Reads
-  - `get_news_since(db_path: str, timestamp: datetime) -> List[Dict]` — ordered by `published_iso`.
-  - `get_price_data_since(db_path: str, timestamp: datetime) -> List[Dict]` — ordered by `timestamp_iso`.
-  - `get_all_holdings(db_path: str) -> List[Dict]` — ordered by `symbol`.
-  - `get_analysis_results(db_path: str, symbol: str | None = None) -> List[Dict]` — optional filter; ordered by `symbol, analysis_type`.
+  - `get_news_since(db_path: str, timestamp: datetime) -> List[NewsItem]` — ordered by `published_iso`.
+  - `get_price_data_since(db_path: str, timestamp: datetime) -> List[PriceData]` — ordered by `timestamp_iso`.
+  - `get_all_holdings(db_path: str) -> List[Holdings]` — ordered by `symbol`.
+  - `get_analysis_results(db_path: str, symbol: str | None = None) -> List[AnalysisResult]` — optional filter; ordered by `symbol, analysis_type`.
 
 ### Schema (`data/schema.sql`)
 - Tables (WITHOUT ROWID):

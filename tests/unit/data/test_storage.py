@@ -18,7 +18,7 @@ from data.storage import (
     get_last_seen, set_last_seen, get_last_news_time, set_last_news_time,
     get_news_before, get_prices_before, commit_llm_batch, finalize_database
 )
-import os
+
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
     Session, Stance, AnalysisType
