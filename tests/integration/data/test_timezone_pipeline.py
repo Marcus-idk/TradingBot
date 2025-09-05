@@ -217,25 +217,25 @@ class TestTimezonePipeline:
         retrieved_holdings = get_all_holdings(temp_db)
         
         # Filter to our test data
-        tz_news = [item for item in retrieved_news if item['symbol'].startswith('TZ')]
-        tz_prices = [item for item in retrieved_prices if item['symbol'].startswith('TZ')]
-        tz_analysis = [item for item in retrieved_analysis if item['symbol'].startswith('TZ')]
-        tz_holdings = [item for item in retrieved_holdings if item['symbol'].startswith('TZ')]
+        tz_news = [item for item in retrieved_news if item.symbol.startswith('TZ')]
+        tz_prices = [item for item in retrieved_prices if item.symbol.startswith('TZ')]
+        tz_analysis = [item for item in retrieved_analysis if item.symbol.startswith('TZ')]
+        tz_holdings = [item for item in retrieved_holdings if item.symbol.startswith('TZ')]
         
         # Verify all retrieved timestamps are properly formatted ISO with 'Z'
         for item in tz_news:
-            assert item['published_iso'].endswith('Z'), f"Retrieved news published_iso should end with 'Z': {item['published_iso']}"
+            assert isinstance(item.published, datetime) and item.published.tzinfo == timezone.utc, f"Retrieved news published_iso should end with 'Z': {item.published}"
             
         for item in tz_prices:
-            assert item['timestamp_iso'].endswith('Z'), f"Retrieved price timestamp_iso should end with 'Z': {item['timestamp_iso']}"
+            assert isinstance(item.timestamp, datetime) and item.timestamp.tzinfo == timezone.utc, f"Retrieved price timestamp_iso should end with 'Z': {item.timestamp}"
             
         for item in tz_analysis:
-            assert item['last_updated_iso'].endswith('Z'), f"Retrieved analysis last_updated_iso should end with 'Z': {item['last_updated_iso']}"
-            assert item['created_at_iso'].endswith('Z'), f"Retrieved analysis created_at_iso should end with 'Z': {item['created_at_iso']}"
+            assert isinstance(item.last_updated, datetime) and item.last_updated.tzinfo == timezone.utc, f"Retrieved analysis last_updated_iso should end with 'Z': {item.last_updated}"
+            assert isinstance(item.created_at, datetime) and item.created_at.tzinfo == timezone.utc, f"Retrieved analysis created_at_iso should end with 'Z': {item.created_at}"
             
         for item in tz_holdings:
-            assert item['created_at_iso'].endswith('Z'), f"Retrieved holdings created_at_iso should end with 'Z': {item['created_at_iso']}"
-            assert item['updated_at_iso'].endswith('Z'), f"Retrieved holdings updated_at_iso should end with 'Z': {item['updated_at_iso']}"
+            assert isinstance(item.created_at, datetime) and item.created_at.tzinfo == timezone.utc, f"Retrieved holdings created_at_iso should end with 'Z': {item.created_at}"
+            assert isinstance(item.updated_at, datetime) and item.updated_at.tzinfo == timezone.utc, f"Retrieved holdings updated_at_iso should end with 'Z': {item.updated_at}"
         
         # PHASE 5: TEST CROSS-MODEL CONSISTENCY WITH SAME TIMESTAMP
         print("Phase 5: Testing cross-model consistency with same timestamp...")
@@ -276,29 +276,29 @@ class TestTimezonePipeline:
         
         # Query back consistency data
         consistency_news_result = [item for item in get_news_since(temp_db, datetime(2024, 2, 1, tzinfo=timezone.utc)) 
-                                 if item['symbol'] == consistency_symbol]
+                                 if item.symbol == consistency_symbol]
         consistency_price_result = [item for item in get_price_data_since(temp_db, datetime(2024, 2, 1, tzinfo=timezone.utc))
-                                  if item['symbol'] == consistency_symbol]
+                                  if item.symbol == consistency_symbol]
         consistency_analysis_result = get_analysis_results(temp_db, symbol=consistency_symbol)
         consistency_holdings_result = [item for item in get_all_holdings(temp_db) 
-                                     if item['symbol'] == consistency_symbol]
+                                     if item.symbol == consistency_symbol]
         
         # Verify all have the same timestamp representation
-        expected_iso = "2024-02-20T16:45:30Z"
+        expected_dt = datetime(2024, 2, 20, 16, 45, 30, tzinfo=timezone.utc)
         
         assert len(consistency_news_result) == 1
-        assert consistency_news_result[0]['published_iso'] == expected_iso
+        assert consistency_news_result[0].published == expected_dt
         
         assert len(consistency_price_result) == 1
-        assert consistency_price_result[0]['timestamp_iso'] == expected_iso
+        assert consistency_price_result[0].timestamp == expected_dt
         
         assert len(consistency_analysis_result) == 1
-        assert consistency_analysis_result[0]['last_updated_iso'] == expected_iso
-        assert consistency_analysis_result[0]['created_at_iso'] == expected_iso
+        assert consistency_analysis_result[0].last_updated == expected_dt
+        assert consistency_analysis_result[0].created_at == expected_dt
         
         assert len(consistency_holdings_result) == 1
-        assert consistency_holdings_result[0]['created_at_iso'] == expected_iso
-        assert consistency_holdings_result[0]['updated_at_iso'] == expected_iso
+        assert consistency_holdings_result[0].created_at == expected_dt
+        assert consistency_holdings_result[0].updated_at == expected_dt
         
         # PHASE 6: TEST BOUNDARY TIMEZONE SCENARIOS
         print("Phase 6: Testing boundary timezone scenarios...")
@@ -314,10 +314,10 @@ class TestTimezonePipeline:
         
         store_news_items(temp_db, [boundary_news])
         boundary_result = [item for item in get_news_since(temp_db, datetime(2024, 3, 1, tzinfo=timezone.utc))
-                         if item['symbol'] == 'BOUNDARY']
+                         if item.symbol == 'BOUNDARY']
         
         assert len(boundary_result) == 1
         # Timezone conversion should be properly handled and stored as UTC
-        assert boundary_result[0]['published_iso'].endswith('Z')
+        assert isinstance(boundary_result[0].published, datetime) and boundary_result[0].published.tzinfo == timezone.utc
         
         print("All timezone consistency tests passed!")

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 pytestmark = [pytest.mark.integration]
 
 from data.storage import store_news_items, get_news_since
-from data.models import NewsItem
+from data.models import Session, Stance, AnalysisType, NewsItem
 
 
 class TestNewsDeduplication:
@@ -70,12 +70,12 @@ class TestNewsDeduplication:
         assert len(initial_results) == 1, f"Expected 1 article after first insert, got {len(initial_results)}"
         
         stored_article = initial_results[0]
-        assert stored_article['symbol'] == symbol
-        assert stored_article['source'] == "Finnhub API"
+        assert stored_article.symbol == symbol
+        assert stored_article.source == "Finnhub API"
         
         # Verify URL normalization - tracking parameters should be removed
         expected_normalized_url = base_url  # Clean URL without any tracking parameters
-        assert stored_article['url'] == expected_normalized_url, f"Expected normalized URL '{expected_normalized_url}', got '{stored_article['url']}'"
+        assert stored_article.url == expected_normalized_url, f"Expected normalized URL '{expected_normalized_url}', got '{stored_article.url}'"
         
         # Store second article from RSS (should be ignored due to duplicate normalized URL)
         store_news_items(temp_db, [rss_article])
@@ -92,15 +92,15 @@ class TestNewsDeduplication:
         final_article = final_results[0]
         
         # Verify the stored article maintains the original source (first one stored)
-        assert final_article['symbol'] == symbol
-        assert final_article['source'] == "Finnhub API", "The first stored article's source should be preserved"
-        assert final_article['headline'] == "Apple Reports Strong Q4 Earnings Beat Expectations"
+        assert final_article.symbol == symbol
+        assert final_article.source == "Finnhub API", "The first stored article's source should be preserved"
+        assert final_article.headline == "Apple Reports Strong Q4 Earnings Beat Expectations"
         
         # Verify the URL has ALL tracking parameters removed (case-insensitive)
-        assert final_article['url'] == expected_normalized_url, f"Final stored URL should be normalized: '{expected_normalized_url}', got '{final_article['url']}'"
+        assert final_article.url == expected_normalized_url, f"Final stored URL should be normalized: '{expected_normalized_url}', got '{final_article.url}'"
         
         # Verify published timestamp is preserved correctly  
-        assert final_article['published_iso'] == "2024-01-15T12:00:00Z"
+        assert final_article.published == datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
         
         # Test with a different symbol to ensure deduplication is symbol-specific
         different_symbol = "TSLA"
@@ -120,9 +120,9 @@ class TestNewsDeduplication:
         assert len(all_results) == 2, f"Expected 2 articles (1 per symbol), got {len(all_results)}"
         
         # Verify both symbols are present
-        symbols = {article['symbol'] for article in all_results}
+        symbols = {article.symbol for article in all_results}
         assert symbols == {"AAPL", "TSLA"}, f"Expected symbols AAPL and TSLA, got {symbols}"
         
         # Verify TSLA article has normalized URL
-        tesla_result = next(article for article in all_results if article['symbol'] == "TSLA")
-        assert tesla_result['url'] == expected_normalized_url, f"TSLA article should also have normalized URL: '{expected_normalized_url}', got '{tesla_result['url']}'"
+        tesla_result = next(article for article in all_results if article.symbol == "TSLA")
+        assert tesla_result.url == expected_normalized_url, f"TSLA article should also have normalized URL: '{expected_normalized_url}', got '{tesla_result.url}'"

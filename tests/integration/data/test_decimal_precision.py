@@ -162,128 +162,128 @@ class TestDecimalPrecision:
         # VALIDATE EXACT PRECISION PRESERVATION FOR PRICEDATA
         
         # Test ultra-precise value
-        ultra_price_result = next(item for item in retrieved_prices if item['symbol'] == 'ULTRA')
-        ultra_price_stored = ultra_price_result['price']
-        assert ultra_price_stored == "123.456789123456789123", f"Ultra precise price not preserved: expected '123.456789123456789123', got '{ultra_price_stored}'"
+        ultra_price_result = next(item for item in retrieved_prices if item.symbol == 'ULTRA')
+        ultra_price_stored = ultra_price_result.price
+        assert ultra_price_stored == Decimal("123.456789123456789123"), f"Ultra precise price not preserved: expected '123.456789123456789123', got '{ultra_price_stored}'"
         
         # Convert back to Decimal and verify exact match
-        ultra_price_decimal = Decimal(ultra_price_stored)
+        ultra_price_decimal = ultra_price_stored
         assert ultra_price_decimal == ultra_precise_price, f"Roundtrip failed: {ultra_price_decimal} != {ultra_precise_price}"
         
         # Test very small boundary value
-        tiny_price_result = next(item for item in retrieved_prices if item['symbol'] == 'TINY')
-        tiny_price_stored = tiny_price_result['price']
+        tiny_price_result = next(item for item in retrieved_prices if item.symbol == 'TINY')
+        tiny_price_stored = tiny_price_result.price
         # Scientific notation may be used for very small numbers
-        assert tiny_price_stored in ["0.000000001", "1E-9"], f"Very small price not preserved: expected '0.000000001' or '1E-9', got '{tiny_price_stored}'"
+        assert tiny_price_stored in [Decimal("0.000000001"), Decimal("1E-9")], f"Very small price not preserved: expected '0.000000001' or '1E-9', got '{tiny_price_stored}'"
         
         # Convert back to Decimal and verify exact match
-        tiny_price_decimal = Decimal(tiny_price_stored)
+        tiny_price_decimal = tiny_price_stored
         assert tiny_price_decimal == very_small_price, f"Small price roundtrip failed: {tiny_price_decimal} != {very_small_price}"
         
         # Test very large boundary value  
-        huge_price_result = next(item for item in retrieved_prices if item['symbol'] == 'HUGE')
-        huge_price_stored = huge_price_result['price']
-        assert huge_price_stored == "999999999.999999999", f"Very large price not preserved: expected '999999999.999999999', got '{huge_price_stored}'"
+        huge_price_result = next(item for item in retrieved_prices if item.symbol == 'HUGE')
+        huge_price_stored = huge_price_result.price
+        assert huge_price_stored == Decimal("999999999.999999999"), f"Very large price not preserved: expected '999999999.999999999', got '{huge_price_stored}'"
         
         # Convert back to Decimal and verify exact match
-        huge_price_decimal = Decimal(huge_price_stored)
+        huge_price_decimal = huge_price_stored
         assert huge_price_decimal == very_large_price, f"Large price roundtrip failed: {huge_price_decimal} != {very_large_price}"
         
         # Test scientific notation small
-        sci_small_result = next(item for item in retrieved_prices if item['symbol'] == 'SCI_SMALL')
-        sci_small_stored = sci_small_result['price']
+        sci_small_result = next(item for item in retrieved_prices if item.symbol == 'SCI_SMALL')
+        sci_small_stored = sci_small_result.price
         # Scientific notation should be normalized to decimal form
-        assert sci_small_stored in ["0.000000000000001", "1E-15"], f"Scientific small not preserved: expected '0.000000000000001' or '1E-15', got '{sci_small_stored}'"
+        assert sci_small_stored in [Decimal("0.000000000000001"), Decimal("1E-15")], f"Scientific small not preserved: expected '0.000000000000001' or '1E-15', got '{sci_small_stored}'"
         
-        sci_small_decimal = Decimal(sci_small_stored)
+        sci_small_decimal = sci_small_stored
         assert sci_small_decimal == scientific_small, f"Scientific small roundtrip failed: {sci_small_decimal} != {scientific_small}"
         
         # Test scientific notation large
-        sci_large_result = next(item for item in retrieved_prices if item['symbol'] == 'SCI_LARGE')
-        sci_large_stored = sci_large_result['price']
+        sci_large_result = next(item for item in retrieved_prices if item.symbol == 'SCI_LARGE')
+        sci_large_stored = sci_large_result.price
         # Scientific notation should be normalized to decimal form
-        assert sci_large_stored in ["1234567890000", "1.23456789E+12"], f"Scientific large not preserved: expected '1234567890000' or '1.23456789E+12', got '{sci_large_stored}'"
+        assert sci_large_stored in [Decimal("1234567890000"), Decimal("1.23456789E+12")], f"Scientific large not preserved: expected '1234567890000' or '1.23456789E+12', got '{sci_large_stored}'"
         
-        sci_large_decimal = Decimal(sci_large_stored)
+        sci_large_decimal = sci_large_stored
         assert sci_large_decimal == scientific_large, f"Scientific large roundtrip failed: {sci_large_decimal} != {scientific_large}"
         
         # VALIDATE EXACT PRECISION PRESERVATION FOR HOLDINGS (all 3 Decimal fields)
         
         # Test ultra-precise holdings
-        ultra_holdings_result = next(item for item in retrieved_holdings if item['symbol'] == 'ULTRA')
+        ultra_holdings_result = next(item for item in retrieved_holdings if item.symbol == 'ULTRA')
         
         # Test quantity precision
-        ultra_quantity_stored = ultra_holdings_result['quantity']
-        assert ultra_quantity_stored == "987.654321098765432109", f"Ultra precise quantity not preserved: expected '987.654321098765432109', got '{ultra_quantity_stored}'"
-        ultra_quantity_decimal = Decimal(ultra_quantity_stored)
+        ultra_quantity_stored = ultra_holdings_result.quantity
+        assert ultra_quantity_stored == Decimal("987.654321098765432109"), f"Ultra precise quantity not preserved: expected '987.654321098765432109', got '{ultra_quantity_stored}'"
+        ultra_quantity_decimal = ultra_quantity_stored
         assert ultra_quantity_decimal == ultra_precise_quantity, f"Quantity roundtrip failed: {ultra_quantity_decimal} != {ultra_precise_quantity}"
         
         # Test break_even_price precision
-        ultra_be_price_stored = ultra_holdings_result['break_even_price']
-        assert ultra_be_price_stored == "123.456789123456789123", f"Ultra precise break-even price not preserved: expected '123.456789123456789123', got '{ultra_be_price_stored}'"
-        ultra_be_price_decimal = Decimal(ultra_be_price_stored)
+        ultra_be_price_stored = ultra_holdings_result.break_even_price
+        assert ultra_be_price_stored == Decimal("123.456789123456789123"), f"Ultra precise break-even price not preserved: expected '123.456789123456789123', got '{ultra_be_price_stored}'"
+        ultra_be_price_decimal = ultra_be_price_stored
         assert ultra_be_price_decimal == ultra_precise_price, f"Break-even price roundtrip failed: {ultra_be_price_decimal} != {ultra_precise_price}"
         
         # Test total_cost precision
-        ultra_cost_stored = ultra_holdings_result['total_cost']
-        assert ultra_cost_stored == "121932.631112635269461112", f"Ultra precise total cost not preserved: expected '121932.631112635269461112', got '{ultra_cost_stored}'"
-        ultra_cost_decimal = Decimal(ultra_cost_stored)
+        ultra_cost_stored = ultra_holdings_result.total_cost
+        assert ultra_cost_stored == Decimal("121932.631112635269461112"), f"Ultra precise total cost not preserved: expected '121932.631112635269461112', got '{ultra_cost_stored}'"
+        ultra_cost_decimal = ultra_cost_stored
         assert ultra_cost_decimal == ultra_precise_cost, f"Total cost roundtrip failed: {ultra_cost_decimal} != {ultra_precise_cost}"
         
         # Test very small holdings boundary values
-        tiny_holdings_result = next(item for item in retrieved_holdings if item['symbol'] == 'TINY')
+        tiny_holdings_result = next(item for item in retrieved_holdings if item.symbol == 'TINY')
         
-        tiny_quantity_stored = tiny_holdings_result['quantity']
-        assert tiny_quantity_stored in ["0.0000000000001", "1E-13"], f"Tiny quantity not preserved: expected '0.0000000000001' or '1E-13', got '{tiny_quantity_stored}'"
-        tiny_quantity_decimal = Decimal(tiny_quantity_stored)
+        tiny_quantity_stored = tiny_holdings_result.quantity
+        assert tiny_quantity_stored in [Decimal("0.0000000000001"), Decimal("1E-13")], f"Tiny quantity not preserved: expected '0.0000000000001' or '1E-13', got '{tiny_quantity_stored}'"
+        tiny_quantity_decimal = tiny_quantity_stored
         assert tiny_quantity_decimal == very_small_quantity, f"Tiny quantity roundtrip failed: {tiny_quantity_decimal} != {very_small_quantity}"
         
-        tiny_cost_stored = tiny_holdings_result['total_cost']
-        assert tiny_cost_stored in ["0.00000000000000001", "1E-17"], f"Tiny cost not preserved: expected '0.00000000000000001' or '1E-17', got '{tiny_cost_stored}'"
-        tiny_cost_decimal = Decimal(tiny_cost_stored)
+        tiny_cost_stored = tiny_holdings_result.total_cost
+        assert tiny_cost_stored in [Decimal("0.00000000000000001"), Decimal("1E-17")], f"Tiny cost not preserved: expected '0.00000000000000001' or '1E-17', got '{tiny_cost_stored}'"
+        tiny_cost_decimal = tiny_cost_stored
         assert tiny_cost_decimal == very_small_cost, f"Tiny cost roundtrip failed: {tiny_cost_decimal} != {very_small_cost}"
         
         # Test very large holdings boundary values
-        huge_holdings_result = next(item for item in retrieved_holdings if item['symbol'] == 'HUGE')
+        huge_holdings_result = next(item for item in retrieved_holdings if item.symbol == 'HUGE')
         
-        huge_quantity_stored = huge_holdings_result['quantity']
-        assert huge_quantity_stored == "999999999999.999999", f"Huge quantity not preserved: expected '999999999999.999999', got '{huge_quantity_stored}'"
-        huge_quantity_decimal = Decimal(huge_quantity_stored)
+        huge_quantity_stored = huge_holdings_result.quantity
+        assert huge_quantity_stored == Decimal("999999999999.999999"), f"Huge quantity not preserved: expected '999999999999.999999', got '{huge_quantity_stored}'"
+        huge_quantity_decimal = huge_quantity_stored
         assert huge_quantity_decimal == very_large_quantity, f"Huge quantity roundtrip failed: {huge_quantity_decimal} != {very_large_quantity}"
         
-        huge_cost_stored = huge_holdings_result['total_cost']
-        assert huge_cost_stored == "999999999999999.999999999", f"Huge cost not preserved: expected '999999999999999.999999999', got '{huge_cost_stored}'"
-        huge_cost_decimal = Decimal(huge_cost_stored)
+        huge_cost_stored = huge_holdings_result.total_cost
+        assert huge_cost_stored == Decimal("999999999999999.999999999"), f"Huge cost not preserved: expected '999999999999999.999999999', got '{huge_cost_stored}'"
+        huge_cost_decimal = huge_cost_stored
         assert huge_cost_decimal == very_large_cost, f"Huge cost roundtrip failed: {huge_cost_decimal} != {very_large_cost}"
         
         # Test scientific notation holdings
-        sci_small_holdings_result = next(item for item in retrieved_holdings if item['symbol'] == 'SCI_SMALL')
+        sci_small_holdings_result = next(item for item in retrieved_holdings if item.symbol == 'SCI_SMALL')
         
         # Scientific notation should be preserved as normalized decimal form
-        sci_small_quantity_stored = sci_small_holdings_result['quantity']
-        assert sci_small_quantity_stored in ["0.000000000000001", "1E-15"], f"Scientific small quantity not preserved: expected '0.000000000000001' or '1E-15', got '{sci_small_quantity_stored}'"
-        sci_small_quantity_decimal = Decimal(sci_small_quantity_stored)
+        sci_small_quantity_stored = sci_small_holdings_result.quantity
+        assert sci_small_quantity_stored in [Decimal("0.000000000000001"), Decimal("1E-15")], f"Scientific small quantity not preserved: expected '0.000000000000001' or '1E-15', got '{sci_small_quantity_stored}'"
+        sci_small_quantity_decimal = sci_small_quantity_stored
         assert sci_small_quantity_decimal == scientific_small, f"Scientific small quantity roundtrip failed: {sci_small_quantity_decimal} != {scientific_small}"
         
-        sci_small_cost_stored = sci_small_holdings_result['total_cost']
+        sci_small_cost_stored = sci_small_holdings_result.total_cost
         # Scientific notation may be used for extremely small numbers
-        assert sci_small_cost_stored in ["0.000000000000000000000000000001", "1E-30"], f"Scientific small cost not preserved correctly, got '{sci_small_cost_stored}'"
-        sci_small_cost_decimal = Decimal(sci_small_cost_stored)
+        assert sci_small_cost_stored in [Decimal("0.000000000000000000000000000001"), Decimal("1E-30")], f"Scientific small cost not preserved correctly, got '{sci_small_cost_stored}'"
+        sci_small_cost_decimal = sci_small_cost_stored
         assert sci_small_cost_decimal == Decimal('1E-30'), f"Scientific small cost roundtrip failed: {sci_small_cost_decimal} != {Decimal('1E-30')}"
         
         # Test scientific notation large holdings
-        sci_large_holdings_result = next(item for item in retrieved_holdings if item['symbol'] == 'SCI_LARGE')
+        sci_large_holdings_result = next(item for item in retrieved_holdings if item.symbol == 'SCI_LARGE')
         
-        sci_large_quantity_stored = sci_large_holdings_result['quantity']
-        assert sci_large_quantity_stored in ["1234567890000", "1.23456789E+12"], f"Scientific large quantity not preserved: expected '1234567890000' or '1.23456789E+12', got '{sci_large_quantity_stored}'"
-        sci_large_quantity_decimal = Decimal(sci_large_quantity_stored)
+        sci_large_quantity_stored = sci_large_holdings_result.quantity
+        assert sci_large_quantity_stored in [Decimal("1234567890000"), Decimal("1.23456789E+12")], f"Scientific large quantity not preserved: expected '1234567890000' or '1.23456789E+12', got '{sci_large_quantity_stored}'"
+        sci_large_quantity_decimal = sci_large_quantity_stored
         assert sci_large_quantity_decimal == scientific_large, f"Scientific large quantity roundtrip failed: {sci_large_quantity_decimal} != {scientific_large}"
         
-        sci_large_cost_stored = sci_large_holdings_result['total_cost']
+        sci_large_cost_stored = sci_large_holdings_result.total_cost
         # This is a very large number in scientific notation - should be preserved exactly
         expected_large_cost = "1518518518518518518000000"  # 1.518518518518518518E+24 in decimal form
-        assert sci_large_cost_stored in [expected_large_cost, "1.518518518518518518E+24", "1.518518518518519E+24"], f"Scientific large cost not preserved: expected '{expected_large_cost}' or scientific notation, got '{sci_large_cost_stored}'"
-        sci_large_cost_decimal = Decimal(sci_large_cost_stored)
+        assert sci_large_cost_stored in [Decimal(expected_large_cost), Decimal("1.518518518518518518E+24"), Decimal("1.518518518518519E+24")], f"Scientific large cost not preserved: expected '{expected_large_cost}' or scientific notation, got '{sci_large_cost_stored}'"
+        sci_large_cost_decimal = sci_large_cost_stored
         assert sci_large_cost_decimal == Decimal('1.518518518518518518E+24'), f"Scientific large cost roundtrip failed: {sci_large_cost_decimal} != {Decimal('1.518518518518518518E+24')}"
         
         # ADDITIONAL VERIFICATION: Test that these precision levels would fail with float

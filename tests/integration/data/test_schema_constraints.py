@@ -311,27 +311,27 @@ class TestSchemaConstraints:
         assert len(updated_holdings_results) == 2, f"Expected 2 holdings records after new insert, got {len(updated_holdings_results)}"
         
         # Verify new TSLA price data was stored correctly
-        tsla_price = next((p for p in updated_price_results if p['symbol'] == 'TSLA'), None)
+        tsla_price = next((p for p in updated_price_results if p.symbol == 'TSLA'), None)
         assert tsla_price is not None, "New TSLA price data was not stored"
-        assert tsla_price['price'] == "200.00", f"Expected TSLA price 200.00, got {tsla_price['price']}"
-        assert tsla_price['session'] == "POST", f"Expected TSLA session POST, got {tsla_price['session']}"
+        assert tsla_price.price == Decimal("200.00"), f"Expected TSLA price 200.00, got {tsla_price.price}"
+        assert tsla_price.session == Session.POST, f"Expected TSLA session POST, got {tsla_price.session}"
         
         # Verify new TSLA analysis was stored correctly
-        tsla_analysis = next((a for a in updated_analysis_results if a['symbol'] == 'TSLA'), None)
+        tsla_analysis = next((a for a in updated_analysis_results if a.symbol == 'TSLA'), None)
         assert tsla_analysis is not None, "New TSLA analysis was not stored"
-        assert tsla_analysis['stance'] == "NEUTRAL", f"Expected TSLA stance NEUTRAL, got {tsla_analysis['stance']}"
-        assert tsla_analysis['confidence_score'] == 0.75, f"Expected TSLA confidence 0.75, got {tsla_analysis['confidence_score']}"
+        assert tsla_analysis.stance == Stance.NEUTRAL, f"Expected TSLA stance NEUTRAL, got {tsla_analysis.stance}"
+        assert tsla_analysis.confidence_score == 0.75, f"Expected TSLA confidence 0.75, got {tsla_analysis.confidence_score}"
         
         # Verify new MSFT holdings was stored correctly
-        msft_holdings = next((h for h in updated_holdings_results if h['symbol'] == 'MSFT'), None)
+        msft_holdings = next((h for h in updated_holdings_results if h.symbol == 'MSFT'), None)
         assert msft_holdings is not None, "New MSFT holdings was not stored"
-        assert msft_holdings['quantity'] == "75", f"Expected MSFT quantity 75, got {msft_holdings['quantity']}"
-        assert msft_holdings['notes'] == "New position after constraint test", f"Expected specific note, got {msft_holdings['notes']}"
+        assert msft_holdings.quantity == Decimal("75"), f"Expected MSFT quantity 75, got {msft_holdings.quantity}"
+        assert msft_holdings.notes == "New position after constraint test", f"Expected specific note, got {msft_holdings.notes}"
         
         # Final verification: Original AAPL data still intact
-        aapl_price = next((p for p in updated_price_results if p['symbol'] == 'AAPL'), None)
-        aapl_analysis = next((a for a in updated_analysis_results if a['symbol'] == 'AAPL'), None)
-        aapl_holdings = next((h for h in updated_holdings_results if h['symbol'] == 'AAPL'), None)
+        aapl_price = next((p for p in updated_price_results if p.symbol == 'AAPL'), None)
+        aapl_analysis = next((a for a in updated_analysis_results if a.symbol == 'AAPL'), None)
+        aapl_holdings = next((h for h in updated_holdings_results if h.symbol == 'AAPL'), None)
         
         assert aapl_price == baseline_price, "Original AAPL price data corrupted during subsequent operations"
         assert aapl_analysis == baseline_analysis, "Original AAPL analysis data corrupted during subsequent operations"

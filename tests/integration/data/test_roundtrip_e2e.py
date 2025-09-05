@@ -176,102 +176,102 @@ class TestDataRoundtrip:
         assert len(retrieved_news) == 3, f"Expected 3 news items, got {len(retrieved_news)}"
         
         # Find AAPL news item
-        aapl_news = next(item for item in retrieved_news if item['symbol'] == 'AAPL')
-        assert aapl_news['url'] == "https://finance.yahoo.com/news/apple-earnings-report"  # URL normalized (tracking removed)
-        assert aapl_news['headline'] == "Apple Reports Strong Q1 Earnings, Stock Jumps"
-        assert aapl_news['content'] == "Apple Inc. reported stronger-than-expected quarterly earnings..."
-        assert aapl_news['source'] == "Yahoo Finance"
-        assert aapl_news['published_iso'] == "2024-01-15T10:30:45Z"
+        aapl_news = next(item for item in retrieved_news if item.symbol == 'AAPL')
+        assert aapl_news.url == "https://finance.yahoo.com/news/apple-earnings-report"  # URL normalized (tracking removed)
+        assert aapl_news.headline == "Apple Reports Strong Q1 Earnings, Stock Jumps"
+        assert aapl_news.content == "Apple Inc. reported stronger-than-expected quarterly earnings..."
+        assert aapl_news.source == "Yahoo Finance"
+        assert aapl_news.published == datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
         
         # Find TSLA news item - test timezone conversion and None content
-        tsla_news = next(item for item in retrieved_news if item['symbol'] == 'TSLA')
-        assert tsla_news['content'] is None  # None preserved
-        assert tsla_news['published_iso'] == "2024-01-15T14:45:30Z"  # Naive converted to UTC
+        tsla_news = next(item for item in retrieved_news if item.symbol == 'TSLA')
+        assert tsla_news.content is None  # None preserved
+        assert tsla_news.published == datetime(2024, 1, 15, 14, 45, 30, tzinfo=timezone.utc)  # Naive converted to UTC
         
         # Find SPY news item - test empty content
-        spy_news = next(item for item in retrieved_news if item['symbol'] == 'SPY')
-        assert spy_news['content'] == ""  # Empty string preserved
+        spy_news = next(item for item in retrieved_news if item.symbol == 'SPY')
+        assert spy_news.content == ""  # Empty string preserved
         
         # Verify PriceData with Decimal precision
         assert len(retrieved_prices) == 3, f"Expected 3 price data items, got {len(retrieved_prices)}"
         
         # Find AAPL price data
-        aapl_price = next(item for item in retrieved_prices if item['symbol'] == 'AAPL')
-        assert aapl_price['price'] == "189.7500"  # Decimal precision preserved as TEXT
-        assert aapl_price['volume'] == 1234567
-        assert aapl_price['session'] == "REG"
-        assert aapl_price['timestamp_iso'] == "2024-01-15T10:30:45Z"
+        aapl_price = next(item for item in retrieved_prices if item.symbol == 'AAPL')
+        assert aapl_price.price == Decimal("189.7500")  # Decimal precision preserved as TEXT
+        assert aapl_price.volume == 1234567
+        assert aapl_price.session.value == "REG"
+        assert aapl_price.timestamp == datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
         
         # Find TSLA price data - test boundary values and timezone
-        tsla_price = next(item for item in retrieved_prices if item['symbol'] == 'TSLA')
-        assert tsla_price['price'] == "0.0001"  # Boundary value preserved
-        assert tsla_price['volume'] == 0  # Zero volume preserved
-        assert tsla_price['session'] == "PRE"
-        assert tsla_price['timestamp_iso'] == "2024-01-15T14:45:30Z"  # Naive converted to UTC
+        tsla_price = next(item for item in retrieved_prices if item.symbol == 'TSLA')
+        assert tsla_price.price == Decimal("0.0001")  # Boundary value preserved
+        assert tsla_price.volume == 0  # Zero volume preserved
+        assert tsla_price.session.value == "PRE"
+        assert tsla_price.timestamp == datetime(2024, 1, 15, 14, 45, 30, tzinfo=timezone.utc)  # Naive converted to UTC
         
         # Find SPY price data - test large boundary value and None volume
-        spy_price = next(item for item in retrieved_prices if item['symbol'] == 'SPY')
-        assert spy_price['price'] == "999999.99"  # Large boundary value preserved
-        assert spy_price['volume'] is None  # None volume preserved
-        assert spy_price['session'] == "POST"
+        spy_price = next(item for item in retrieved_prices if item.symbol == 'SPY')
+        assert spy_price.price == Decimal("999999.99")  # Large boundary value preserved
+        assert spy_price.volume is None  # None volume preserved
+        assert spy_price.session.value == "POST"
         
         # Verify AnalysisResults
         assert len(retrieved_analysis) == 3, f"Expected 3 analysis results, got {len(retrieved_analysis)}"
         
         # Find AAPL analysis
-        aapl_analysis = next(item for item in retrieved_analysis if item['symbol'] == 'AAPL')
-        assert aapl_analysis['analysis_type'] == "news_analysis"
-        assert aapl_analysis['model_name'] == "gpt-4o"
-        assert aapl_analysis['stance'] == "BULL"
-        assert aapl_analysis['confidence_score'] == 0.8500  # Exact precision preserved
-        assert aapl_analysis['last_updated_iso'] == "2024-01-15T10:30:45Z"
-        assert aapl_analysis['result_json'] == '{"sentiment": "positive", "key_factors": ["strong earnings", "guidance beat"]}'
-        assert aapl_analysis['created_at_iso'] == "2024-01-15T14:45:30Z"  # Timezone conversion
+        aapl_analysis = next(item for item in retrieved_analysis if item.symbol == 'AAPL')
+        assert aapl_analysis.analysis_type.value == "news_analysis"
+        assert aapl_analysis.model_name == "gpt-4o"
+        assert aapl_analysis.stance.value == "BULL"
+        assert aapl_analysis.confidence_score == 0.8500  # Exact precision preserved
+        assert aapl_analysis.last_updated == datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
+        assert aapl_analysis.result_json == '{"sentiment": "positive", "key_factors": ["strong earnings", "guidance beat"]}'
+        assert aapl_analysis.created_at == datetime(2024, 1, 15, 14, 45, 30, tzinfo=timezone.utc)  # Timezone conversion
         
         # Find TSLA analysis - test boundary confidence and auto-created_at
-        tsla_analysis = next(item for item in retrieved_analysis if item['symbol'] == 'TSLA')
-        assert tsla_analysis['confidence_score'] == 0.0001  # Boundary value preserved
-        assert tsla_analysis['stance'] == "NEUTRAL"
-        assert tsla_analysis['created_at_iso'] is not None  # Auto-generated
-        assert "T" in tsla_analysis['created_at_iso'] and tsla_analysis['created_at_iso'].endswith("Z")
+        tsla_analysis = next(item for item in retrieved_analysis if item.symbol == 'TSLA')
+        assert tsla_analysis.confidence_score == 0.0001  # Boundary value preserved
+        assert tsla_analysis.stance.value == "NEUTRAL"
+        assert tsla_analysis.created_at is not None  # Auto-generated
+        assert isinstance(tsla_analysis.created_at, datetime)
         
         # Find SPY analysis - test near-max confidence
-        spy_analysis = next(item for item in retrieved_analysis if item['symbol'] == 'SPY')
-        assert spy_analysis['confidence_score'] == 0.9999  # Near-max boundary preserved
-        assert spy_analysis['stance'] == "BEAR"
+        spy_analysis = next(item for item in retrieved_analysis if item.symbol == 'SPY')
+        assert spy_analysis.confidence_score == 0.9999  # Near-max boundary preserved
+        assert spy_analysis.stance.value == "BEAR"
         
         # Verify Holdings with Decimal precision
         assert len(retrieved_holdings) == 3, f"Expected 3 holdings, got {len(retrieved_holdings)}"
         
         # Find AAPL holdings
-        aapl_holdings = next(item for item in retrieved_holdings if item['symbol'] == 'AAPL')
-        assert aapl_holdings['quantity'] == "100.500000"  # Full precision preserved
-        assert aapl_holdings['break_even_price'] == "189.7500"
-        assert aapl_holdings['total_cost'] == "18975.00"
-        assert aapl_holdings['notes'] == "Long-term position"
-        assert aapl_holdings['created_at_iso'] == "2024-01-15T10:30:45Z"
-        assert aapl_holdings['updated_at_iso'] == "2024-01-15T10:30:45Z"
+        aapl_holdings = next(item for item in retrieved_holdings if item.symbol == 'AAPL')
+        assert aapl_holdings.quantity == Decimal("100.500000")  # Full precision preserved
+        assert aapl_holdings.break_even_price == Decimal("189.7500")
+        assert aapl_holdings.total_cost == Decimal("18975.00")
+        assert aapl_holdings.notes == "Long-term position"
+        assert aapl_holdings.created_at == datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
+        assert aapl_holdings.updated_at == datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
         
         # Find TSLA holdings - test boundary values
-        tsla_holdings = next(item for item in retrieved_holdings if item['symbol'] == 'TSLA')
-        assert tsla_holdings['quantity'] == "0.000001"  # Tiny quantity preserved
-        assert tsla_holdings['break_even_price'] == "0.000001"  # Tiny price preserved
+        tsla_holdings = next(item for item in retrieved_holdings if item.symbol == 'TSLA')
+        assert tsla_holdings.quantity == Decimal("0.000001")  # Tiny quantity preserved
+        assert tsla_holdings.break_even_price == Decimal("0.000001")  # Tiny price preserved
         # Scientific notation may be used for very small numbers
-        assert tsla_holdings['total_cost'] in ["0.000000000001", "1E-12"]  # Tiny cost preserved (both representations valid)
-        assert tsla_holdings['notes'] == "Test fractional shares"
-        assert tsla_holdings['created_at_iso'] == "2024-01-15T14:45:30Z"  # Timezone conversion
-        assert tsla_holdings['updated_at_iso'] == "2024-01-15T14:45:30Z"
+        assert tsla_holdings.total_cost in [Decimal("0.000000000001"), Decimal("1E-12")]  # Tiny cost preserved (both representations valid)
+        assert tsla_holdings.notes == "Test fractional shares"
+        assert tsla_holdings.created_at == datetime(2024, 1, 15, 14, 45, 30, tzinfo=timezone.utc)  # Timezone conversion
+        assert tsla_holdings.updated_at == datetime(2024, 1, 15, 14, 45, 30, tzinfo=timezone.utc)
         
         # Find SPY holdings - test large boundary values and auto-timestamps
-        spy_holdings = next(item for item in retrieved_holdings if item['symbol'] == 'SPY')
-        assert spy_holdings['quantity'] == "999999.999999"  # Large quantity preserved
-        assert spy_holdings['break_even_price'] == "999999.99"  # Large price preserved
-        assert spy_holdings['total_cost'] == "999999999998.99"  # Large cost preserved
-        assert spy_holdings['notes'] == "Massive position"  # Trimmed
-        assert spy_holdings['created_at_iso'] is not None  # Auto-generated
-        assert spy_holdings['updated_at_iso'] is not None  # Auto-generated
-        assert "T" in spy_holdings['created_at_iso'] and spy_holdings['created_at_iso'].endswith("Z")
-        assert "T" in spy_holdings['updated_at_iso'] and spy_holdings['updated_at_iso'].endswith("Z")
+        spy_holdings = next(item for item in retrieved_holdings if item.symbol == 'SPY')
+        assert spy_holdings.quantity == Decimal("999999.999999")  # Large quantity preserved
+        assert spy_holdings.break_even_price == Decimal("999999.99")  # Large price preserved
+        assert spy_holdings.total_cost == Decimal("999999999998.99")  # Large cost preserved
+        assert spy_holdings.notes == "Massive position"  # Trimmed
+        assert spy_holdings.created_at is not None  # Auto-generated
+        assert spy_holdings.updated_at is not None  # Auto-generated
+        assert isinstance(spy_holdings.created_at, datetime)
+        assert isinstance(spy_holdings.updated_at, datetime)
     
     def test_cross_model_data_consistency(self, temp_db):
         """
@@ -332,16 +332,16 @@ class TestDataRoundtrip:
         holdings_results = get_all_holdings(temp_db)
         
         # Verify all results are for AAPL and contain expected data
-        assert len(news_results) == 1 and news_results[0]['symbol'] == symbol
-        assert len(price_results) == 1 and price_results[0]['symbol'] == symbol  
-        assert len(analysis_results) == 1 and analysis_results[0]['symbol'] == symbol
-        assert len(holdings_results) == 1 and holdings_results[0]['symbol'] == symbol
+        assert len(news_results) == 1 and news_results[0].symbol == symbol
+        assert len(price_results) == 1 and price_results[0].symbol == symbol  
+        assert len(analysis_results) == 1 and analysis_results[0].symbol == symbol
+        assert len(holdings_results) == 1 and holdings_results[0].symbol == symbol
         
         # Verify specific values match what we stored
-        assert news_results[0]['headline'] == "AAPL News"
-        assert price_results[0]['price'] == "150.00"
-        assert analysis_results[0]['stance'] == "BULL"
-        assert holdings_results[0]['quantity'] == "100"
+        assert news_results[0].headline == "AAPL News"
+        assert price_results[0].price == Decimal("150.00")
+        assert analysis_results[0].stance == Stance.BULL
+        assert holdings_results[0].quantity == Decimal("100")
 
     def test_upsert_invariants(self, temp_db):
         """
@@ -370,13 +370,13 @@ class TestDataRoundtrip:
         upsert_holdings(temp_db, initial_holdings)
         
         # Verify initial storage
-        holdings_results = [h for h in get_all_holdings(temp_db) if h['symbol'] == 'TEST']
+        holdings_results = [h for h in get_all_holdings(temp_db) if h.symbol == 'TEST']
         assert len(holdings_results) == 1
         initial_stored = holdings_results[0]
-        assert initial_stored['created_at_iso'] == "2024-01-15T10:00:00Z"
-        assert initial_stored['updated_at_iso'] == "2024-01-15T10:00:00Z"
-        assert initial_stored['quantity'] == "100"
-        assert initial_stored['notes'] == "Initial position"
+        assert initial_stored.created_at == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        assert initial_stored.updated_at == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        assert initial_stored.quantity == Decimal("100")
+        assert initial_stored.notes == "Initial position"
         
         # 2. Update the Holdings (same symbol, different values)
         updated_holdings = Holdings(
@@ -391,19 +391,19 @@ class TestDataRoundtrip:
         upsert_holdings(temp_db, updated_holdings)
         
         # 3. Verify upsert behavior
-        holdings_results = [h for h in get_all_holdings(temp_db) if h['symbol'] == 'TEST']
+        holdings_results = [h for h in get_all_holdings(temp_db) if h.symbol == 'TEST']
         assert len(holdings_results) == 1, "Should still be only one record after upsert"
         
         updated_stored = holdings_results[0]
         # created_at should be PRESERVED (not changed to update_time)
-        assert updated_stored['created_at_iso'] == "2024-01-15T10:00:00Z", "created_at should be preserved during upsert"
+        assert updated_stored.created_at == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc), "created_at should be preserved during upsert"
         # updated_at should be ADVANCED (changed to update_time)  
-        assert updated_stored['updated_at_iso'] == "2024-01-15T11:00:00Z", "updated_at should advance during upsert"
+        assert updated_stored.updated_at == datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc), "updated_at should advance during upsert"
         # Other fields should be updated
-        assert updated_stored['quantity'] == "150", "quantity should be updated"
-        assert updated_stored['break_even_price'] == "45.00", "break_even_price should be updated"  
-        assert updated_stored['total_cost'] == "6750.00", "total_cost should be updated"
-        assert updated_stored['notes'] == "Updated position", "notes should be updated"
+        assert updated_stored.quantity == Decimal("150"), "quantity should be updated"
+        assert updated_stored.break_even_price == Decimal("45.00"), "break_even_price should be updated"  
+        assert updated_stored.total_cost == Decimal("6750.00"), "total_cost should be updated"
+        assert updated_stored.notes == "Updated position", "notes should be updated"
         
         # TEST ANALYSIS RESULT UPSERT BEHAVIOR
         
@@ -424,10 +424,10 @@ class TestDataRoundtrip:
         analysis_results = get_analysis_results(temp_db, "TEST")
         assert len(analysis_results) == 1
         initial_analysis_stored = analysis_results[0]
-        assert initial_analysis_stored['created_at_iso'] == "2024-01-15T10:00:00Z"
-        assert initial_analysis_stored['last_updated_iso'] == "2024-01-15T10:00:00Z"
-        assert initial_analysis_stored['stance'] == "BULL"
-        assert initial_analysis_stored['confidence_score'] == 0.8
+        assert initial_analysis_stored.created_at == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        assert initial_analysis_stored.last_updated == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        assert initial_analysis_stored.stance == Stance.BULL
+        assert initial_analysis_stored.confidence_score == 0.8
         
         # 2. Update the AnalysisResult (same symbol+analysis_type, different values)
         updated_analysis = AnalysisResult(
@@ -448,14 +448,14 @@ class TestDataRoundtrip:
         
         updated_analysis_stored = analysis_results[0]
         # created_at should be PRESERVED (not changed to update_time)
-        assert updated_analysis_stored['created_at_iso'] == "2024-01-15T10:00:00Z", "created_at should be preserved during upsert"
+        assert updated_analysis_stored.created_at == datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc), "created_at should be preserved during upsert"
         # last_updated should be ADVANCED (changed to update_time)
-        assert updated_analysis_stored['last_updated_iso'] == "2024-01-15T11:00:00Z", "last_updated should advance during upsert"
+        assert updated_analysis_stored.last_updated == datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc), "last_updated should advance during upsert"
         # Other fields should be updated
-        assert updated_analysis_stored['model_name'] == "updated-model", "model_name should be updated"
-        assert updated_analysis_stored['stance'] == "BEAR", "stance should be updated"
-        assert updated_analysis_stored['confidence_score'] == 0.6, "confidence_score should be updated"
-        assert updated_analysis_stored['result_json'] == '{"updated": "analysis"}', "result_json should be updated"
+        assert updated_analysis_stored.model_name == "updated-model", "model_name should be updated"
+        assert updated_analysis_stored.stance == Stance.BEAR, "stance should be updated"
+        assert updated_analysis_stored.confidence_score == 0.6, "confidence_score should be updated"
+        assert updated_analysis_stored.result_json == '{"updated": "analysis"}', "result_json should be updated"
 
     def test_duplicate_price_prevention(self, temp_db):
         """
@@ -482,12 +482,12 @@ class TestDataRoundtrip:
         
         # Verify first price is stored
         price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
-                        if p['symbol'] == 'DUP_TEST']
+                        if p.symbol == 'DUP_TEST']
         assert len(price_results) == 1, "First price should be stored"
         stored_price = price_results[0]
-        assert stored_price['price'] == "100.00", "First price should be 100.00"
-        assert stored_price['volume'] == 1000, "First volume should be 1000"
-        assert stored_price['timestamp_iso'] == "2024-01-15T14:30:00Z", "Timestamp should match"
+        assert stored_price.price == Decimal("100.00"), "First price should be 100.00"
+        assert stored_price.volume == 1000, "First volume should be 1000"
+        assert stored_price.timestamp == datetime(2024, 1, 15, 14, 30, tzinfo=timezone.utc), "Timestamp should match"
         
         # 2. Attempt to store duplicate price data (same symbol + timestamp, different values)
         duplicate_price = [PriceData(
@@ -501,15 +501,15 @@ class TestDataRoundtrip:
         
         # 3. Verify duplicate was ignored - still only one record with original values
         price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
-                        if p['symbol'] == 'DUP_TEST']
+                        if p.symbol == 'DUP_TEST']
         assert len(price_results) == 1, "Should still be only one price record after duplicate attempt"
         
         preserved_price = price_results[0]
         # Original values should be preserved (duplicate ignored)
-        assert preserved_price['price'] == "100.00", "Original price should be preserved (duplicate ignored)"
-        assert preserved_price['volume'] == 1000, "Original volume should be preserved (duplicate ignored)"
-        assert preserved_price['session'] == "REG", "Original session should be preserved (duplicate ignored)"
-        assert preserved_price['timestamp_iso'] == "2024-01-15T14:30:00Z", "Original timestamp should be preserved"
+        assert preserved_price.price == Decimal("100.00"), "Original price should be preserved (duplicate ignored)"
+        assert preserved_price.volume == 1000, "Original volume should be preserved (duplicate ignored)"
+        assert preserved_price.session.value == "REG", "Original session should be preserved (duplicate ignored)"
+        assert preserved_price.timestamp == datetime(2024, 1, 15, 14, 30, 0, tzinfo=timezone.utc), "Original timestamp should be preserved"
         
         # 4. Verify different timestamp for same symbol IS stored normally
         different_time_price = [PriceData(
@@ -523,23 +523,23 @@ class TestDataRoundtrip:
         
         # Should now have 2 records for the symbol
         price_results = [p for p in get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc)) 
-                        if p['symbol'] == 'DUP_TEST']
+                        if p.symbol == 'DUP_TEST']
         assert len(price_results) == 2, "Should now have 2 price records for different timestamps"
         
         # Sort by timestamp to verify both records
-        price_results.sort(key=lambda x: x['timestamp_iso'])
+        price_results.sort(key=lambda x: x.timestamp)
         
         first_record = price_results[0]  # Earlier timestamp
-        assert first_record['timestamp_iso'] == "2024-01-15T14:30:00Z"
-        assert first_record['price'] == "100.00"
-        assert first_record['volume'] == 1000
-        assert first_record['session'] == "REG"
+        assert first_record.timestamp == datetime(2024, 1, 15, 14, 30, 0, tzinfo=timezone.utc)
+        assert first_record.price == Decimal("100.00")
+        assert first_record.volume == 1000
+        assert first_record.session == Session.REG
         
         second_record = price_results[1]  # Later timestamp
-        assert second_record['timestamp_iso'] == "2024-01-15T14:31:00Z"
-        assert second_record['price'] == "150.00"  
-        assert second_record['volume'] == 1500
-        assert second_record['session'] == "PRE"
+        assert second_record.timestamp == datetime(2024, 1, 15, 14, 31, 0, tzinfo=timezone.utc)
+        assert second_record.price == Decimal("150.00")  
+        assert second_record.volume == 1500
+        assert second_record.session == Session.PRE
         
         # 5. Test duplicate prevention across different symbols (should NOT prevent storage)
         different_symbol_price = [PriceData(
@@ -553,15 +553,15 @@ class TestDataRoundtrip:
         
         # Should now have 3 total records (2 for DUP_TEST, 1 for DIFFERENT_SYMBOL)
         all_price_results = get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))
-        dup_test_results = [p for p in all_price_results if p['symbol'] == 'DUP_TEST']
-        different_symbol_results = [p for p in all_price_results if p['symbol'] == 'DIFFERENT_SYMBOL']
+        dup_test_results = [p for p in all_price_results if p.symbol == 'DUP_TEST']
+        different_symbol_results = [p for p in all_price_results if p.symbol == 'DIFFERENT_SYMBOL']
         
         assert len(dup_test_results) == 2, "Should still have 2 records for DUP_TEST"
         assert len(different_symbol_results) == 1, "Should have 1 record for DIFFERENT_SYMBOL"
         
         # Verify the different symbol record was stored correctly
         diff_symbol_record = different_symbol_results[0]
-        assert diff_symbol_record['price'] == "300.00"
-        assert diff_symbol_record['volume'] == 3000
-        assert diff_symbol_record['session'] == "POST"
-        assert diff_symbol_record['timestamp_iso'] == "2024-01-15T14:30:00Z"
+        assert diff_symbol_record.price == Decimal("300.00")
+        assert diff_symbol_record.volume == 3000
+        assert diff_symbol_record.session == Session.POST
+        assert diff_symbol_record.timestamp == datetime(2024, 1, 15, 14, 30, 0, tzinfo=timezone.utc)

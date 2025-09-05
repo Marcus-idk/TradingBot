@@ -504,18 +504,17 @@ class TestQueryOperations:
         assert len(results) == 2, f"Expected 2 results, got {len(results)}"
         
         # Verify results are ordered by published time
-        assert results[0]['headline'] == "Recent News"
-        assert results[1]['headline'] == "Tesla News"
+        assert results[0].headline == "Recent News"
+        assert results[1].headline == "Tesla News"
         
         # Verify all expected fields are present
         for result in results:
-            assert 'symbol' in result
-            assert 'url' in result
-            assert 'headline' in result
-            assert 'content' in result
-            assert 'published_iso' in result
-            assert 'source' in result
-            assert 'created_at_iso' in result
+            assert hasattr(result, 'symbol')
+            assert hasattr(result, 'url')
+            assert hasattr(result, 'headline')
+            assert hasattr(result, 'content')
+            assert hasattr(result, 'published')
+            assert hasattr(result, 'source')
     
     def test_get_price_data_since_ordering(self, temp_db):
         """Test price data retrieval with proper ordering"""
@@ -550,18 +549,17 @@ class TestQueryOperations:
         assert len(results) == 3, f"Expected 3 results, got {len(results)}"
         
         # Verify chronological ordering
-        assert results[0]['timestamp_iso'] == "2024-01-15T09:00:00Z"
-        assert results[1]['timestamp_iso'] == "2024-01-15T10:00:00Z"
-        assert results[2]['timestamp_iso'] == "2024-01-15T11:00:00Z"
+        assert results[0].timestamp == datetime(2024, 1, 15, 9, 0, tzinfo=timezone.utc)
+        assert results[1].timestamp == datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        assert results[2].timestamp == datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc)
         
         # Verify all fields present
         for result in results:
-            assert 'symbol' in result
-            assert 'timestamp_iso' in result
-            assert 'price' in result
-            assert 'volume' in result
-            assert 'session' in result
-            assert 'created_at_iso' in result
+            assert hasattr(result, 'symbol')
+            assert hasattr(result, 'timestamp')
+            assert hasattr(result, 'price')
+            assert hasattr(result, 'volume')
+            assert hasattr(result, 'session')
     
     def test_get_all_holdings_ordering(self, temp_db):
         """Test holdings retrieval with symbol ordering"""
@@ -596,18 +594,18 @@ class TestQueryOperations:
         assert len(results) == 3, f"Expected 3 results, got {len(results)}"
         
         # Verify alphabetical symbol ordering
-        symbols = [result['symbol'] for result in results]
+        symbols = [result.symbol for result in results]
         assert symbols == ['AAPL', 'MSFT', 'TSLA'], f"Expected alphabetical order, got {symbols}"
         
         # Verify all fields present
         for result in results:
-            assert 'symbol' in result
-            assert 'quantity' in result
-            assert 'break_even_price' in result
-            assert 'total_cost' in result
-            assert 'notes' in result
-            assert 'created_at_iso' in result
-            assert 'updated_at_iso' in result
+            assert hasattr(result, 'symbol')
+            assert hasattr(result, 'quantity')
+            assert hasattr(result, 'break_even_price')
+            assert hasattr(result, 'total_cost')
+            assert hasattr(result, 'notes')
+            assert hasattr(result, 'created_at')
+            assert hasattr(result, 'updated_at')
     
     def test_get_analysis_results_symbol_filtering(self, temp_db):
         """Test analysis results retrieval with optional symbol filtering"""
@@ -651,14 +649,14 @@ class TestQueryOperations:
         
         # Verify correct symbol filtering
         for result in aapl_results:
-            assert result['symbol'] == "AAPL"
+            assert result.symbol == "AAPL"
         
         # Test getting all results (no filter)
         all_results = get_analysis_results(temp_db)
         assert len(all_results) == 3, f"Expected 3 total results, got {len(all_results)}"
         
         # Verify ordering (symbol ASC, analysis_type ASC)
-        symbols_and_types = [(r['symbol'], r['analysis_type']) for r in all_results]
+        symbols_and_types = [(r.symbol, r.analysis_type.value) for r in all_results]
         expected = [('AAPL', 'news_analysis'), ('AAPL', 'sentiment_analysis'), ('TSLA', 'news_analysis')]
         assert symbols_and_types == expected, f"Expected {expected}, got {symbols_and_types}"
 

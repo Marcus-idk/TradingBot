@@ -48,8 +48,8 @@ class TestWALSqlite:
         # Verify data was stored successfully (WAL mode working)
         results = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))
         assert len(results) == 1
-        assert results[0]['symbol'] == "TEST"
-        assert results[0]['headline'] == "WAL Test"
+        assert results[0].symbol == "TEST"
+        assert results[0].headline == "WAL Test"
 
     def test_concurrent_operations_with_wal(self, temp_db):
         """
@@ -248,18 +248,18 @@ class TestWALSqlite:
         final_analysis = get_analysis_results(temp_db)
         
         # Should have data for each symbol from each thread batch
-        news_symbols = {item['symbol'] for item in final_news}
-        price_symbols = {item['symbol'] for item in final_prices}
-        analysis_symbols = {item['symbol'] for item in final_analysis}
+        news_symbols = {item.symbol for item in final_news}
+        price_symbols = {item.symbol for item in final_prices}
+        analysis_symbols = {item.symbol for item in final_analysis}
         
         assert len(news_symbols) >= 4, f"Expected news for multiple symbols, got {len(news_symbols)}: {news_symbols}"
         assert len(price_symbols) >= 4, f"Expected price data for multiple symbols, got {len(price_symbols)}: {price_symbols}"
         assert len(analysis_symbols) >= 4, f"Expected analysis for multiple symbols, got {len(analysis_symbols)}: {analysis_symbols}"
         
         # 4. Test specific data integrity for one symbol
-        aapl_news = [item for item in final_news if item['symbol'] == 'AAPL']
-        aapl_prices = [item for item in final_prices if item['symbol'] == 'AAPL']
-        aapl_analysis = [item for item in final_analysis if item['symbol'] == 'AAPL']
+        aapl_news = [item for item in final_news if item.symbol == 'AAPL']
+        aapl_prices = [item for item in final_prices if item.symbol == 'AAPL']
+        aapl_analysis = [item for item in final_analysis if item.symbol == 'AAPL']
         
         assert len(aapl_news) > 0, "AAPL news should be stored"
         assert len(aapl_prices) > 0, "AAPL price data should be stored"
@@ -267,9 +267,9 @@ class TestWALSqlite:
         
         # Verify specific AAPL data integrity
         aapl_price = aapl_prices[0]
-        assert aapl_price['symbol'] == 'AAPL'
-        assert aapl_price['session'] == 'REG'
-        assert aapl_price['volume'] is not None and aapl_price['volume'] > 0
+        assert aapl_price.symbol == 'AAPL'
+        assert aapl_price.session == Session.REG
+        assert aapl_price.volume is not None and aapl_price.volume > 0
         
         # 5. Performance verification - Log execution time for monitoring
         # Note: No hard timeout - CI environments vary in performance

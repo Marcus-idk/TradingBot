@@ -10,7 +10,10 @@ from decimal import Decimal
 from typing import List, Dict, Optional
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-from .models import NewsItem, PriceData, AnalysisResult, Holdings
+from .models import (
+    NewsItem, PriceData, AnalysisResult, Holdings,
+    Session, Stance, AnalysisType
+)
 
 
 def _normalize_url(url: str) -> str:
@@ -66,6 +69,67 @@ def _check_json1_support(conn: sqlite3.Connection) -> bool:
         return True
     except sqlite3.OperationalError:
         return False
+
+
+def _row_to_news_item(row: dict) -> NewsItem:
+    """Convert database row to NewsItem model."""
+    return NewsItem(
+        symbol=row['symbol'],
+        url=row['url'],
+        headline=row['headline'],
+        published=datetime.fromisoformat(row['published_iso'].replace('Z', '+00:00')),
+        source=row['source'],
+        content=row.get('content')
+    )
+
+
+def _row_to_price_data(row: dict) -> PriceData:
+    """Convert database row to PriceData model."""
+    return PriceData(
+        symbol=row['symbol'],
+        timestamp=datetime.fromisoformat(row['timestamp_iso'].replace('Z', '+00:00')),
+        price=Decimal(row['price']),
+        volume=row.get('volume'),
+        session=Session(row['session'])
+    )
+
+
+def _row_to_analysis_result(row: dict) -> AnalysisResult:
+    """Convert database row to AnalysisResult model."""
+    created_at = None
+    if 'created_at_iso' in row and row['created_at_iso']:
+        created_at = datetime.fromisoformat(row['created_at_iso'].replace('Z', '+00:00'))
+    
+    return AnalysisResult(
+        symbol=row['symbol'],
+        analysis_type=AnalysisType(row['analysis_type']),
+        model_name=row['model_name'],
+        stance=Stance(row['stance']),
+        confidence_score=float(row['confidence_score']),
+        last_updated=datetime.fromisoformat(row['last_updated_iso'].replace('Z', '+00:00')),
+        result_json=row['result_json'],
+        created_at=created_at
+    )
+
+
+def _row_to_holdings(row: dict) -> Holdings:
+    """Convert database row to Holdings model."""
+    created_at = None
+    updated_at = None
+    if 'created_at_iso' in row and row['created_at_iso']:
+        created_at = datetime.fromisoformat(row['created_at_iso'].replace('Z', '+00:00'))
+    if 'updated_at_iso' in row and row['updated_at_iso']:
+        updated_at = datetime.fromisoformat(row['updated_at_iso'].replace('Z', '+00:00'))
+    
+    return Holdings(
+        symbol=row['symbol'],
+        quantity=Decimal(row['quantity']),
+        break_even_price=Decimal(row['break_even_price']),
+        total_cost=Decimal(row['total_cost']),
+        notes=row.get('notes'),
+        created_at=created_at,
+        updated_at=updated_at
+    )
 
 
 def init_database(db_path: str) -> None:
@@ -183,10 +247,10 @@ def store_price_data(db_path: str, items: List[PriceData]) -> None:
         conn.commit()
 
 
-def get_news_since(db_path: str, timestamp: datetime) -> List[Dict]:
+def get_news_since(db_path: str, timestamp: datetime) -> List[NewsItem]:
     """
     Retrieve news items since the given timestamp.
-    Returns raw dictionaries for flexible processing.
+    Returns NewsItem model objects with datetime fields in UTC.
     """
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row  # Enable dict-like access
@@ -199,13 +263,13 @@ def get_news_since(db_path: str, timestamp: datetime) -> List[Dict]:
             ORDER BY published_iso ASC
         """, (_datetime_to_iso(timestamp),))
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
 
 
-def get_price_data_since(db_path: str, timestamp: datetime) -> List[Dict]:
+def get_price_data_since(db_path: str, timestamp: datetime) -> List[PriceData]:
     """
     Retrieve price data since the given timestamp.
-    Returns raw dictionaries for flexible processing.
+    Returns PriceData model objects with datetime fields in UTC.
     """
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row  # Enable dict-like access
@@ -218,7 +282,7 @@ def get_price_data_since(db_path: str, timestamp: datetime) -> List[Dict]:
             ORDER BY timestamp_iso ASC
         """, (_datetime_to_iso(timestamp),))
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_price_data(dict(row)) for row in cursor.fetchall()]
 
 
 def upsert_analysis_result(db_path: str, result: AnalysisResult) -> None:
@@ -300,10 +364,10 @@ def upsert_holdings(db_path: str, holdings: Holdings) -> None:
         conn.commit()
 
 
-def get_all_holdings(db_path: str) -> List[Dict]:
+def get_all_holdings(db_path: str) -> List[Holdings]:
     """
     Retrieve all current holdings.
-    Returns raw dictionaries for flexible processing.
+    Returns Holdings model objects with datetime fields in UTC.
     """
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
@@ -316,13 +380,13 @@ def get_all_holdings(db_path: str) -> List[Dict]:
             ORDER BY symbol ASC
         """)
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_holdings(dict(row)) for row in cursor.fetchall()]
 
 
-def get_analysis_results(db_path: str, symbol: str = None) -> List[Dict]:
+def get_analysis_results(db_path: str, symbol: str = None) -> List[AnalysisResult]:
     """
     Retrieve analysis results, optionally filtered by symbol.
-    Returns raw dictionaries for flexible processing.
+    Returns AnalysisResult model objects with datetime fields in UTC.
     """
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
@@ -344,7 +408,7 @@ def get_analysis_results(db_path: str, symbol: str = None) -> List[Dict]:
                 ORDER BY symbol ASC, analysis_type ASC
             """)
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_analysis_result(dict(row)) for row in cursor.fetchall()]
 
 
 # ===============================
@@ -396,8 +460,8 @@ def get_last_news_time(db_path: str) -> Optional[datetime]:
     """
     value = get_last_seen(db_path, 'news_since_iso')
     if value:
-        # Parse ISO string to datetime and force UTC
-        return datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(timezone.utc)
+        # Parse ISO string to datetime
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
     return None
 
 
@@ -411,7 +475,7 @@ def set_last_news_time(db_path: str, timestamp: datetime) -> None:
     iso_str = _datetime_to_iso(timestamp)
     set_last_seen(db_path, 'news_since_iso', iso_str)
 
-def get_news_before(db_path: str, cutoff: datetime) -> List[Dict]:
+def get_news_before(db_path: str, cutoff: datetime) -> List[NewsItem]:
     """
     Get news items created at or before the cutoff for LLM processing.
     
@@ -419,7 +483,7 @@ def get_news_before(db_path: str, cutoff: datetime) -> List[Dict]:
         cutoff: Include items with created_at_iso <= this timestamp
         
     Returns:
-        List of news items as dictionaries
+        List of NewsItem model objects with datetime fields in UTC
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with sqlite3.connect(db_path) as conn:
@@ -433,10 +497,10 @@ def get_news_before(db_path: str, cutoff: datetime) -> List[Dict]:
             ORDER BY created_at_iso ASC, symbol ASC
         """, (iso_cutoff,))
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
 
 
-def get_prices_before(db_path: str, cutoff: datetime) -> List[Dict]:
+def get_prices_before(db_path: str, cutoff: datetime) -> List[PriceData]:
     """
     Get price data created at or before the cutoff for LLM processing.
     
@@ -444,7 +508,7 @@ def get_prices_before(db_path: str, cutoff: datetime) -> List[Dict]:
         cutoff: Include items with created_at_iso <= this timestamp
         
     Returns:
-        List of price data as dictionaries
+        List of PriceData model objects with datetime fields in UTC
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with sqlite3.connect(db_path) as conn:
@@ -458,7 +522,7 @@ def get_prices_before(db_path: str, cutoff: datetime) -> List[Dict]:
             ORDER BY created_at_iso ASC, symbol ASC
         """, (iso_cutoff,))
         
-        return [dict(row) for row in cursor.fetchall()]
+        return [_row_to_price_data(dict(row)) for row in cursor.fetchall()]
 
 
 def commit_llm_batch(db_path: str, cutoff: datetime) -> Dict[str, int]:
