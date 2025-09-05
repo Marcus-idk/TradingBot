@@ -396,9 +396,8 @@ def get_last_news_time(db_path: str) -> Optional[datetime]:
     """
     value = get_last_seen(db_path, 'news_since_iso')
     if value:
-        # Parse ISO string to datetime
-        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
-        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+        # Parse ISO string to datetime and force UTC
+        return datetime.fromisoformat(value.replace('Z', '+00:00')).astimezone(timezone.utc)
     return None
 
 

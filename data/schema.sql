@@ -78,7 +78,7 @@ CREATE TABLE holdings (
 -- Tracks incremental fetch positions and processing cutoffs
 
 CREATE TABLE last_seen (
-    key TEXT PRIMARY KEY,
+    key TEXT PRIMARY KEY CHECK(key IN ('news_since_iso', 'llm_last_run_iso')),
     value TEXT NOT NULL
 ) WITHOUT ROWID;
 
