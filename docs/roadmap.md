@@ -209,6 +209,35 @@ data/
 
 ---
 
+## Future (Post‑v1.0)
+
+### Multi‑Agent Answer Refinement (No Debate)
+- Summary: 4 agents answer independently → each refines after seeing the other 3 → a separate judge picks the best (or synthesizes).
+- Step 1 (Independent): Ask 4 agents the same prompt; no cross‑visibility.
+- Step 2 (Cross‑refine): For each agent, provide the other 3 answers and instruct: “Improve yours using correct points you see; keep your reasoning if you disagree.”
+- Step 3 (Judge): Give the 4 refined answers to a separate judge model (ideally different family). Judge scores with a rubric and selects the best.
+
+Judge rubric (score each 0–5):
+- Correctness: aligns with provided/verified facts.
+- Evidence use: references data, IDs, or citations when available.
+- Logical validity: clear, non‑contradictory reasoning tied to the conclusion.
+- Completeness: covers key angles relevant to the question.
+- Calibration: sensible confidence; flags uncertainty.
+
+Parameter exploration (for future brainstorming):
+- Model diversity: mix providers/families (judge different from agents).
+- Decoding: temperature, top‑p, top‑k, max tokens, beam/nucleus variants.
+- Roles: news, filings, sentiment, skeptic; prompt variants per role.
+- Tool usage: retrieval on/off, constrained tools, schema validators.
+- Sampling: k>1 per agent with self‑consistency selection.
+- Cost/latency: early exit on strong consensus; cache; smaller specialists + stronger judge.
+
+Integration notes:
+- Maps to v0.3 specialists feeding a “Head Trader” judge.
+- Keep outputs structured (claims, reason, confidence, assumptions, citations/IDs) for validation.
+
+---
+
 ## Testing Overview (Current)
 - Layout: unit tests under `tests/unit/`; integration tests under `tests/integration/`.
 - Markers: `integration`, `network` (see `pytest.ini`).
