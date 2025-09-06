@@ -84,7 +84,6 @@ class FinnhubNewsProvider(NewsDataSource):
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
         
-    
     async def validate_connection(self) -> bool:
         """
         Test connection by fetching quote for SPY (always available).

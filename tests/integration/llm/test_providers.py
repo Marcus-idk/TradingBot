@@ -30,8 +30,8 @@ def extract_hex64(s: str) -> str:
 async def test_openai():
     try:
         openai_settings = OpenAISettings.from_env()
-    except ValueError as e:
-        pytest.fail(str(e))
+    except ValueError:
+        pytest.skip("OPENAI_API_KEY not set, skipping live test")
 
     provider = OpenAIProvider(settings=openai_settings, model_name="gpt-5")
     assert await provider.validate_connection()
@@ -44,8 +44,8 @@ async def test_openai():
 async def test_gemini():
     try:
         gemini_settings = GeminiSettings.from_env()
-    except ValueError as e:
-        pytest.fail(str(e))
+    except ValueError:
+        pytest.skip("GEMINI_API_KEY not set, skipping live test")
 
     provider = GeminiProvider(settings=gemini_settings, model_name="gemini-2.5-flash")
     assert await provider.validate_connection()
@@ -59,8 +59,8 @@ async def test_gemini():
 async def test_openai_tools_hash():
     try:
         openai_settings = OpenAISettings.from_env()
-    except ValueError as e:
-        pytest.fail(str(e))
+    except ValueError:
+        pytest.skip("OPENAI_API_KEY not set, skipping live test")
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
@@ -89,8 +89,8 @@ async def test_openai_tools_hash():
 async def test_gemini_tools_hash():
     try:
         gemini_settings = GeminiSettings.from_env()
-    except ValueError as e:
-        pytest.fail(str(e))
+    except ValueError:
+        pytest.skip("GEMINI_API_KEY not set, skipping live test")
 
     b64, expected_sha = make_base64_blob(4)
     prompt = (
