@@ -1,6 +1,6 @@
 """
 Tests for utils.http module (get_json_with_retry).
-Use monkeypatch to stub httpx.get; count calls; simulate status codes and JSON.
+Use mock_http_client fixture to stub AsyncClient; count calls; simulate status codes and JSON.
 """
 
 import pytest
@@ -387,7 +387,7 @@ class TestGetJsonWithRetry:
     
     @pytest.mark.asyncio
     async def test_timeout_arg_is_forwarded(self, mock_http_client):
-        """Test that timeout parameter is forwarded to httpx.get"""
+        """Test that timeout parameter is forwarded to AsyncClient"""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"ok": True}
