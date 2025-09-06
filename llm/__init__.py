@@ -3,9 +3,9 @@ LLM module for TradingBot.
 Provides clean API for various LLM providers.
 """
 
-from .base import LLMProvider
-from .providers.openai import OpenAIProvider
-from .providers.gemini import GeminiProvider
+from llm.base import LLMProvider
+from llm.providers.openai import OpenAIProvider
+from llm.providers.gemini import GeminiProvider
 
 __all__ = [
     'LLMProvider',

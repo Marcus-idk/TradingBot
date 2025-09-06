@@ -12,7 +12,7 @@ from openai import (
     ConflictError
 )
 from typing import Optional, Union, List, Dict
-from ..base import LLMProvider, LLMError
+from llm.base import LLMProvider, LLMError
 from config.llm import OpenAISettings
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
 

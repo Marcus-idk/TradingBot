@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import os
 from typing import Optional, Mapping
-from ..retry import LLMRetryConfig, DEFAULT_LLM_RETRY
+from config.retry import LLMRetryConfig, DEFAULT_LLM_RETRY
 
 
 @dataclass(frozen=True)

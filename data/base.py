@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import datetime
 
-from .models import NewsItem, PriceData
+from data.models import NewsItem, PriceData
 
 
 class DataSource(ABC):

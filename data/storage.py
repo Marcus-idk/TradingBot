@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-from .models import (
+from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
     Session, Stance, AnalysisType
 )

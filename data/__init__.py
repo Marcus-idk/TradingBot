@@ -2,13 +2,13 @@
 # Components will be added as they're implemented
 
 # Core abstractions (available immediately)
-from .base import DataSource, NewsDataSource, PriceDataSource
+from data.base import DataSource, NewsDataSource, PriceDataSource
 
 # Data models
-from .models import NewsItem, PriceData, AnalysisResult, Holdings, Session, Stance, AnalysisType
+from data.models import NewsItem, PriceData, AnalysisResult, Holdings, Session, Stance, AnalysisType
 
 # Storage operations
-from .storage import (
+from data.storage import (
     init_database, finalize_database, store_news_items, store_price_data, 
     get_news_since, get_price_data_since, upsert_analysis_result,
     upsert_holdings, get_all_holdings, get_analysis_results,

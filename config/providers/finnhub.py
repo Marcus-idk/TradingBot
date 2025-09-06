@@ -4,7 +4,7 @@ Configuration settings for Finnhub API provider
 from dataclasses import dataclass
 import os
 from typing import Optional, Mapping
-from ..retry import DataRetryConfig, DEFAULT_DATA_RETRY
+from config.retry import DataRetryConfig, DEFAULT_DATA_RETRY
 
 @dataclass(frozen=True)
 class FinnhubSettings:
