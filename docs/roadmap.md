@@ -204,6 +204,7 @@ data/
 ## v1.0 — Complete Trading Bot 🎯 (Final Target)
 - Feature set: LLM providers (v0.1); data sources (v0.2+); agents/orchestration/scheduling (v0.3+); production infra (this phase)
 - Infra: Rate limiting; lightweight local ML filtering; data validation; circuit breakers; monitoring/health; DB optimization; redundant failover
+- **Logging framework**: Module-level loggers in all providers (`llm/providers/*.py`, `data/providers/*.py`, `utils/http.py`) for production visibility
 - Metrics: Beat buy-and-hold; 99%+ collection uptime; $10–$50/month; recommend-only (no auto-execution)
 - Stack: Python; GitHub Actions; clean architecture; async I/O
 

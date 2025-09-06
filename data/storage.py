@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Dict, Optional
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from importlib.resources import files
 
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings,
@@ -147,13 +148,8 @@ def init_database(db_path: str) -> None:
                 "To install: pip install pysqlite3-binary"
             )
     
-    # Read schema file
-    schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
-    if not os.path.exists(schema_path):
-        raise FileNotFoundError(f"Schema file not found: {schema_path}")
-    
-    with open(schema_path, 'r') as f:
-        schema_sql = f.read()
+    # Read schema file using importlib.resources (works in packages)
+    schema_sql = files('data').joinpath('schema.sql').read_text()
     
     # Execute schema
     with sqlite3.connect(db_path) as conn:

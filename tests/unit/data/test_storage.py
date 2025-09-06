@@ -49,13 +49,20 @@ class TestDatabaseInitialization:
             assert required_tables.issubset(tables), f"Required tables {required_tables} not found. Got: {tables}"
     
     def test_schema_file_not_found_raises_error(self, temp_db_path, monkeypatch):
-        """Test FileNotFoundError when schema.sql is missing"""
-        # Monkeypatch os.path.exists to simulate missing schema.sql
-        original_exists = os.path.exists
-        monkeypatch.setattr(os.path, 'exists', 
-            lambda path: False if 'schema.sql' in path else original_exists(path))
+        """Test error when schema.sql resource is missing"""
+        # Mock the files function directly in the storage module
+        def mock_files(package):
+            class MockPath:
+                def joinpath(self, name):
+                    return self
+                def read_text(self):
+                    raise FileNotFoundError("Resource 'schema.sql' not found in package 'data'")
+            return MockPath()
         
-        with pytest.raises(FileNotFoundError, match="Schema file not found"):
+        # Patch the files function in the storage module
+        monkeypatch.setattr('data.storage.files', mock_files)
+        
+        with pytest.raises(FileNotFoundError, match="schema.sql"):
             init_database(temp_db_path)
     
     def test_wal_mode_enabled(self, temp_db):
