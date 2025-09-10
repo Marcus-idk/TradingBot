@@ -74,6 +74,22 @@ async def main() -> int:
     
     logger.info(f"Tracking symbols: {', '.join(symbols)}")
     
+    # Get polling interval from environment (required, no defaults)
+    poll_interval_str = os.getenv("POLL_INTERVAL")
+    if not poll_interval_str:
+        logger.error("POLL_INTERVAL environment variable not set")
+        logger.error("Please set POLL_INTERVAL in .env (e.g., POLL_INTERVAL=300)")
+        return 1
+    
+    try:
+        poll_interval = int(poll_interval_str)
+    except ValueError:
+        logger.error(f"Invalid POLL_INTERVAL '{poll_interval_str}', must be an integer")
+        logger.error("Please provide a valid integer value (e.g., POLL_INTERVAL=300)")
+        return 1
+    
+    logger.info(f"Poll interval: {poll_interval} seconds")
+    
     # Create providers with the configured symbols
     news_provider = FinnhubNewsProvider(settings, symbols)
     price_provider = FinnhubPriceProvider(settings, symbols)
@@ -101,7 +117,8 @@ async def main() -> int:
     poller = DataPoller(
         db_path=db_path,
         news_providers=[news_provider],
-        price_providers=[price_provider]    # add more providers here
+        price_providers=[price_provider],    # add more providers here
+        poll_interval=poll_interval
     )
     
     # Setup signal handlers for graceful shutdown
@@ -112,7 +129,7 @@ async def main() -> int:
     logger.info("Trading Bot Data Poller Started")
     logger.info(f"Monitoring {len(symbols)} symbols: {', '.join(symbols)}")
     logger.info(f"Database: {db_path}")
-    logger.info(f"Poll interval: {DataPoller.POLL_INTERVAL}s")
+    logger.info(f"Poll interval: {poll_interval}s")
     logger.info("Press Ctrl+C to stop")
     logger.info("=" * 60)
     

@@ -27,14 +27,12 @@ class DataPoller:
     and graceful shutdown.
     """
     
-    # Hard-coded configuration
-    POLL_INTERVAL = 300  # 5 minutes
-    
     def __init__(
         self,
         db_path: str,
         news_providers: List[NewsDataSource],
-        price_providers: List[PriceDataSource]
+        price_providers: List[PriceDataSource],
+        poll_interval: int
     ):
         """
         Initialize the data poller.
@@ -43,12 +41,14 @@ class DataPoller:
             db_path: Path to SQLite database
             news_providers: List of news provider instances
             price_providers: List of price provider instances
+            poll_interval: Polling interval in seconds
         """
         self.db_path = db_path
         self.news_providers = news_providers
         self.price_providers = price_providers
-        self.poll_interval = self.POLL_INTERVAL
+        self.poll_interval = poll_interval
         self.running = False
+        self._stop_event = asyncio.Event()
     
     async def poll_once(self) -> Dict[str, Any]:
         """
@@ -171,12 +171,22 @@ class DataPoller:
             if self.running and sleep_time > 0:
                 logger.info(f"Next poll in {sleep_time:.1f} seconds...")
                 try:
-                    await asyncio.sleep(sleep_time)
+                    # Wait for either the timeout or stop event
+                    await asyncio.wait_for(
+                        self._stop_event.wait(),
+                        timeout=sleep_time
+                    )
+                    # If we get here, stop was requested
+                    logger.info("Stop event received during wait")
+                    break
+                except asyncio.TimeoutError:
+                    # Normal timeout, continue to next cycle
+                    pass
                 except asyncio.CancelledError:
-                    logger.info("Sleep interrupted, checking running status...")
-                    if not self.running:
-                        break
+                    logger.info("Wait cancelled, exiting...")
+                    break
     
     def stop(self):
         logger.info("Stopping poller...")
         self.running = False
+        self._stop_event.set()

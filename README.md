@@ -15,6 +15,12 @@ A lightweight US equities trading bot skeleton with strict data models, SQLite s
 - **Test Guide**: Where to write tests, naming conventions, and organizational patterns
   - [docs/Test_Guide.md](docs/Test_Guide.md)
   
+- **Writing Code**: Guidelines for code style, conventions, and best practices
+  - [docs/Writing_Code.md](docs/Writing_Code.md)
+  
+- **Reviewing Code**: Code review checklist and review process guidelines
+  - [docs/Reviewing_Code.md](docs/Reviewing_Code.md)
+  
 - **Data API Reference**: External data sources (Finnhub, Polygon, SEC EDGAR, RSS, Reddit) with rate limits and coverage
   - [docs/Data_API_Reference.md](docs/Data_API_Reference.md)
   

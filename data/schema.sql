@@ -16,7 +16,7 @@ PRAGMA synchronous = NORMAL;      -- Fast writes for GitHub Actions (vs painfull
 -- IMPORTANT: URLs must be normalized before storage to enable cross-provider deduplication
 -- Strip tracking parameters: ?utm_source=, ?ref=, ?fbclid=, etc.
 -- Example: "https://reuters.com/article/123?utm_source=finnhub" → "https://reuters.com/article/123"
-CREATE TABLE news_items (
+CREATE TABLE IF NOT EXISTS news_items (
     symbol TEXT NOT NULL,
     url TEXT NOT NULL,                  -- NORMALIZED URL (tracking params stripped)
     headline TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE news_items (
 ) WITHOUT ROWID;
 
 -- Price Data (30-minute staging)
-CREATE TABLE price_data (
+CREATE TABLE IF NOT EXISTS price_data (
     symbol TEXT NOT NULL,
     timestamp_iso TEXT NOT NULL,        -- When the bar closed (UTC): "2024-01-15T10:30:00Z"
     price TEXT NOT NULL CHECK(CAST(price AS REAL) > 0), -- Close price (exact decimal as string)
@@ -44,7 +44,7 @@ CREATE TABLE price_data (
 -- LLM analysis results - NEVER deleted, only updated
 -- Each specialist LLM has one current view per symbol
 
-CREATE TABLE analysis_results (
+CREATE TABLE IF NOT EXISTS analysis_results (
     symbol TEXT NOT NULL,
     analysis_type TEXT NOT NULL CHECK(analysis_type IN ('news_analysis', 'sentiment_analysis', 'sec_filings', 'head_trader')),
     model_name TEXT NOT NULL,           -- "gpt-5", "gemini-2.5-flash"
@@ -61,7 +61,7 @@ CREATE TABLE analysis_results (
 -- ===============================
 -- Portfolio tracking with break-even calculations
 
-CREATE TABLE holdings (
+CREATE TABLE IF NOT EXISTS holdings (
     symbol TEXT NOT NULL,
     quantity TEXT NOT NULL CHECK(CAST(quantity AS REAL) > 0), -- Position size (exact decimal as string)
     break_even_price TEXT NOT NULL CHECK(CAST(break_even_price AS REAL) > 0), -- Break even price (exact decimal as string)
@@ -77,7 +77,7 @@ CREATE TABLE holdings (
 -- ===============================
 -- Tracks incremental fetch positions and processing cutoffs
 
-CREATE TABLE last_seen (
+CREATE TABLE IF NOT EXISTS last_seen (
     key TEXT PRIMARY KEY CHECK(key IN ('news_since_iso', 'llm_last_run_iso')),
     value TEXT NOT NULL
 ) WITHOUT ROWID;

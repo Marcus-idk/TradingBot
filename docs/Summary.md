@@ -15,7 +15,7 @@ When updating this file, follow this checklist:
 ---
 
 ## Core Idea
-Framework for US equities data collection and LLM-ready storage. Current scope: strict UTC models, SQLite with constraints/dedup, LLM provider integrations (OpenAI, Gemini), and a 5‑minute Finnhub poller. Trading decisions are not implemented yet; session support exists but no ET conversion or trading engine is present.
+Framework for US equities data collection and LLM-ready storage. Current scope: strict UTC models, SQLite with constraints/dedup, LLM provider integrations (OpenAI, Gemini), and a configurable (5 mins for now) Finnhub poller. Trading decisions are not implemented yet; session support exists but no ET conversion or trading engine is present.
 
 ## Time Policy
 - Persistence: UTC everywhere (ISO `YYYY-MM-DDTHH:MM:SSZ`).
@@ -27,6 +27,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `GEMINI_API_KEY` - Required for Gemini LLM provider
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
 - `SYMBOLS` - Required for `run_poller.py`; comma-separated tickers (e.g., "AAPL,MSFT,TSLA")
+- `POLL_INTERVAL` - Required for `run_poller.py`; polling frequency in seconds (e.g., 300 for 5 minutes)
 
 ## Test Markers
 - `@pytest.mark.integration` - Integration tests requiring database/API setup
@@ -37,7 +38,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `main()` - Async entry point with signal handling
   - Uses `utils.logging.setup_logging()` for consistent logging
   - Uses `utils.signals.register_graceful_shutdown()` for SIGINT/SIGTERM
-  - Requires `SYMBOLS` and `FINNHUB_API_KEY` in environment
+  - Requires `SYMBOLS`, `POLL_INTERVAL`, and `FINNHUB_API_KEY` in environment
 
 ## Project Structure
 
@@ -97,9 +98,9 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 - `data/poller.py` - Data poller orchestration
   - `DataPoller` — Orchestrates multiple providers concurrently
-    - `__init__(db_path, news_providers: list[NewsDataSource], price_providers: list[PriceDataSource])`
+    - `__init__(db_path, news_providers: list[NewsDataSource], price_providers: list[PriceDataSource], poll_interval: int)`
     - `poll_once()` — Fetches news/prices; updates watermark to latest news publish time
-    - `run()` — 5‑minute loop with consistent-interval scheduling and graceful stop
+    - `run()` — Configurable interval loop with consistent-interval scheduling and graceful stop
     - `stop()` — Requests shutdown
 
 - `data/storage.py` - SQLite storage operations
@@ -141,8 +142,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `_row_to_holdings()` - Convert DB row to Holdings
 
 - `data/poller.py` - Data collection orchestration
-  - `DataPoller` - Manages 5-minute polling cycles
-    - `__init__()` - Initialize with database path and lists of providers
+  - `DataPoller` - Manages configurable polling cycles
+    - `__init__()` - Initialize with database path, lists of providers, and poll_interval
     - `poll_once()` - Execute single polling cycle for all providers concurrently
     - `run()` - Continuous polling loop with interval management
     - `stop()` - Graceful shutdown
@@ -236,6 +237,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `test_models.py` - Dataclass validation tests
     - `test_schema_*.py` - Database constraint tests (6 files)
     - `test_storage_*.py` - Storage function tests (12 files, split by feature)
+    - `test_poller.py` - DataPoller orchestrator tests (one-cycle store, watermark, errors)
     - `providers/test_finnhub.py` - Finnhub provider unit tests
     - `providers/test_finnhub_critical.py` - Critical error handling tests
   
