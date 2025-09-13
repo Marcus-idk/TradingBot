@@ -1,8 +1,8 @@
 """
 Market hours utilities for US equity markets.
 
-Handles session classification (pre-market, regular, after-hours) based on
-Eastern Time trading hours, with automatic DST handling.
+Handles session classification (pre-market, regular, after-hours, closed)
+based on Eastern Time trading hours, with automatic DST handling.
 """
 
 from datetime import datetime, timezone
@@ -25,7 +25,7 @@ def classify_us_session(ts_utc: datetime) -> Session:
         ts_utc: UTC-aware datetime timestamp
         
     Returns:
-        Session enum (PRE, REG, or POST)
+        Session enum (PRE, REG, POST, or CLOSED)
         
     Note:
         This is time-of-day logic only. Does not account for weekends,

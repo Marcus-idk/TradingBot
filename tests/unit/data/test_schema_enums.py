@@ -1,7 +1,8 @@
 """
-Database schema constraint tests.
+Database schema constraint tests and enum value locks.
 Tests database-level CHECK constraints by bypassing Python validation.
 Uses direct SQL operations to validate constraint enforcement.
+Also locks enum values to prevent breaking database changes.
 """
 
 import sqlite3
@@ -9,6 +10,52 @@ import gc
 import pytest
 
 from data.storage import init_database
+from data.models import Session, Stance, AnalysisType
+
+
+class TestEnumValueLocks:
+    """Test that enum values never change (would break database)."""
+    
+    def test_session_enum_values_unchanged(self):
+        """Lock Session enum values - these are stored in database."""
+        # These exact string values are persisted in the database
+        # Changing them would break all existing records
+        assert Session.REG.value == "REG"
+        assert Session.PRE.value == "PRE"
+        assert Session.POST.value == "POST"
+        assert Session.CLOSED.value == "CLOSED"
+        
+        # Verify enum has exactly these 4 values
+        assert len(Session) == 4
+        assert set(s.value for s in Session) == {"REG", "PRE", "POST", "CLOSED"}
+    
+    def test_stance_enum_values_unchanged(self):
+        """Lock Stance enum values - these are stored in database."""
+        # These exact string values are persisted in the database
+        # Changing them would break all existing records
+        assert Stance.BULL.value == "BULL"
+        assert Stance.BEAR.value == "BEAR"
+        assert Stance.NEUTRAL.value == "NEUTRAL"
+        
+        # Verify enum has exactly these 3 values
+        assert len(Stance) == 3
+        assert set(s.value for s in Stance) == {"BULL", "BEAR", "NEUTRAL"}
+    
+    def test_analysis_type_enum_values_unchanged(self):
+        """Lock AnalysisType enum values - these are stored in database."""
+        # These exact string values are persisted in the database
+        # Changing them would break all existing records
+        assert AnalysisType.NEWS_ANALYSIS.value == "news_analysis"
+        assert AnalysisType.SENTIMENT_ANALYSIS.value == "sentiment_analysis"
+        assert AnalysisType.SEC_FILINGS.value == "sec_filings"
+        assert AnalysisType.HEAD_TRADER.value == "head_trader"
+        
+        # Verify enum has exactly these 4 values
+        assert len(AnalysisType) == 4
+        assert set(a.value for a in AnalysisType) == {
+            "news_analysis", "sentiment_analysis", "sec_filings", "head_trader"
+        }
+
 
 class TestEnumConstraints:
     """Test enum value constraints."""

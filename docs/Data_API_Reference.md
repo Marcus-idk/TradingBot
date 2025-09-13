@@ -38,7 +38,12 @@ This document outlines the 5 data sources planned for US equities (stocks). Cryp
   - Method/Path: `GET /quote`
   - Params: `symbol` (ticker), `token` (API key)
   - Returns: object with keys `c` (current price), `h` (high), `l` (low), `o` (open), `pc` (prev close), `t` (epoch seconds), and often `d`, `dp`.
-  - Notes: We map `c→price` (must be > 0), `t→timestamp` (fallback to now if 0 — defensive), `volume=None`, `session=REG`.
+  - Notes:
+    - `c → price` (must be > 0; stored as Decimal text)
+    - `t → timestamp` (UTC; if missing/invalid/0, we fall back to current UTC defensively)
+    - `volume = None` (the `/quote` endpoint does not supply volume)
+    - `session = classify_us_session(timestamp)` using ET trading hours with DST handling via `zoneinfo` (`America/New_York`). Returns one of `{REG, PRE, POST, CLOSED}`.
+    - Database default for `session` remains `REG` for backward compatibility, but the provider supplies a classified value for all quotes.
 
 ---
 

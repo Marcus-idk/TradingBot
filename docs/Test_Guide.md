@@ -212,6 +212,8 @@ tests/integration/
 - [ ] Is the test file < 600 lines? (split if not)
 - [ ] Are test names descriptive?
 - [ ] Do enums have value lock tests?
+- [ ] Avoid duplicate assertions across layers (e.g., database default values
+      live in schema tests; don’t repeat the same default in model tests).
 - [ ] Are integration tests marked correctly?
 
 ## Example Patterns

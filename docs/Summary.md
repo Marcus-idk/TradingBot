@@ -28,7 +28,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
 - `SYMBOLS` - Required for `run_poller.py`; comma-separated tickers (e.g., "AAPL,MSFT,TSLA")
 - `POLL_INTERVAL` - Required for `run_poller.py`; polling frequency in seconds (e.g., 300 for 5 minutes)
- - `DATASETTE_PORT` - Optional, defaults to 8001; port used when launching web viewer with `-v/--with-viewer`
+- `DATASETTE_PORT` - Optional, defaults to 8001; port used when launching web viewer with `-v/--with-viewer`
 
 ## Test Markers
 - `@pytest.mark.integration` - Integration tests requiring database/API setup
@@ -253,6 +253,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `tests/unit/utils/` - Utils module tests
     - `test_http.py` - HTTP utility tests
     - `test_utils_retry.py` - Retry logic tests
+    - `test_market_hours.py` - Market hours session classification tests
 
 - `tests/integration/` - Integration tests (organized by workflow)
   - `tests/integration/data/` - Data integration tests

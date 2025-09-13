@@ -91,7 +91,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Ad‑hoc SQL queries in browser, quick CSV/JSON/JSONL exports
 
 **Dev UX**:
-- Install: `pip install datasette`
+- Install: `pip install datasette` (or `pip install -r requirements-dev.txt`)
 - Run: `datasette data/trading_bot.db -o` (opens browser)
 - Scope: local development (read‑only); do not expose publicly
 
