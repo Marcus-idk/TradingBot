@@ -60,8 +60,11 @@ class DataPoller:
         stats = {"news": 0, "prices": 0, "errors": []}
         
         try:
-            # Read watermark for incremental news fetching
-            last_news_time = get_last_news_time(self.db_path)
+            # Read watermark for incremental news fetching (offload blocking I/O)
+            last_news_time = await asyncio.to_thread(
+                get_last_news_time,
+                self.db_path,
+            )
             if last_news_time:
                 logger.info(f"Fetching news since {last_news_time.isoformat()}")
             else:
@@ -97,12 +100,20 @@ class DataPoller:
             
             # Store all news at once (dedup happens in storage)
             if all_news:
-                store_news_items(self.db_path, all_news)
+                await asyncio.to_thread(
+                    store_news_items,
+                    self.db_path,
+                    all_news,
+                )
                 stats["news"] = len(all_news)
-                
+
                 # Update watermark with latest timestamp
                 max_time = max(n.published for n in all_news)
-                set_last_news_time(self.db_path, max_time)
+                await asyncio.to_thread(
+                    set_last_news_time,
+                    self.db_path,
+                    max_time,
+                )
                 logger.info(f"Stored {len(all_news)} news items, watermark updated to {max_time.isoformat()}")
             else:
                 logger.info("No new news items found")
@@ -119,7 +130,11 @@ class DataPoller:
             
             # Store all prices at once
             if all_prices:
-                store_price_data(self.db_path, all_prices)
+                await asyncio.to_thread(
+                    store_price_data,
+                    self.db_path,
+                    all_prices,
+                )
                 stats["prices"] = len(all_prices)
                 logger.info(f"Stored {len(all_prices)} price updates")
             else:
