@@ -1,189 +1,49 @@
-# Data Source APIs Reference
+# Data_API_References
+_Last updated: {today}_
 
-## Overview
-This document outlines the 5 data sources planned for US equities (stocks). Cryptocurrency is out of scope for the current milestone and may be considered later.
+## What this file is
+A **contract-only reference** for external data providers we call. It explains **what data** we use them for and **how to call** them (auth, base URLs, routes, params) with brief response semantics. Implementation details live elsewhere.
 
----
-
-## 1. Finnhub API 📈
-**Primary financial data source**
-
-### What it provides:
-- Real-time stock prices and crypto prices
-- Company financial news
-- Market data (volume, OHLC)
-- Company profiles and metrics
-
-### Rate Limits:
-- Vary by plan; free tier is typically ~60 calls/minute. Confirm current plan-specific limits in your Finnhub dashboard.
-- Paid tiers increase limits (e.g., 300+/min), subject to change.
-
-### Data Coverage:
-- ✅ Stocks (US markets)
-- ✅ Financial news
-- ✅ Market data
-
-### Implementation:
-- REST API with JSON responses
-- Incremental fetch via timestamp filtering
-- Primary source for v0.3.1
-
-### Endpoints Used in v0.3.1 (Concise)
-- Company News (per symbol):
-  - Method/Path: `GET /company-news`
-  - Params: `symbol` (ticker), `from` (YYYY-MM-DD), `to` (YYYY-MM-DD), `token` (API key)
-  - Returns: array of objects with fields including `datetime` (epoch seconds, UTC), `headline`, `source`, `summary`, `url`, `id`, `category`, `image`, `related`.
-  - Notes: We map `headline`, `url`, `source`, `datetime→published`, `summary→content`; `symbol` comes from the request symbol. Finnhub docs don’t explicitly state whether `to` is inclusive; we treat it as inclusive. We apply a 2‑minute buffer to the `since` watermark and then filter client‑side to `published > buffered_since` to avoid duplicates and equality gaps.
-- Quote (per symbol):
-  - Method/Path: `GET /quote`
-  - Params: `symbol` (ticker), `token` (API key)
-  - Returns: object with keys `c` (current price), `h` (high), `l` (low), `o` (open), `pc` (prev close), `t` (epoch seconds), and often `d`, `dp`.
-  - Notes:
-    - `c → price` (must be > 0; stored as Decimal text)
-    - `t → timestamp` (UTC; if missing/invalid/0, we fall back to current UTC defensively)
-    - `volume = None` (the `/quote` endpoint does not supply volume)
-    - `session = classify_us_session(timestamp)` using NYSE calendar for holidays/early closes and ET trading hours with DST handling via `zoneinfo` (`America/New_York`). Returns one of `{REG, PRE, POST, CLOSED}`.
-    - Database default for `session` remains `REG` for backward compatibility, but the provider supplies a classified value for all quotes.
+## Data domains we ingest
+- **Macro News** — Major market-moving events.
+- **Company News** — News about specific companies.
+- **People News** — News about key people (executives, insiders).
+- **Filings** — Official company filings and disclosures.
+- **Social/Sentiment** — Online crowd sentiment.
+- **Financials** — Company financial reports.
+- **Prices/Market Data** — Stock prices and trading data.
 
 ---
 
-## 2. Polygon.io API 📊
-**Enhanced market data backup**
+## Provider: Finnhub — Company News · Prices
+**Auth & Base**: API key (query/header) · Base: `https://finnhub.io/api/v1`
 
-### What it provides:
-- Advanced market data (OHLC, volume)
-- Real-time and historical prices
-- Multi-ticker batch requests
-- Market status and holidays
+**What they provide**
+- Macro News — ❌
+- Company News — ✅
+- People News (tag) — ✅
+- Filings — ❌
+- Social/Sentiment — ❌
+- Financials — ❌
+- Prices/Market Data — ✅
 
-### Rate Limits:
-- **Free tier**: 5 calls/minute
-- **Paid tier**: 100+ calls/minute ($99/month)
-
-### Data Coverage:
-- ✅ Stocks (US markets)
-- ❌ News content
-- ✅ Advanced market metrics
-
-### Implementation:
-- REST API with efficient batch calls
-- 1 call per 5-minute polling = well within limits
-- Backup/redundancy for Finnhub
+**Endpoints (current usage)**
+- Company news — `GET /company-news`
+  - Params: `symbol`, `from` (`YYYY-MM-DD`), `to` (`YYYY-MM-DD`), `token`
+  - Notes: We fetch recent ranges and filter by UTC publish time.
+- Quote — `GET /quote`
+  - Params: `symbol`, `token`
+  - Returns: `c` (current price), `h`, `l`, `o`, `pc` (prev close), `t` (epoch UTC)
 
 ---
 
-## 3. RSS Feeds 📰
-**Free news aggregation**
-
-### What it provides:
-- Financial news from multiple sources
-- Company-specific news feeds
-- Market analysis articles
-- Economic reports
-
-### Rate Limits:
-- **No limits** (standard RSS)
-- Self-throttle to be respectful
-
-### Data Coverage:
-- ✅ Stocks (company news)
-- ✅ Economic indicators
-- ✅ Market analysis
-
-### Implementation:
-- feedparser library
-- Publication date comparison for incremental fetch
-- Free backup news source
+## Other providers (coverage only for now)
+- Polygon — Covers: ✅ Prices (backup) · ✅ Company News *(plan-dependent)*
+- SEC EDGAR — Covers: ✅ Filings (10‑K, 10‑Q, 8‑K, insider)
+- Reddit — Covers: ✅ Social/Sentiment (subreddits, posts, comments)
+- RSS / Publisher Feeds — Covers: ✅ Macro News · ✅ Company News · ✅ People *(tagged)*
 
 ---
 
-## 4. Reddit API (PRAW) 💬
-**Social sentiment analysis**
-
-### What it provides:
-- Retail trader discussions
-- Social sentiment indicators
-- Community reactions to news
-- Trending ticker mentions
-
-### Rate Limits:
-- **Free tier**: 100 queries/minute (non-commercial)
-- **OAuth required** for sustained access
-
-### Data Coverage:
-- ✅ Stocks (r/stocks, r/investing)
-- ✅ Social sentiment
-- ✅ Retail trader behavior
-
-### Implementation:
-- PRAW wrapper library
-- Subreddit monitoring
-- Async coordination with other sources
-
----
-
-## 5. SEC EDGAR API 🏛️
-**Official regulatory filings**
-
-### What it provides:
-- Company financial statements
-- Insider trading reports
-- Official SEC filings (10-K, 10-Q, 8-K)
-- Executive compensation data
-
-### Rate Limits:
-- **Free tier**: 10 requests/second
-- **No daily limits** with proper headers
-
-### Data Coverage:
-- ✅ Stocks (US public companies only)
-- ❌ Cryptocurrency (no SEC filings)
-- ✅ Official financial data
-- ✅ Regulatory events
-
-### Implementation:
-- REST API with XML/JSON responses
-- Filing date filtering for incremental fetch
-- Stocks-only data source
-
----
-
-## Usage Strategy
-
-### Polling Schedule (Every 5 Minutes)
-```
-Finnhub: 1 call/5min = 12 calls/hour (well within 60/min limit)
-Polygon: 1 call/5min = 12 calls/hour (well within 5/min limit)
-RSS: 1-3 feeds/5min = minimal load
-Reddit: 1-2 queries/5min = minimal load  
-SEC EDGAR: 1 call/5min = 12 calls/hour (well within limits)
-```
-
-### Cost Structure
-- **v0.3.1**: $0/month (Finnhub free only)
-- **v0.3.2**: $0/month (RSS + Finnhub free)
-- **v0.3.3**: $0-50/month (All sources, optional paid tiers)
-
-### Data Flow
-```
-API → Raw Data → models.py (NewsItem/PriceData) → storage.py (SQLite) → LLM Agents
-```
-
----
-
-## Implementation Phases
-
-### v0.3.1: Finnhub Only
-- Single API integration
-- Local polling and storage
-- Foundation testing
-
-### v0.3.2: + RSS Feeds  
-- Two data sources
-- Cross-source deduplication
-- Basic filtering system
-
-### v0.3.3: All 5 APIs
-- Complete data collection (US equities)
-- Enhanced error handling
-- Production-ready system
+## Notes
+- Keep this file concise and **contract-only**.

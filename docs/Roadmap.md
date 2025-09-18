@@ -55,7 +55,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 ---
 
-## v0.3 — Data Collection Layer ✅
+## v0.3 — Data Collection Layer
 **Goal**: Build complete data ingestion pipeline
 
 ### v0.3.1 — First Market Connection
@@ -80,7 +80,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Success**: Manual script fetches data every 5 minutes with deduplication
 
-**Cost**: $0 (Finnhub free tier)
 
 ### v0.3.2 — Database Viewer (Read‑Only)
 **Goal**: Simple GUI to browse the SQLite database locally for validation and debugging
@@ -97,7 +96,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Success**: You can filter by symbol/time window, open article links, and export rows without writing any code
 
-**Cost**: $0
 
 ### v0.3.3 — Multi-Source Collection
 **Achieves**:
@@ -118,7 +116,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Provider Pattern**: Dual providers (news+price) or single-purpose
 
-**Cost**: Free $0 / Recommended ~$50 (Finnhub paid) / Premium ~$150
 
 ---
 
@@ -133,7 +130,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Success**: Runs autonomously on GitHub infrastructure
 
-**Cost**: $0 (GitHub free tier)
 
 ---
 
@@ -170,7 +166,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Performance metrics beating buy-and-hold
 - 99%+ collection uptime
 
-**Cost**: $10-50/month operational
 
 **Success**: Reliable, profitable recommendation engine
 

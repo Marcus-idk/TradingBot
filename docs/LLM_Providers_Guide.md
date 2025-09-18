@@ -141,9 +141,9 @@ text = await gemini.generate("Summarize feature X in 5 bullets.")
 
 ---
 
-## Using Settings for API Keys (Recommended)
+## Using Settings for API Keys (Required)
 
-Instead of managing API keys directly, you can use the settings modules from `config/llm/`:
+All project entry points MUST load credentials via the settings modules in `config/llm/`. Instantiate providers the same way so retry and timeout policy stays consistent:
 
 ### OpenAI with Settings (required)
 ```python

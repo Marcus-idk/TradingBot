@@ -144,8 +144,8 @@ def test_enum_values_unchanged():
 
 ## File Size Limits
 
+- **Hard max:** keep every test file under 600 lines (split before you exceed it)
 - **Target:** ~400 lines per test file
-- **Maximum:** ~600 lines
 - **Test class:** ~200-250 lines max
 
 **When to split:** If you're scrolling too much to find things, SPLIT IT!
@@ -194,16 +194,28 @@ def test_price_validation_rejects_negative_values():
 ```
 tests/integration/
 ├── data/
-│   ├── test_news_deduplication.py  (workflow: dedup logic)
-│   ├── test_price_updates.py       (workflow: price updates)
-│   └── test_roundtrip_e2e.py       (workflow: full data cycle)
+│   ├── providers/              # live/data-source specific workflows
+│   ├── test_<workflow>.py      # e.g., test_roundtrip_e2e.py
+│   └── ...
 └── llm/
-    └── test_provider_responses.py   (workflow: LLM interactions)
+    ├── helpers.py
+    └── test_<provider>_provider.py
 ```
 
+-Illustrative structure only—use it as a pattern, not an exact inventory of files.
+
 - Always mark with `@pytest.mark.integration`
+- Live/networked suites must also use `@pytest.mark.network`
 - Can use real databases, APIs (in integration only!)
 - Test complete workflows, not individual functions
+
+### Networked Live Tests
+
+- Require environment variables:
+  - `FINNHUB_API_KEY` for Finnhub live checks
+  - `OPENAI_API_KEY` for OpenAI provider tests
+  - `GEMINI_API_KEY` for Gemini provider tests
+- Tests should skip gracefully when these are missing (see existing fixtures)
 
 ## Quick Checklist for New Tests
 

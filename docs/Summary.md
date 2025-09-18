@@ -34,6 +34,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `@pytest.mark.integration` - Integration tests requiring database/API setup
 - `@pytest.mark.network` - Tests requiring network connectivity
 
+## Top-Level Files
+- `README.md` - Landing page that points developers to detailed documentation in `docs/`
+- `requirements.txt` - Runtime and test dependencies (OpenAI, Gemini, httpx, pytest, etc.)
+- `requirements-dev.txt` - Developer-only extras (Datasette viewer)
+- `pytest.ini` - Pytest configuration (pythonpath, markers, default flags)
+
 ## Main Entry Points
 - `run_poller.py` - Main data collection script
   - `main()` - Async entry point with signal handling
@@ -143,13 +149,6 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `_row_to_analysis_result()` - Convert DB row to AnalysisResult
   - `_row_to_holdings()` - Convert DB row to Holdings
 
-- `data/poller.py` - Data collection orchestration
-  - `DataPoller` - Manages configurable polling cycles
-    - `__init__()` - Initialize with database path, lists of providers, and poll_interval
-    - `poll_once()` - Execute single polling cycle for all providers concurrently
-    - `run()` - Continuous polling loop with interval management
-    - `stop()` - Graceful shutdown
-
 **Subdirectories**:
 - `data/providers/` - Data source implementations
 - `data/providers/finnhub.py`
@@ -224,56 +223,81 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `utils/market_sessions.py` - US equity market session classification with NYSE calendar integration
   - `classify_us_session(ts_utc)` - Determine if timestamp is PRE/REG/POST/CLOSED based on ET trading hours and NYSE calendar (holidays, early closes)
 
-### `tests/` — Test suite
-**Purpose**: Unit and integration tests with fixtures
+### `docs/` — Developer and operations documentation
+**Files**:
+- `docs/Data_API_Reference.md` - External data sources, rate limits, and implementation notes
+- `docs/LLM_Providers_Guide.md` - LLM provider configuration cheat sheet (OpenAI, Gemini)
+- `docs/Roadmap.md` - Milestones from v0.1 through v1.0 with status tracking
+- `docs/Summary.md` - This code index, kept in sync with repository structure
+- `docs/Test_Guide.md` - Testing structure, naming conventions, and markers
+- `docs/Writing_Code.md` - Coding standards, design principles, and review checklist
 
-**Structure**:
+### `tempFiles/` — Empty workspace reserved for ad-hoc exports during development
+
+### `tests/` — Test suite
+**Purpose**: Unit and integration tests with shared fixtures
+
+**Files**:
+- `tests/__init__.py` - Package marker for pytest discovery
 - `tests/conftest.py` - Shared pytest fixtures
   - `temp_db_path` - Temporary database path with cleanup
   - `temp_db` - Initialized temporary database
-  - `mock_http_client` - Mock httpx client for testing
-  - `cleanup_sqlite_artifacts()` - Windows-safe SQLite cleanup
+  - `mock_http_client` - Mock httpx client for HTTP tests
+  - `cleanup_sqlite_artifacts()` - Windows-safe SQLite cleanup utility
 
+**Subdirectories**:
 - `tests/unit/` - Unit tests (mirror source structure)
-  - `tests/unit/config/` - Config module tests
-    - `test_config_retry.py` - Retry configuration tests
-    - `llm/test_gemini.py` - Gemini settings tests
-    - `llm/test_openai.py` - OpenAI settings tests
-    - `providers/test_finnhub_settings.py` - Finnhub settings tests
-  
+  - `tests/unit/config/` - Configuration module tests
+    - `tests/unit/config/test_config_retry.py` - Retry configuration tests
+    - `tests/unit/config/llm/test_gemini.py` - Gemini settings loader tests
+    - `tests/unit/config/llm/test_openai.py` - OpenAI settings loader tests
+    - `tests/unit/config/providers/test_finnhub_settings.py` - Finnhub settings tests
+
   - `tests/unit/data/` - Data module tests
-    - `test_base_contracts.py` - Abstract base class tests
-    - `test_models.py` - Dataclass validation tests
-    - `schema/` - Database constraint tests (6 files)
-      - `test_schema_*.py` - Schema validation tests organized by constraint type
-    - `storage/` - Storage function tests (12 files)
-      - `test_storage_*.py` - Storage operations tests organized by feature
-    - `test_poller.py` - DataPoller orchestrator tests (one-cycle store, watermark, errors)
-    - `providers/test_finnhub.py` - Finnhub provider unit tests
-    - `providers/test_finnhub_critical.py` - Critical error handling tests
-  
-  - `tests/unit/utils/` - Utils module tests
-    - `test_http.py` - HTTP utility tests
-    - `test_market_sessions.py` - Market sessions classification tests with holiday/early close support
-    - `test_retry.py` - Retry logic tests
+    - `tests/unit/data/test_base_contracts.py` - Abstract base class contracts
+    - `tests/unit/data/test_models.py` - Dataclass validation tests
+    - `tests/unit/data/test_poller.py` - DataPoller orchestration tests
+    - `tests/unit/data/providers/test_finnhub.py` - Finnhub provider unit coverage
+    - `tests/unit/data/providers/test_finnhub_critical.py` - Critical error handling for providers
+    - `tests/unit/data/schema/test_schema_confidence_and_json.py` - JSON fields and confidence constraints
+    - `tests/unit/data/schema/test_schema_defaults_and_structure.py` - Default values and schema structure
+    - `tests/unit/data/schema/test_schema_enums.py` - Enum value locking
+    - `tests/unit/data/schema/test_schema_financial_values.py` - Decimal and numeric constraints
+    - `tests/unit/data/schema/test_schema_not_null.py` - NOT NULL coverage
+    - `tests/unit/data/schema/test_schema_primary_keys.py` - Primary key enforcement
+    - `tests/unit/data/storage/test_storage_analysis.py` - Analysis result storage
+    - `tests/unit/data/storage/test_storage_cutoff.py` - Time-based cutoff handling
+    - `tests/unit/data/storage/test_storage_db.py` - Low-level database helpers
+    - `tests/unit/data/storage/test_storage_errors.py` - Error pathways
+    - `tests/unit/data/storage/test_storage_holdings.py` - Holdings persistence
+    - `tests/unit/data/storage/test_storage_last_seen.py` - Watermark storage
+    - `tests/unit/data/storage/test_storage_llm_batch.py` - LLM batch commit flow
+    - `tests/unit/data/storage/test_storage_news.py` - News storage and deduplication
+    - `tests/unit/data/storage/test_storage_prices.py` - Price storage validation
+    - `tests/unit/data/storage/test_storage_queries.py` - Query helpers
+    - `tests/unit/data/storage/test_storage_types.py` - Type conversions
+    - `tests/unit/data/storage/test_storage_url.py` - URL normalization
+
+  - `tests/unit/utils/` - Utility module tests
+    - `tests/unit/utils/test_http.py` - HTTP retry helper tests
+    - `tests/unit/utils/test_market_sessions.py` - Market session classification tests
+    - `tests/unit/utils/test_retry.py` - Generic retry logic tests
 
 - `tests/integration/` - Integration tests (organized by workflow)
-  - `tests/integration/data/` - Data integration tests
-    - `test_roundtrip_e2e.py` - Full data pipeline test
-    - `test_dedup_news.py` - News deduplication test
-    - `test_timezone_pipeline.py` - UTC conversion test
-    - `test_decimal_precision.py` - Decimal handling test
-    - `test_schema_constraints.py` - Database constraints test
-    - `test_wal_sqlite.py` - WAL mode test
-    - `providers/test_finnhub_live.py` - Live API test (network-marked)
-  
+  - `tests/integration/data/` - Data pipeline tests
+    - `tests/integration/data/test_roundtrip_e2e.py` - Full end-to-end pipeline
+    - `tests/integration/data/test_dedup_news.py` - Cross-provider deduplication
+    - `tests/integration/data/test_timezone_pipeline.py` - UTC conversion validation
+    - `tests/integration/data/test_decimal_precision.py` - Decimal handling through storage
+    - `tests/integration/data/test_schema_constraints.py` - Schema constraint enforcement
+    - `tests/integration/data/test_wal_sqlite.py` - WAL mode behavior
+    - `tests/integration/data/providers/test_finnhub_live.py` - Live Finnhub API smoke (network-marked)
+
   - `tests/integration/llm/` - LLM integration tests
-    - `helpers.py` - Shared helpers: `extract_hex64`, `fetch_featured_wiki`, `make_base64_blob`, `normalize_title`
-    - `test_openai_provider.py` - OpenAI live tests (network-marked)
-      - Web search check: with `tools=[{"type":"web_search"}]` and `tool_choice="auto"` → returns yesterday’s Wikipedia Featured article title; without tools (`tool_choice="none"`) → response should not contain the correct title
-    - `test_gemini_provider.py` - Gemini live tests (network-marked)
-      - Web search check: with `tools=[{"google_search":{}}]` → returns yesterday’s Wikipedia Featured article title; without tools → response should not contain the correct title
-    - Notes: Requires API keys; uses Wikipedia with a descriptive `User-Agent`; network issues may fail tests
+    - `tests/integration/llm/helpers.py` - Shared helpers (`extract_hex64`, `fetch_featured_wiki`, etc.)
+    - `tests/integration/llm/test_openai_provider.py` - OpenAI live tests (network-marked)
+    - `tests/integration/llm/test_gemini_provider.py` - Gemini live tests (network-marked)
+    - Notes: Requires API keys; uses Wikipedia with descriptive `User-Agent`; expect flaky network
 
 ## Database Schema
 Tables (WITHOUT ROWID):
