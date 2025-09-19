@@ -1,5 +1,4 @@
 # Data_API_References
-_Last updated: {today}_
 
 ## What this file is
 A **contract-only reference** for external data providers we call. It explains **what data** we use them for and **how to call** them (auth, base URLs, routes, params) with brief response semantics. Implementation details live elsewhere.

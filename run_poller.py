@@ -194,12 +194,12 @@ if __name__ == "__main__":
         description="Trading Bot Data Poller - Collects market data every 5 minutes"
     )
     parser.add_argument(
-        "-v", "--with-viewer",
+        "-v",
         action="store_true",
         help="Launch Datasette web viewer (default port: 8001, configurable via DATASETTE_PORT)"
     )
     args = parser.parse_args()
     
     # Run the async main function with parsed arguments
-    exit_code = asyncio.run(main(with_viewer=args.with_viewer))
+    exit_code = asyncio.run(main(with_viewer=args.v))
     sys.exit(exit_code)

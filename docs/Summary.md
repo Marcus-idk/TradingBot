@@ -28,7 +28,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
 - `SYMBOLS` - Required for `run_poller.py`; comma-separated tickers (e.g., "AAPL,MSFT,TSLA")
 - `POLL_INTERVAL` - Required for `run_poller.py`; polling frequency in seconds (e.g., 300 for 5 minutes)
-- `DATASETTE_PORT` - Optional, defaults to 8001; port used when launching web viewer with `-v/--with-viewer`
+- `DATASETTE_PORT` - Optional, defaults to 8001; port used when launching web viewer with `-v`
 
 ## Test Markers
 - `@pytest.mark.integration` - Integration tests requiring database/API setup
@@ -46,7 +46,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - Uses `utils.logging.setup_logging()` for consistent logging
   - Uses `utils.signals.register_graceful_shutdown()` for SIGINT/SIGTERM
   - Requires `SYMBOLS`, `POLL_INTERVAL`, and `FINNHUB_API_KEY` in environment
-  - Optional web viewer: run with `-v/--with-viewer` (port configurable via `DATASETTE_PORT`, default 8001)
+  - Optional web viewer: run with `-v` (port configurable via `DATASETTE_PORT`, default 8001)
 
 ## Project Structure
 
