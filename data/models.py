@@ -23,6 +23,11 @@ class AnalysisType(Enum):
     SEC_FILINGS = "sec_filings"           # SEC Filings Analyst LLM
     HEAD_TRADER = "head_trader"           # Head Trader LLM
 
+class NewsLabelType(Enum):
+    COMPANY = "Company"
+    PEOPLE = "People"
+    MARKET_WITH_MENTION = "MarketWithMention"
+
 def _valid_http_url(u: str) -> bool:
     p = urlparse(u.strip())
     return p.scheme in ("http", "https") and bool(p.netloc)
@@ -49,6 +54,33 @@ class NewsItem:
             self.published = self.published.replace(tzinfo=timezone.utc)
         else:
             self.published = self.published.astimezone(timezone.utc)
+
+@dataclass
+class NewsLabel:
+    symbol: str
+    url: str
+    label: NewsLabelType
+    created_at: Optional[datetime] = None
+
+    def __post_init__(self):
+        self.symbol = self.symbol.strip().upper()
+        self.url = self.url.strip()
+        if isinstance(self.label, str):
+            try:
+                self.label = NewsLabelType(self.label)
+            except ValueError as exc:
+                raise ValueError(f"label must be a NewsLabelType value: {self.label}") from exc
+        if not isinstance(self.label, NewsLabelType):
+            raise ValueError("label must be a NewsLabelType enum value")
+        if not self.symbol:
+            raise ValueError("symbol cannot be empty")
+        if not _valid_http_url(self.url):
+            raise ValueError("url must be http(s)")
+        if self.created_at is not None:
+            if self.created_at.tzinfo is None:
+                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
+            else:
+                self.created_at = self.created_at.astimezone(timezone.utc)
 
 @dataclass
 class PriceData:

@@ -81,20 +81,21 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 **Success**: Manual script fetches data every 5 minutes with deduplication
 
 
-### v0.3.2 — Database Viewer (Read‑Only)
-**Goal**: Simple GUI to browse the SQLite database locally for validation and debugging
+### v0.3.2 — Database Viewer + News Classifier
+**Goal**: Browse the SQLite database locally and filter Finnhub news down to company-focused items
 
 **Achieves**:
-- Run a local, read‑only web UI using Datasette
-- Browse tables (`news_items`, `price_data`, `last_seen`, etc.) with filters and sorting
-- Ad‑hoc SQL queries in browser, quick CSV/JSON/JSONL exports
+- Run a local, read‑only Datasette UI for quick inspection and exports
+- Classify Finnhub news into Company, People, and MarketWithMention labels stored in `news_labels`
+- Filter poller outputs so downstream analysis sees Company/People items first
+- Keep classification metadata visible in the viewer for auditing
 
 **Dev UX**:
 - Install: `pip install datasette` (or `pip install -r requirements-dev.txt`)
 - Run: `datasette data/trading_bot.db -o` (opens browser)
 - Scope: local development (read‑only); do not expose publicly
 
-**Success**: You can filter by symbol/time window, open article links, and export rows without writing any code
+**Success**: You can spot-check labeled news in the viewer while the 5-minute poller keeps feeding clean inputs
 
 
 ### v0.3.3 — Multi-Source Collection
@@ -213,3 +214,9 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Options flow analysis
 - Cross-market correlations
 - Risk management framework
+
+## Runtime Flow Snapshot
+1. Every 5 minutes the poller wakes up, fetches fresh Finnhub news and prices, and writes them into SQLite.
+2. Right after insert, the classifier tags each article as Company, People, or MarketWithMention and stores labels in `news_labels`.
+3. The watermark moves forward so the next 5-minute loop only grabs newer records, then the poller sleeps.
+4. Every 30 minutes the LLM analysis job reads the labeled news plus recent prices, batches the inputs, and saves decisions into `analysis_results`.

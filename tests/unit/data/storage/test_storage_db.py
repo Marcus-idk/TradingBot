@@ -70,3 +70,11 @@ class TestDatabaseInitialization:
             cursor.execute("PRAGMA journal_mode")
             mode = cursor.fetchone()[0]
             assert mode.lower() == 'wal', f"Expected WAL mode, got {mode}"
+
+    def test_foreign_keys_enabled_by_default(self, temp_db):
+        """Canary: every test connection should enforce FK constraints."""
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA foreign_keys")
+            val = cursor.fetchone()[0]
+            assert val == 1

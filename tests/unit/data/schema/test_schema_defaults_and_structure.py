@@ -50,9 +50,34 @@ class TestDefaultValues:
             assert 'T' in result[0]  # ISO format check
             assert result[0].endswith('Z')  # UTC timezone marker
 
+    def test_news_labels_timestamp_default(self, temp_db):
+        """Test created_at_iso default for news_labels table."""
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('AAPL', 'http://example.com/label-default', 'Label Default', '2024-01-01T10:00:00Z', 'test')
+            """)
+            cursor.execute("""
+                INSERT INTO news_labels (symbol, url, label)
+                VALUES ('AAPL', 'http://example.com/label-default', 'Company')
+            """)
+
+            result = cursor.execute("""
+                SELECT created_at_iso FROM news_labels
+                WHERE symbol='AAPL' AND url='http://example.com/label-default'
+            """).fetchone()
+
+            assert result[0] is not None
+            assert 'T' in result[0]
+            assert result[0].endswith('Z')
+
+
 class TestTableStructure:
     """Test table structure and optimizations."""
     
+
     def test_without_rowid_optimization(self, temp_db):
         """All user tables use WITHOUT ROWID and required tables exist."""
         with sqlite3.connect(temp_db) as conn:
@@ -73,6 +98,7 @@ class TestTableStructure:
                 'analysis_results',
                 'holdings',
                 'last_seen',
+                'news_labels',
             }
 
             names = {name for name, _ in tables}

@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from data.storage import init_database
-from data.models import Session, Stance, AnalysisType
+from data.models import Session, Stance, AnalysisType, NewsLabelType
 
 
 class TestEnumValueLocks:
@@ -51,6 +51,14 @@ class TestEnumValueLocks:
         assert set(a.value for a in AnalysisType) == {
             "news_analysis", "sentiment_analysis", "sec_filings", "head_trader"
         }
+
+    def test_news_label_enum_values_unchanged(self):
+        """Lock NewsLabelType values - stored in database for labels."""
+        assert NewsLabelType.COMPANY.value == 'Company'
+        assert NewsLabelType.PEOPLE.value == 'People'
+        assert NewsLabelType.MARKET_WITH_MENTION.value == 'MarketWithMention'
+        assert len(NewsLabelType) == 3
+        assert set(label.value for label in NewsLabelType) == {'Company', 'People', 'MarketWithMention'}
 
 
 class TestEnumConstraints:
@@ -125,3 +133,25 @@ class TestEnumConstraints:
                     (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
                     VALUES ('INVALID', 'NEWS_ANALYSIS', 'gpt-4', 'BULL', 0.75, '2024-01-01T10:00:00Z', '{}')
                 """)
+
+    def test_news_label_enum_values(self, temp_db):
+        """Test news_labels label constraint values."""
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.cursor()
+
+            for suffix, label in enumerate(['Company', 'People', 'MarketWithMention']):
+                cursor.execute("""
+                    INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                    VALUES ('AAPL', 'http://example.com/enum-' || ?, 'Enum Value', '2024-01-01T10:00:00Z', 'test')
+                """, (suffix,))
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES ('AAPL', 'http://example.com/enum-' || ?, ?)
+                """, (suffix, label))
+
+            with pytest.raises(sqlite3.IntegrityError, match='CHECK constraint failed'):
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES ('AAPL', 'http://example.com/enum-invalid', 'InvalidLabel')
+                """)
+

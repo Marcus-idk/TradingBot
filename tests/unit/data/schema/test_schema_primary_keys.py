@@ -34,6 +34,40 @@ class TestPrimaryKeyConstraints:
                 VALUES ('TSLA', 'http://example.com/1', 'Tesla News', '2024-01-01T10:00:00Z', 'test')
             """)
     
+    def test_news_labels_composite_key(self, temp_db):
+        """Test (symbol, url) composite primary key on news_labels."""
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.cursor()
+
+            # Backing news rows required for foreign key reference
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('AAPL', 'http://example.com/label', 'Label News', '2024-01-01T10:00:00Z', 'test')
+            """)
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('TSLA', 'http://example.com/label', 'TSLA Label News', '2024-01-01T10:05:00Z', 'test')
+            """)
+
+            # First label succeeds
+            cursor.execute("""
+                INSERT INTO news_labels (symbol, url, label)
+                VALUES ('AAPL', 'http://example.com/label', 'Company')
+            """)
+
+            # Duplicate key fails
+            with pytest.raises(sqlite3.IntegrityError, match='UNIQUE constraint failed'):
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES ('AAPL', 'http://example.com/label', 'People')
+                """)
+
+            # Different symbol with same URL succeeds
+            cursor.execute("""
+                INSERT INTO news_labels (symbol, url, label)
+                VALUES ('TSLA', 'http://example.com/label', 'People')
+            """)
+
     def test_price_data_composite_key(self, temp_db):
         """Test (symbol, timestamp_iso) composite primary key on price_data."""
         with sqlite3.connect(temp_db) as conn:

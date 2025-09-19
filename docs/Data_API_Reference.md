@@ -9,7 +9,6 @@ A **contract-only reference** for external data providers we call. It explains *
 - **People News** — News about key people (executives, insiders).
 - **Filings** — Official company filings and disclosures.
 - **Social/Sentiment** — Online crowd sentiment.
-- **Financials** — Company financial reports.
 - **Prices/Market Data** — Stock prices and trading data.
 
 ---
@@ -23,7 +22,6 @@ A **contract-only reference** for external data providers we call. It explains *
 - People News (tag) — ✅
 - Filings — ❌
 - Social/Sentiment — ❌
-- Financials — ❌
 - Prices/Market Data — ✅
 
 **Endpoints (current usage)**

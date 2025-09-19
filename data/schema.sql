@@ -14,6 +14,16 @@ CREATE TABLE IF NOT EXISTS news_items (
     PRIMARY KEY (symbol, url)
 ) WITHOUT ROWID;
 
+-- Classification: LLM-filtered labels for news focus
+CREATE TABLE IF NOT EXISTS news_labels (
+    symbol TEXT NOT NULL,
+    url TEXT NOT NULL,
+    label TEXT NOT NULL CHECK(label IN ('Company', 'People', 'MarketWithMention')),
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (symbol, url),
+    FOREIGN KEY (symbol, url) REFERENCES news_items(symbol, url) ON DELETE CASCADE
+) WITHOUT ROWID;
+
 -- Raw data: Prices (Decimal as TEXT; UTC ISO timestamps; session enum)
 CREATE TABLE IF NOT EXISTS price_data (
     symbol TEXT NOT NULL,

@@ -94,9 +94,11 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `Session` - Trading sessions: REG, PRE, POST, CLOSED
   - `Stance` - Analysis stances: BULL, BEAR, NEUTRAL
   - `AnalysisType` - Types: `news_analysis`, `sentiment_analysis`, `sec_filings`, `head_trader`
+  - `NewsLabelType` - News focus tags: Company, People, MarketWithMention
   
   **Dataclasses**:
   - `NewsItem` - `symbol`, `url`, `headline`, `published` (UTC), `source`, `content` (optional)
+  - `NewsLabel` - `symbol`, `url`, `label` (NewsLabelType), `created_at` (UTC, optional)
   - `PriceData` - `symbol`, `timestamp` (UTC), `price` (Decimal), `volume` (optional), `session` (Session)
   - `AnalysisResult` - `symbol`, `analysis_type` (AnalysisType), `model_name`, `stance` (Stance), `confidence_score` (0–1), `last_updated` (UTC), `result_json` (JSON string), `created_at` (UTC, optional)
   - `Holdings` - `symbol`, `quantity` (Decimal), `break_even_price` (Decimal), `total_cost` (Decimal), `notes` (optional), `created_at`/`updated_at` (UTC, optional)
@@ -118,18 +120,20 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   
   **Storage Operations**:
   - `store_news_items()` - Insert news with URL normalization + dedup
+  - `store_news_labels()` - Insert/update classification labels for stored news
   - `store_price_data()` - Insert price data
   - `upsert_analysis_result()` - Insert/update analysis results
   - `upsert_holdings()` - Insert/update holdings
   
   **Query Operations**:
   - `get_news_since()` - Fetch news after timestamp
+  - `get_news_labels()` - Fetch stored labels (optional symbol filter)
   - `get_price_data_since()` - Fetch prices after timestamp
   - `get_all_holdings()` - Fetch all current holdings
   - `get_analysis_results()` - Fetch analysis results (optional symbol filter)
   - `get_news_before()` - Fetch news before cutoff (for LLM batching)
   - `get_prices_before()` - Fetch prices before cutoff (for LLM batching)
-  
+
   **Watermark Management**:
   - `get_last_seen()` - Get last processed value for a key
   - `set_last_seen()` - Update last processed value
@@ -137,14 +141,17 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `set_last_news_time()` - Update last news publish timestamp
   
   **LLM Batch Operations**:
-  - `commit_llm_batch()` - Mark data as processed and return counts
+  - `commit_llm_batch()` - Mark data as processed and return counts for labels/news/prices
   
   **Internal Helpers**:
+  - `connect()` - Open SQLite connection with required PRAGMAs (enables foreign keys)
   - `_normalize_url()` - Standardize URLs for deduplication
   - `_datetime_to_iso()` - Convert datetime to ISO string
+  - `_iso_to_datetime()` - Convert ISO strings (with trailing `Z`) to UTC datetime
   - `_decimal_to_text()` - Convert Decimal to string
   - `_check_json1_support()` - Verify SQLite JSON1 extension
   - `_row_to_news_item()` - Convert DB row to NewsItem
+  - `_row_to_news_label()` - Convert DB row to NewsLabel
   - `_row_to_price_data()` - Convert DB row to PriceData
   - `_row_to_analysis_result()` - Convert DB row to AnalysisResult
   - `_row_to_holdings()` - Convert DB row to Holdings
@@ -302,6 +309,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 ## Database Schema
 Tables (WITHOUT ROWID):
 - `news_items(symbol, url, headline, content, published_iso, source, created_at_iso)` — PK: (symbol, url)
+- `news_labels(symbol, url, label, created_at_iso)` — PK: (symbol, url); FK → news_items(symbol, url)
 - `price_data(symbol, timestamp_iso, price TEXT, volume, session, created_at_iso)` — PK: (symbol, timestamp_iso)
 - `analysis_results(symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json, created_at_iso)` — PK: (symbol, analysis_type)
 - `holdings(symbol, quantity TEXT, break_even_price TEXT, total_cost TEXT, notes, created_at_iso, updated_at_iso)` — PK: symbol

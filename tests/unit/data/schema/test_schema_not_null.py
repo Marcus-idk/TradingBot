@@ -36,6 +36,43 @@ class TestNotNullConstraints:
                     VALUES ('AAPL', 'http://test.com', NULL, '2024-01-01T10:00:00Z', 'test')
                 """)
     
+    def test_news_labels_required_fields(self, temp_db):
+        """Test NOT NULL constraints on news_labels table."""
+        with sqlite3.connect(temp_db) as conn:
+            cursor = conn.cursor()
+
+            # Prepare backing news rows for FK
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('AAPL', 'http://example.com/labels-symbol', 'Label Test', '2024-01-01T10:00:00Z', 'test')
+            """)
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('AAPL', 'http://example.com/labels-url', 'Label Test', '2024-01-01T10:05:00Z', 'test')
+            """)
+            cursor.execute("""
+                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                VALUES ('AAPL', 'http://example.com/labels-type', 'Label Test', '2024-01-01T10:10:00Z', 'test')
+            """)
+
+            with pytest.raises(sqlite3.IntegrityError, match='NOT NULL'):
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES (NULL, 'http://example.com/labels-symbol', 'Company')
+                """)
+
+            with pytest.raises(sqlite3.IntegrityError, match='NOT NULL'):
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES ('AAPL', NULL, 'Company')
+                """)
+
+            with pytest.raises(sqlite3.IntegrityError, match='NOT NULL'):
+                cursor.execute("""
+                    INSERT INTO news_labels (symbol, url, label)
+                    VALUES ('AAPL', 'http://example.com/labels-type', NULL)
+                """)
+
     def test_price_data_required_fields(self, temp_db):
         """Test NOT NULL constraints on price_data table."""
         with sqlite3.connect(temp_db) as conn:
