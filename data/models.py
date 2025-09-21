@@ -32,6 +32,19 @@ def _valid_http_url(u: str) -> bool:
     p = urlparse(u.strip())
     return p.scheme in ("http", "https") and bool(p.netloc)
 
+
+def _normalize_to_utc(dt: datetime) -> datetime:
+    """Return a timezone-aware UTC datetime without altering the wall time.
+
+    - If `dt` is naive, attach UTC tzinfo.
+    - If `dt` is aware, convert to UTC via `astimezone`.
+
+    This centralizes the UTC normalization used by model `__post_init__` methods.
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 @dataclass
 class NewsItem:
     symbol: str
@@ -50,10 +63,7 @@ class NewsItem:
         if not self.headline: raise ValueError("headline cannot be empty")
         if not self.source: raise ValueError("source cannot be empty")
         if not _valid_http_url(self.url): raise ValueError("url must be http(s)")
-        if self.published.tzinfo is None: 
-            self.published = self.published.replace(tzinfo=timezone.utc)
-        else:
-            self.published = self.published.astimezone(timezone.utc)
+        self.published = _normalize_to_utc(self.published)
 
 @dataclass
 class NewsLabel:
@@ -77,10 +87,7 @@ class NewsLabel:
         if not _valid_http_url(self.url):
             raise ValueError("url must be http(s)")
         if self.created_at is not None:
-            if self.created_at.tzinfo is None:
-                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
-            else:
-                self.created_at = self.created_at.astimezone(timezone.utc)
+            self.created_at = _normalize_to_utc(self.created_at)
 
 @dataclass
 class PriceData:
@@ -93,10 +100,7 @@ class PriceData:
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()
         if not self.symbol: raise ValueError("symbol cannot be empty")
-        if self.timestamp.tzinfo is None: 
-            self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
-        else:
-            self.timestamp = self.timestamp.astimezone(timezone.utc)
+        self.timestamp = _normalize_to_utc(self.timestamp)
         if self.price <= 0: raise ValueError("price must be > 0")
         if self.volume is not None and self.volume < 0: raise ValueError("volume must be >= 0")
         if not isinstance(self.session, Session): 
@@ -132,15 +136,9 @@ class AnalysisResult:
             raise ValueError("stance must be a Stance enum value")
         if not (0.0 <= self.confidence_score <= 1.0):
             raise ValueError("confidence_score must be between 0.0 and 1.0")
-        if self.last_updated.tzinfo is None: 
-            self.last_updated = self.last_updated.replace(tzinfo=timezone.utc)
-        else:
-            self.last_updated = self.last_updated.astimezone(timezone.utc)
+        self.last_updated = _normalize_to_utc(self.last_updated)
         if self.created_at is not None:
-            if self.created_at.tzinfo is None:
-                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
-            else:
-                self.created_at = self.created_at.astimezone(timezone.utc)
+            self.created_at = _normalize_to_utc(self.created_at)
 
 @dataclass
 class Holdings:
@@ -161,12 +159,6 @@ class Holdings:
         if self.break_even_price <= 0: raise ValueError("break_even_price must be > 0")
         if self.total_cost <= 0: raise ValueError("total_cost must be > 0")
         if self.created_at is not None:
-            if self.created_at.tzinfo is None:
-                self.created_at = self.created_at.replace(tzinfo=timezone.utc)
-            else:
-                self.created_at = self.created_at.astimezone(timezone.utc)
+            self.created_at = _normalize_to_utc(self.created_at)
         if self.updated_at is not None:
-            if self.updated_at.tzinfo is None:
-                self.updated_at = self.updated_at.replace(tzinfo=timezone.utc)
-            else:
-                self.updated_at = self.updated_at.astimezone(timezone.utc)
+            self.updated_at = _normalize_to_utc(self.updated_at)

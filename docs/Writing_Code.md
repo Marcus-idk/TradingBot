@@ -22,7 +22,7 @@ Scope: Applies to all new/changed code. New code should follow existing patterns
 - Imports: absolute project imports. Default to folder‑level (`from data.storage import …`); use submodules only when needed. Facades (e.g., `data/storage/__init__.py`) keep `from data.storage` stable.
 - Naming: modules/functions `snake_case`, classes `PascalCase`, constants `UPPER_SNAKE`.
 - Time and numbers: use timezone‑aware timestamps (UTC recommended); use precise numeric types for money (avoid binary floats).
-- Datetime flow: API/raw input → model constructors (normalize to UTC) → storage helpers (`_datetime_to_iso`) → SQLite ISO strings ending with `Z`; read paths reverse this. Never format timestamps by hand.
+- Datetime flow: API/raw input → model constructors (normalize to UTC) → storage helpers (`_datetime_to_iso`) → SQLite ISO strings ending with `Z`; read paths reverse this. Never format timestamps by hand. Use `data.models._normalize_to_utc(dt)` inside models for consistency.
 - Market sessions: Use `utils.market_sessions.classify_us_session()` for session classification (PRE/REG/POST/CLOSED). Handles NYSE holidays/early closes and UTC→ET conversion.
 - Persistence: validate at write boundaries; choose stable representations; version schema/migrations clearly.
 - SQLite access: go through `data.storage` helpers (or reuse `connect`) so required PRAGMAs (e.g., foreign_keys=ON) stay enforced per connection.
