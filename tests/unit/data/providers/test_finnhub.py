@@ -4,9 +4,11 @@ Tests FinnhubClient, FinnhubNewsProvider, and FinnhubPriceProvider.
 """
 
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
+from datetime import timedelta as real_timedelta
 from decimal import Decimal
 
+import data.providers.finnhub
 from config.providers.finnhub import FinnhubSettings
 from config.retry import DEFAULT_DATA_RETRY
 from data.providers.finnhub import FinnhubClient, FinnhubNewsProvider, FinnhubPriceProvider
@@ -87,7 +89,6 @@ class TestFinnhubNewsProvider:
         provider = FinnhubNewsProvider(settings, ['AAPL'])
         
         # Mock datetime to have consistent "now"
-        from datetime import timedelta as real_timedelta
         class MockDatetime:
             @staticmethod
             def now(tz):
@@ -100,8 +101,7 @@ class TestFinnhubNewsProvider:
         # Also need to provide timedelta and timezone from the mock
         MockDatetime.timedelta = real_timedelta
         MockDatetime.timezone = timezone
-        
-        import data.providers.finnhub
+
         monkeypatch.setattr(data.providers.finnhub, 'datetime', MockDatetime)
         monkeypatch.setattr(data.providers.finnhub, 'timedelta', real_timedelta)
         
@@ -127,8 +127,7 @@ class TestFinnhubNewsProvider:
         """Test date window calculation when since is None"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
-        
-        from datetime import timedelta as real_timedelta
+
         class MockDatetime:
             @staticmethod
             def now(tz):
@@ -140,11 +139,10 @@ class TestFinnhubNewsProvider:
         
         MockDatetime.timedelta = real_timedelta
         MockDatetime.timezone = timezone
-        
-        import data.providers.finnhub
+
         monkeypatch.setattr(data.providers.finnhub, 'datetime', MockDatetime)
         monkeypatch.setattr(data.providers.finnhub, 'timedelta', real_timedelta)
-        
+
         captured_params = {}
         async def mock_get(path, params=None):
             if path == '/company-news':

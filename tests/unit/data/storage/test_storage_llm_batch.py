@@ -2,9 +2,10 @@
 Tests LLM batch operation storage and commit functionality.
 """
 
+import os
 import pytest
 import sqlite3
-import os
+import time
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
@@ -27,8 +28,6 @@ class TestBatchOperations:
     
     def test_commit_llm_batch_atomic_transaction(self, temp_db):
         """Test commit_llm_batch performs atomic transaction with correct deletions"""
-        import time
-
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
 
         # Insert news items with different created_at times
@@ -170,8 +169,6 @@ class TestBatchOperations:
 
     def test_commit_llm_batch_boundary_conditions(self, temp_db):
         """Test commit_llm_batch with exact timestamp boundary"""
-        import time
-
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
 
         # Insert two items

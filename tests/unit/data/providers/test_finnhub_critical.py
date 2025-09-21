@@ -6,6 +6,7 @@ Tests the most important error scenarios that could break production.
 import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
+from unittest.mock import Mock, patch, AsyncMock
 
 from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub import FinnhubClient, FinnhubPriceProvider
@@ -22,8 +23,6 @@ class TestFinnhubCriticalErrorHandling:
         
         Finnhub free tier = 60 calls/minute. This WILL happen in production.
         """
-        from unittest.mock import Mock, patch, AsyncMock
-        
         settings = FinnhubSettings(api_key='test_key')
         client = FinnhubClient(settings)
         

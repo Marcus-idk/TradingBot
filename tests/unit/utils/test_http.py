@@ -12,7 +12,7 @@ import json
 import httpx
 from data.base import DataSourceError
 from utils.http import get_json_with_retry
-from utils.retry import RetryableError
+from utils.retry import RetryableError, parse_retry_after
 
 
 
@@ -213,7 +213,6 @@ class TestGetJsonWithRetry:
             delay = sleep_calls[0][0][0]
             
             # Parse the header ourselves to get expected value
-            from utils.retry import parse_retry_after
             expected = parse_retry_after(http_date)
             assert expected is not None
             # Tight assertion: should be close to 1.0, definitely not 0.1 (exponential minimum)

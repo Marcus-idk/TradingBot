@@ -7,6 +7,7 @@ error aggregation. Uses stub providers and the temp_db fixture.
 
 import asyncio
 import pytest
+import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
@@ -119,8 +120,6 @@ class TestDataPoller:
     @pytest.mark.asyncio
     async def test_poller_quick_shutdown(self, temp_db):
         """Verify poller stops quickly when stop() is called during sleep."""
-        import time
-
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
 
         # Start poller in background

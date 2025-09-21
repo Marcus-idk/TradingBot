@@ -2,9 +2,10 @@
 Tests cutoff/pagination logic for news and price data queries.
 """
 
+import os
 import pytest
 import sqlite3
-import os
+import time
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
@@ -27,8 +28,6 @@ class TestCutoffQueries:
     
     def test_get_news_before_cutoff_filtering(self, temp_db):
         """Test news retrieval with created_at cutoff filtering for LLM batch processing"""
-        import time
-        
         # Create news items with different created_at times
         # We need to insert them with delays to ensure different created_at_iso values
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
@@ -88,8 +87,6 @@ class TestCutoffQueries:
     
     def test_get_news_before_boundary_conditions(self, temp_db):
         """Test get_news_before with boundary conditions using spaced items"""
-        import time
-        
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
         
         # Store first news item
@@ -139,8 +136,6 @@ class TestCutoffQueries:
     
     def test_get_prices_before_cutoff_filtering(self, temp_db):
         """Test price data retrieval with created_at cutoff filtering for LLM batch processing"""
-        import time
-        
         # Create price data with different created_at times
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
         
@@ -195,8 +190,6 @@ class TestCutoffQueries:
     
     def test_get_prices_before_boundary_conditions(self, temp_db):
         """Test get_prices_before with boundary conditions using spaced items"""
-        import time
-        
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
         
         # Store first price data point

@@ -105,6 +105,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   
   **Functions**:
   - `_valid_http_url()` - Validate HTTP/HTTPS URLs
+  - `_normalize_to_utc()` - Normalize naive/aware datetimes to UTC for model constructors
 
 - `data/storage/` - SQLite storage package (organized into focused modules)
   **Import paths unchanged**: All functions accessible via `from data.storage import ...`

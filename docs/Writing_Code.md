@@ -19,7 +19,7 @@ Scope: Applies to all new/changed code. New code should follow existing patterns
 
 ## Consistency (Must)
 - Mirror existing file layout, naming, and style. New code follows old code.
-- Imports: absolute project imports. Default to folder‑level (`from data.storage import …`); use submodules only when needed. Facades (e.g., `data/storage/__init__.py`) keep `from data.storage` stable.
+- Imports: absolute project imports. Default to folder‑level (`from data.storage import …`); use submodules only when needed. Prefer top‑of‑file imports; use function‑level imports only for optional dependencies or to avoid cycles (and document why). Facades (e.g., `data/storage/__init__.py`) keep `from data.storage` stable.
 - Naming: modules/functions `snake_case`, classes `PascalCase`, constants `UPPER_SNAKE`.
 - Time and numbers: use timezone‑aware timestamps (UTC recommended); use precise numeric types for money (avoid binary floats).
 - Datetime flow: API/raw input → model constructors (normalize to UTC) → storage helpers (`_datetime_to_iso`) → SQLite ISO strings ending with `Z`; read paths reverse this. Never format timestamps by hand. Use `data.models._normalize_to_utc(dt)` inside models for consistency.
