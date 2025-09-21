@@ -49,7 +49,7 @@ class TestNewsItemStorage:
         store_news_items(temp_db, items)
         
         # Verify deduplication worked - only first item should remain
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT COUNT(*), headline, url FROM news_items 
@@ -66,7 +66,7 @@ class TestNewsItemStorage:
         store_news_items(temp_db, [])  # Should not raise error
         
         # Verify no records stored
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM news_items")
             count = cursor.fetchone()[0]

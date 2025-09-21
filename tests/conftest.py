@@ -10,7 +10,7 @@ import tempfile
 import pytest
 from unittest.mock import Mock, AsyncMock
 import httpx
-from data.storage import init_database
+from data.storage import init_database, connect
 
 
 def cleanup_sqlite_artifacts(db_path: str) -> None:
@@ -30,7 +30,7 @@ def cleanup_sqlite_artifacts(db_path: str) -> None:
     
     try:
         uri = f"file:{db_path}?mode=rw"
-        with sqlite3.connect(uri, uri=True) as conn:
+        with connect(uri, uri=True) as conn:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")  # Merge WAL→main DB
             conn.execute("PRAGMA journal_mode=DELETE")       # Exit WAL mode (key for Windows)
             conn.commit()

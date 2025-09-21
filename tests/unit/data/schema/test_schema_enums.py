@@ -5,7 +5,7 @@ Tests enum value constraints and locks critical enum values against changes.
 import sqlite3
 import pytest
 
-from data.storage import init_database
+from data.storage import init_database, connect
 from data.models import Session, Stance, AnalysisType, NewsLabelType
 
 
@@ -66,7 +66,7 @@ class TestEnumConstraints:
     
     def test_session_enum_values(self, temp_db):
         """Test session IN ('REG', 'PRE', 'POST', 'CLOSED') constraint."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid enum values - test data with different hours for each session type
@@ -93,7 +93,7 @@ class TestEnumConstraints:
     
     def test_stance_enum_values(self, temp_db):
         """Test stance IN ('BULL', 'BEAR', 'NEUTRAL') constraint."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid values
@@ -114,7 +114,7 @@ class TestEnumConstraints:
     
     def test_analysis_type_enum_values(self, temp_db):
         """Test analysis_type enum constraint."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid values
@@ -136,7 +136,7 @@ class TestEnumConstraints:
 
     def test_news_label_enum_values(self, temp_db):
         """Test news_labels label constraint values."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
 
             for suffix, label in enumerate(['Company', 'People', 'MarketWithMention']):

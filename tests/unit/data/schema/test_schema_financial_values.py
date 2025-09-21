@@ -5,14 +5,14 @@ Tests financial value constraints for prices and decimal storage.
 import sqlite3
 import pytest
 
-from data.storage import init_database
+from data.storage import init_database, connect
 
 class TestFinancialConstraints:
     """Test positive value constraints for financial fields."""
     
     def test_price_must_be_positive(self, temp_db):
         """Test price > 0 constraint in price_data."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: small positive price
@@ -37,7 +37,7 @@ class TestFinancialConstraints:
     
     def test_price_boundary_values(self, temp_db):
         """Test price constraint with boundary values."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: very small positive
@@ -61,7 +61,7 @@ class TestFinancialConstraints:
     
     def test_holdings_quantity_positive(self, temp_db):
         """Test quantity > 0 constraint in holdings."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: positive quantity
@@ -79,7 +79,7 @@ class TestFinancialConstraints:
     
     def test_holdings_break_even_positive(self, temp_db):
         """Test break_even_price > 0 constraint in holdings."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: zero break_even_price
@@ -98,7 +98,7 @@ class TestFinancialConstraints:
     
     def test_holdings_total_cost_positive(self, temp_db):
         """Test total_cost > 0 constraint in holdings."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: zero total_cost
@@ -120,7 +120,7 @@ class TestVolumeConstraints:
     
     def test_volume_non_negative(self, temp_db):
         """Test volume >= 0 constraint in price_data."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: zero volume
@@ -144,7 +144,7 @@ class TestVolumeConstraints:
     
     def test_volume_null_allowed(self, temp_db):
         """Test that NULL volume is allowed."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: NULL volume (should pass CHECK constraint)

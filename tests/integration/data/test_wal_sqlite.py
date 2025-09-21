@@ -5,7 +5,6 @@ and database performance under realistic trading bot access patterns.
 """
 
 import pytest
-import sqlite3
 import threading
 import time
 import concurrent.futures
@@ -15,7 +14,7 @@ from decimal import Decimal
 # Mark all tests in this module as integration tests
 pytestmark = [pytest.mark.integration]
 
-from data.storage import store_news_items, get_news_since, store_price_data, get_price_data_since, upsert_analysis_result, get_analysis_results
+from data.storage import connect, store_news_items, get_news_since, store_price_data, get_price_data_since, upsert_analysis_result, get_analysis_results
 from data.models import NewsItem, PriceData, AnalysisResult, Session, Stance, AnalysisType
 
 
@@ -28,7 +27,7 @@ class TestWALSqlite:
         This test verifies concurrent access patterns that require WAL mode.
         """
         # Verify WAL mode is enabled
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode")
             mode = cursor.fetchone()[0]
@@ -69,7 +68,7 @@ class TestWALSqlite:
         """
         
         # VERIFY WAL MODE IS ENABLED
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode")
             mode = cursor.fetchone()[0]
@@ -280,7 +279,7 @@ class TestWALSqlite:
         
         # WAL files may or may not exist after operations complete (depends on checkpointing)
         # But we can verify they can be created by forcing a checkpoint
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         
         print(f"Concurrent operations completed successfully:")

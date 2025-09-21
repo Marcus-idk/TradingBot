@@ -5,14 +5,14 @@ Tests primary key uniqueness constraints for all database tables.
 import sqlite3
 import pytest
 
-from data.storage import init_database
+from data.storage import init_database, connect
 
 class TestPrimaryKeyConstraints:
     """Test primary key uniqueness constraints."""
     
     def test_news_items_composite_key(self, temp_db):
         """Test (symbol, url) composite primary key on news_items."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -36,7 +36,7 @@ class TestPrimaryKeyConstraints:
     
     def test_news_labels_composite_key(self, temp_db):
         """Test (symbol, url) composite primary key on news_labels."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
 
             # Backing news rows required for foreign key reference
@@ -70,7 +70,7 @@ class TestPrimaryKeyConstraints:
 
     def test_price_data_composite_key(self, temp_db):
         """Test (symbol, timestamp_iso) composite primary key on price_data."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -94,7 +94,7 @@ class TestPrimaryKeyConstraints:
     
     def test_analysis_results_composite_key(self, temp_db):
         """Test (symbol, analysis_type) composite primary key on analysis_results."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds
@@ -114,7 +114,7 @@ class TestPrimaryKeyConstraints:
     
     def test_holdings_single_key(self, temp_db):
         """Test symbol primary key on holdings."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # First insert succeeds

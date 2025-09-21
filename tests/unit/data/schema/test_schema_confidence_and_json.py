@@ -5,12 +5,12 @@ Tests confidence score range and JSON validation constraints.
 import sqlite3
 import pytest
 
-from data.storage import init_database
+from data.storage import init_database, connect
 
 def has_json1_support(db_path: str) -> bool:
     """Check if SQLite has JSON1 extension for conditional tests."""
     try:
-        with sqlite3.connect(db_path) as conn:
+        with connect(db_path) as conn:
             conn.execute("SELECT json_valid('{}')")
             return True
     except sqlite3.OperationalError:
@@ -21,7 +21,7 @@ class TestConfidenceScoreRange:
     
     def test_confidence_score_boundaries(self, temp_db):
         """Test confidence_score boundary values."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: exactly 0.0
@@ -47,7 +47,7 @@ class TestConfidenceScoreRange:
     
     def test_confidence_score_out_of_range(self, temp_db):
         """Test confidence_score values outside 0-1 range."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Invalid: below 0
@@ -74,7 +74,7 @@ class TestJSONConstraints:
         if not has_json1_support(temp_db):
             pytest.skip("SQLite JSON1 extension not available")
         
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: proper JSON object
@@ -97,7 +97,7 @@ class TestJSONConstraints:
         if not has_json1_support(temp_db):
             pytest.skip("SQLite JSON1 extension not available")
         
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Valid: JSON object

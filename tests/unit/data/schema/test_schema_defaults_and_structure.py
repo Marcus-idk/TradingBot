@@ -5,14 +5,14 @@ Tests database table structure, default values, and schema creation.
 import sqlite3
 import pytest
 
-from data.storage import init_database
+from data.storage import init_database, connect
 
 class TestDefaultValues:
     """Test default value behavior."""
     
     def test_session_default_reg(self, temp_db):
         """Test session defaults to 'REG' when not specified."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Insert without specifying session
@@ -30,7 +30,7 @@ class TestDefaultValues:
     
     def test_timestamp_defaults(self, temp_db):
         """Test created_at_iso defaults to current timestamp."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             
             # Insert without specifying created_at_iso
@@ -52,7 +52,7 @@ class TestDefaultValues:
 
     def test_news_labels_timestamp_default(self, temp_db):
         """Test created_at_iso default for news_labels table."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -80,7 +80,7 @@ class TestTableStructure:
 
     def test_without_rowid_optimization(self, temp_db):
         """All user tables use WITHOUT ROWID and required tables exist."""
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
 
             # Get all non-internal table creation SQL

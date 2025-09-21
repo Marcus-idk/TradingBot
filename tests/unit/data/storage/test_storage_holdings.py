@@ -11,7 +11,7 @@ from decimal import Decimal
 from data.storage import (
     init_database, store_news_items, store_price_data,
     get_news_since, get_price_data_since, upsert_analysis_result,
-    upsert_holdings, get_all_holdings, get_analysis_results,
+    upsert_holdings, get_all_holdings, get_analysis_results, connect,
     _normalize_url, _datetime_to_iso, _decimal_to_text,
     get_last_seen, set_last_seen, get_last_news_time, set_last_news_time,
     get_news_before, get_prices_before, commit_llm_batch, finalize_database
@@ -57,7 +57,7 @@ class TestHoldingsUpsert:
         upsert_holdings(temp_db, holdings2)
         
         # Verify record was updated properly
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT COUNT(*), quantity, break_even_price, total_cost, notes,
@@ -91,7 +91,7 @@ class TestHoldingsUpsert:
         upsert_holdings(temp_db, holdings)
         
         # Verify timestamps were set automatically
-        with sqlite3.connect(temp_db) as conn:
+        with connect(temp_db) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT created_at_iso, updated_at_iso FROM holdings 
