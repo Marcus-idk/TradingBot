@@ -28,7 +28,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
 - `SYMBOLS` - Required for `run_poller.py`; comma-separated tickers (e.g., "AAPL,MSFT,TSLA")
 - `POLL_INTERVAL` - Required for `run_poller.py`; polling frequency in seconds (e.g., 300 for 5 minutes)
-- `DATASETTE_PORT` - Optional, defaults to 8001; port used when launching web viewer with `-v`
+- `STREAMLIT_PORT` - Optional, defaults to 8501; port used when launching web UI with `-v`
 
 ## Test Markers
 - `@pytest.mark.integration` - Integration tests requiring database/API setup
@@ -37,7 +37,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 ## Top-Level Files
 - `README.md` - Landing page that points developers to detailed documentation in `docs/`
 - `requirements.txt` - Runtime and test dependencies (OpenAI, Gemini, httpx, pytest, etc.)
-- `requirements-dev.txt` - Developer-only extras (Datasette viewer)
+- `requirements-dev.txt` - Developer-only extras
 - `pytest.ini` - Pytest configuration (pythonpath, markers, default flags)
 
 ## Main Entry Points
@@ -46,7 +46,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - Uses `utils.logging.setup_logging()` for consistent logging
   - Uses `utils.signals.register_graceful_shutdown()` for SIGINT/SIGTERM
   - Requires `SYMBOLS`, `POLL_INTERVAL`, and `FINNHUB_API_KEY` in environment
-  - Optional web viewer: run with `-v` (port configurable via `DATASETTE_PORT`, default 8001)
+  - Optional web UI: run with `-v` (port configurable via `STREAMLIT_PORT`, default 8501)
+- `ui/app_min.py` - Streamlit database UI. Run with `streamlit run ui/app_min.py` (uses `DATABASE_PATH`).
 
 ## Project Structure
 
@@ -224,6 +225,15 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `analysis/__init__.py` - Package marker
 - `analysis/news_classifier.py` - News classification module
   - `classify(news_items)` - Classify news into Company/People/MarketWithMention (currently stub returning 'Company' for all)
+
+### `ui/` — Web UI
+**Purpose**: Lightweight Streamlit interface for local DB inspection
+
+**Files**:
+- `ui/app_min.py` - Default-style Streamlit app with:
+  - "Table" select from `sqlite_master`
+  - SQL textarea that only runs `SELECT` queries
+  - Reads `DATABASE_PATH` (defaults to `data/trading_bot.db`)
 
 ### `docs/` — Developer and operations documentation
 **Files**:

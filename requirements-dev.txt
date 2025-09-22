@@ -1,2 +1,1 @@
-# Development dependencies - not needed for production
-datasette==0.65
+streamlit>=1.36

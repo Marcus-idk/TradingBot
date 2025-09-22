@@ -81,22 +81,19 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 **Success**: Manual script fetches data every 5 minutes with deduplication
 
 
-### v0.3.2 — Database Viewer + News Classifier
-**Goal**: Browse the SQLite database locally and filter Finnhub news down to company-focused items
+### v0.3.2 — Database UI + News Classifier
+**Goal**: Browse the SQLite database locally and prepare news classification structure
 
 **Achieves**:
-- Run a local, read‑only Datasette UI for quick inspection and exports
-- Classify Finnhub news into Company, People, and MarketWithMention labels stored in `news_labels`
-- Filter poller outputs so downstream analysis sees Company/People items first
-- Keep classification metadata visible in the viewer for auditing
+- Run a minimal Streamlit UI for quick local inspection
+- News classifier stub that returns 'Company' for all items (intentional placeholder until v0.5 LLM layer)
+- `news_labels` table structure ready for future LLM-powered classification
+- Classification pipeline integrated into poller workflow
 
 **Dev UX**:
-- Install: `pip install datasette` (or `pip install -r requirements-dev.txt`)
-- Run: `datasette data/trading_bot.db -o` (opens browser)
-- Scope: local development (read‑only); do not expose publicly
-
-**Success**: You can spot-check labeled news in the viewer while the 5-minute poller keeps feeding clean inputs
-
+- Install: `pip install streamlit` (or `pip install -r requirements-dev.txt`)
+- Run: `streamlit run ui/app_min.py`
+- Scope: local development (read‑only via SELECT‑only UI); do not expose publicly
 
 ### v0.3.3 — Multi-Source Collection
 **Achieves**:
@@ -152,9 +149,6 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Sort-and-rank approach (not numeric scoring)
 - Urgent keywords trigger immediate analysis
 - Cleanup on success, preserve on failure
-
-**Success**: Generates actionable trading recommendations
-
 ---
 
 ## v1.0 — Production Trading Bot 🎯

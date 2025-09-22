@@ -29,7 +29,7 @@ async def main(with_viewer: bool = False) -> int:
     Main entry point for the poller.
     
     Args:
-        with_viewer: If True, launch Datasette web viewer alongside poller
+        with_viewer: If True, launch Streamlit web UI alongside poller
     
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -54,25 +54,30 @@ async def main(with_viewer: bool = False) -> int:
         logger.error(f"Failed to initialize database: {e}")
         return 1
     
-    # Launch Datasette viewer if requested
-    datasette_process = None
-    datasette_port = os.getenv("DATASETTE_PORT", "8001")
+    # Launch Streamlit UI if requested
+    ui_process = None
+    ui_port = os.getenv("STREAMLIT_PORT", "8501")
     
     if with_viewer:
         try:
-            datasette_process = subprocess.Popen(
-                ["datasette", db_path, "--port", datasette_port],
+            ui_cmd = [
+                "streamlit", "run", "ui/app_min.py",
+                "--server.port", ui_port, "--server.headless", "true",
+            ]
+            ui_env = {**os.environ, "DATABASE_PATH": db_path}
+            ui_process = subprocess.Popen(
+                ui_cmd,
+                env=ui_env,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
-            logger.info(f"Datasette viewer started at http://localhost:{datasette_port}")
-            logger.info("Open your browser and navigate to the URL above to view data")
+            logger.info(f"Streamlit UI started at http://localhost:{ui_port}")
         except FileNotFoundError:
-            logger.warning("Datasette not found. Install with: pip install datasette")
-            logger.warning("Continuing without viewer...")
+            logger.warning("Streamlit not found. Install with: pip install streamlit")
+            logger.warning("Continuing without UI...")
         except Exception as e:
-            logger.warning(f"Failed to start Datasette: {e}")
-            logger.warning("Continuing without viewer...")
+            logger.warning(f"Failed to start Streamlit: {e}")
+            logger.warning("Continuing without UI...")
     
     # Create Finnhub settings and providers
     try:
@@ -155,8 +160,8 @@ async def main(with_viewer: bool = False) -> int:
     logger.info(f"Monitoring {len(symbols)} symbols: {', '.join(symbols)}")
     logger.info(f"Database: {db_path}")
     logger.info(f"Poll interval: {poll_interval}s")
-    if datasette_process:
-        logger.info(f"Web viewer: http://localhost:{datasette_port}")
+    if ui_process:
+        logger.info(f"Web UI: http://localhost:{ui_port}")
     logger.info("Press Ctrl+C to stop")
     logger.info("=" * 60)
     
@@ -170,19 +175,18 @@ async def main(with_viewer: bool = False) -> int:
     finally:
         logger.info("Poller stopped")
         
-        # Clean up Datasette process if running
-        if datasette_process:
+        # Clean up Streamlit process if running
+        if ui_process:
             try:
-                datasette_process.terminate()
-                datasette_process.wait(timeout=5)
-                logger.info("Datasette viewer stopped")
-            except Exception as e:
-                logger.warning(f"Error stopping Datasette: {e}", exc_info=True)
+                ui_process.terminate()
+                ui_process.wait(timeout=5)
+                logger.info("Streamlit UI stopped")
+            except Exception:
                 try:
-                    datasette_process.kill()
-                    datasette_process.wait(timeout=3)
-                except Exception as e2:
-                    logger.error(f"Datasette kill() failed: {e2}", exc_info=True)
+                    ui_process.kill()
+                    ui_process.wait(timeout=3)
+                except Exception:
+                    pass
     
     logger.info("Shutdown complete")
     return 0
@@ -196,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         action="store_true",
-        help="Launch Datasette web viewer (default port: 8001, configurable via DATASETTE_PORT)"
+        help="Launch Streamlit web UI (default port: 8501, configurable via STREAMLIT_PORT)"
     )
     args = parser.parse_args()
     
