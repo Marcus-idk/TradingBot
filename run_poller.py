@@ -22,6 +22,7 @@ from data.storage import init_database
 from utils.logging import setup_logging
 from utils.signals import register_graceful_shutdown
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
 
 async def main(with_viewer: bool = False) -> int:
@@ -57,17 +58,18 @@ async def main(with_viewer: bool = False) -> int:
     # Launch Streamlit UI if requested
     ui_process = None
     ui_port = os.getenv("STREAMLIT_PORT", "8501")
-    
+
     if with_viewer:
         try:
-            ui_cmd = [
-                "streamlit", "run", "ui/app_min.py",
-                "--server.port", ui_port, "--server.headless", "true",
-            ]
-            ui_env = {**os.environ, "DATABASE_PATH": db_path}
+            env = os.environ.copy()
+            env["DATABASE_PATH"] = db_path
+            env["PYTHONPATH"] = os.pathsep.join(
+                filter(None, [str(PROJECT_ROOT), env.get("PYTHONPATH")])
+            )
             ui_process = subprocess.Popen(
-                ui_cmd,
-                env=ui_env,
+                [sys.executable, "-m", "streamlit", "run", str(PROJECT_ROOT / "ui/app_min.py"),
+                 "--server.port", ui_port, "--server.headless", "true"],
+                env=env,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -176,17 +178,13 @@ async def main(with_viewer: bool = False) -> int:
         logger.info("Poller stopped")
         
         # Clean up Streamlit process if running
-        if ui_process:
+        if ui_process and ui_process.poll() is None:
+            ui_process.terminate()
             try:
-                ui_process.terminate()
                 ui_process.wait(timeout=5)
                 logger.info("Streamlit UI stopped")
             except Exception:
-                try:
-                    ui_process.kill()
-                    ui_process.wait(timeout=3)
-                except Exception:
-                    pass
+                ui_process.kill()
     
     logger.info("Shutdown complete")
     return 0
