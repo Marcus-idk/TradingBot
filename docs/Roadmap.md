@@ -93,7 +93,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 **Dev UX**:
 - Install: `pip install streamlit` (or `pip install -r requirements-dev.txt`)
 - Run: `streamlit run ui/app_min.py`
-- Scope: local development (read‑only via SELECT‑only UI); do not expose publicly
+- Scope: local development (read‑only table viewer); do not expose publicly
 
 ### v0.3.3 — Multi-Source Collection
 **Achieves**:

@@ -235,7 +235,6 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Files**:
 - `ui/app_min.py` - Default-style Streamlit app with:
   - "Table" select from `sqlite_master`
-  - SQL textarea that only runs `SELECT` queries
   - Reads `DATABASE_PATH` (defaults to `data/trading_bot.db`)
 
 ### `docs/` — Developer and operations documentation
