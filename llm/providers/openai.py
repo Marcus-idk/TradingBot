@@ -11,7 +11,7 @@ from openai import (
     UnprocessableEntityError,
     ConflictError
 )
-from typing import Optional, Union, List, Dict
+from typing import Any
 from llm.base import LLMProvider, LLMError
 from config.llm import OpenAISettings
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
@@ -23,10 +23,10 @@ class OpenAIProvider(LLMProvider):
         self,
         settings: OpenAISettings,
         model_name: str,
-        temperature: Optional[float] = None,
-        reasoning: Optional[Dict] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[Union[str, Dict]] = None,
+        temperature: float | None = None,
+        reasoning: dict[str, Any] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = None,
         **kwargs
     ):
         super().__init__(**kwargs)

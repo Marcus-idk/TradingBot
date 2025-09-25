@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 from urllib.parse import urlparse
 import json
 
@@ -52,7 +51,7 @@ class NewsItem:
     headline: str
     published: datetime
     source: str
-    content: Optional[str] = None
+    content: str | None = None
 
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()
@@ -70,7 +69,7 @@ class NewsLabel:
     symbol: str
     url: str
     label: NewsLabelType
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()
@@ -94,7 +93,7 @@ class PriceData:
     symbol: str
     timestamp: datetime
     price: Decimal
-    volume: Optional[int] = None
+    volume: int | None = None
     session: Session = Session.REG
 
     def __post_init__(self):
@@ -115,7 +114,7 @@ class AnalysisResult:
     confidence_score: float
     last_updated: datetime
     result_json: str
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()
@@ -146,9 +145,9 @@ class Holdings:
     quantity: Decimal
     break_even_price: Decimal
     total_cost: Decimal
-    notes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    notes: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     def __post_init__(self):
         self.symbol = self.symbol.strip().upper()

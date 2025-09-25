@@ -9,7 +9,7 @@ This module provides:
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
 from data.base import NewsDataSource, PriceDataSource, DataSourceError
@@ -34,7 +34,7 @@ class FinnhubClient:
         self.settings = settings
     
     
-    async def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Any:
+    async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         """
         Make authenticated GET request with retry logic using short-lived session.
         
@@ -85,8 +85,8 @@ class FinnhubNewsProvider(NewsDataSource):
     Maps news articles to NewsItem models with proper UTC timestamps and validation.
     Supports incremental fetching based on publication dates.
     """
-    
-    def __init__(self, settings: FinnhubSettings, symbols: List[str], source_name: str = "Finnhub"):
+
+    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"):
         """
         Initialize news provider with settings and symbol list.
         
@@ -108,7 +108,7 @@ class FinnhubNewsProvider(NewsDataSource):
         """
         return await self.client.validate_connection()
     
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[NewsItem]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
         """
         Fetch company news articles since the given timestamp.
         
@@ -170,8 +170,8 @@ class FinnhubNewsProvider(NewsDataSource):
         
         return news_items
     
-    def _parse_article(self, article: Dict[str, Any], symbol: str, 
-                      buffer_time: Optional[datetime]) -> Optional[NewsItem]:
+    def _parse_article(self, article: dict[str, Any], symbol: str,
+                      buffer_time: datetime | None) -> NewsItem | None:
         """
         Parse Finnhub article JSON into NewsItem model.
         
@@ -230,10 +230,10 @@ class FinnhubPriceProvider(PriceDataSource):
     Each fetch returns current prices for all configured symbols.
     """
     
-    def __init__(self, settings: FinnhubSettings, symbols: List[str], source_name: str = "Finnhub"):
+    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"):
         """
         Initialize price provider with settings and symbol list.
-        
+
         Args:
             settings: Finnhub API configuration
             symbols: List of stock symbols to fetch quotes for (e.g., ['AAPL', 'TSLA'])
@@ -252,7 +252,7 @@ class FinnhubPriceProvider(PriceDataSource):
         """
         return await self.client.validate_connection()
     
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[PriceData]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
         """
         Fetch current stock quotes for all symbols.
         
@@ -286,7 +286,7 @@ class FinnhubPriceProvider(PriceDataSource):
         
         return price_data
     
-    def _parse_quote(self, quote: Dict[str, Any], symbol: str) -> Optional[PriceData]:
+    def _parse_quote(self, quote: dict[str, Any], symbol: str) -> PriceData | None:
         """
         Parse Finnhub quote JSON into PriceData model.
         

@@ -9,7 +9,6 @@ import os
 import base64
 import hashlib
 import re
-from typing import Tuple
 import pytest
 
 from config.retry import DEFAULT_DATA_RETRY
@@ -17,7 +16,7 @@ from utils.http import get_json_with_retry
 
 _WIKI_URL = "https://en.wikipedia.org/api/rest_v1/feed/featured/{y}/{m:02d}/{d:02d}"
 
-def make_base64_blob(n_bytes: int = 64) -> Tuple[str, str]:
+def make_base64_blob(n_bytes: int = 64) -> tuple[str, str]:
     """Generate a random base64 blob and its expected SHA-256 hash.
     
     Used to test LLM code execution tools by having them decode and hash data.

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -9,8 +9,8 @@ from utils.retry import RetryableError, retry_and_call, parse_retry_after
 async def get_json_with_retry(
     url: str,
     *,
-    params: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    params: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
     timeout: float,
     max_retries: int,
     base: float = 0.25,

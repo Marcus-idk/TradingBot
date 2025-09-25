@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
 from datetime import datetime
 
 from data.models import NewsItem, PriceData
@@ -63,7 +62,7 @@ class NewsDataSource(DataSource):
     """Abstract base class for data sources that provide news content"""
     
     @abstractmethod
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[NewsItem]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
         """Fetch new news items since the specified timestamp"""
         pass
 
@@ -72,6 +71,6 @@ class PriceDataSource(DataSource):
     """Abstract base class for data sources that provide price/market data"""
     
     @abstractmethod
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[PriceData]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
         """Fetch new price data since the specified timestamp"""
         pass

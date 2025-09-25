@@ -2,11 +2,11 @@ import asyncio
 import random
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, TypeVar
 
 T = TypeVar("T")
 
-def parse_retry_after(value: Optional[str]) -> Optional[float]:
+def parse_retry_after(value: str | None) -> float | None:
     """Parse Retry-After header value (numeric seconds or HTTP-date).
 
     Returns seconds to wait (floored at 0.0), or None if parsing fails.
@@ -34,7 +34,7 @@ def parse_retry_after(value: Optional[str]) -> Optional[float]:
 
 
 class RetryableError(Exception):
-    def __init__(self, message: str, retry_after: Optional[float] = None):
+    def __init__(self, message: str, retry_after: float | None = None):
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -51,7 +51,7 @@ async def retry_and_call(
     Retries on RetryableError up to `attempts` times. Sleeps between attempts
     using delay = retry_after (if provided) else base * (mult ** attempt) ± jitter.
     """
-    last_exc: Optional[Exception] = None
+    last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
             return await op()

@@ -10,7 +10,6 @@ Tests for abstract base classes and their contracts:
 
 import pytest
 from datetime import datetime
-from typing import List, Optional
 
 from data.base import (
     DataSource, 
@@ -101,7 +100,7 @@ class TestAbstractMethodEnforcement:
             async def validate_connection(self) -> bool:
                 return True
             
-            async def fetch_incremental(self, since: Optional[datetime] = None) -> List[NewsItem]:
+            async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
                 return []
         
         news_source = ConcreteNews("NewsTest")
@@ -112,7 +111,7 @@ class TestAbstractMethodEnforcement:
             async def validate_connection(self) -> bool:
                 return True
             
-            async def fetch_incremental(self, since: Optional[datetime] = None) -> List[PriceData]:
+            async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
                 return []
         
         price_source = ConcretePrice("PriceTest")

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Optional, Mapping
+from typing import Mapping
 from config.retry import LLMRetryConfig, DEFAULT_LLM_RETRY
 
 
@@ -10,7 +10,7 @@ class OpenAISettings:
     retry_config: LLMRetryConfig = DEFAULT_LLM_RETRY
 
     @staticmethod
-    def from_env(env: Optional[Mapping[str, str]] = None) -> "OpenAISettings":
+    def from_env(env: Mapping[str, str] | None = None) -> "OpenAISettings":
         if env is None:
             env = os.environ
         key = (env.get("OPENAI_API_KEY") or "").strip()

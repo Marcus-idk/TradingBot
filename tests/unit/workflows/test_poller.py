@@ -10,7 +10,6 @@ import pytest
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
 
 from workflows.poller import DataPoller
 from data.base import NewsDataSource, PriceDataSource
@@ -25,28 +24,28 @@ from data.storage import (
 class StubNews(NewsDataSource):
     """Stub news provider returning a preset list of items."""
 
-    def __init__(self, items: List[NewsItem]):
+    def __init__(self, items: list[NewsItem]):
         super().__init__("StubNews")
         self._items = items
 
     async def validate_connection(self) -> bool:
         return True
 
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[NewsItem]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
         return self._items
 
 
 class StubPrice(PriceDataSource):
     """Stub price provider returning a preset list of items."""
 
-    def __init__(self, items: List[PriceData]):
+    def __init__(self, items: list[PriceData]):
         super().__init__("StubPrice")
         self._items = items
 
     async def validate_connection(self) -> bool:
         return True
 
-    async def fetch_incremental(self, since: Optional[datetime] = None) -> List[PriceData]:
+    async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
         return self._items
 
 
@@ -90,7 +89,7 @@ class TestDataPoller:
             async def validate_connection(self) -> bool:
                 return True
 
-            async def fetch_incremental(self, since: Optional[datetime] = None) -> List[NewsItem]:
+            async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
                 raise RuntimeError("boom")
 
         ok_prices = [

@@ -7,7 +7,7 @@ storing results in SQLite, and managing watermarks for incremental fetching.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from data.models import NewsItem, PriceData
 from data.storage import (
@@ -31,8 +31,8 @@ class DataPoller:
     def __init__(
         self,
         db_path: str,
-        news_providers: List[NewsDataSource],
-        price_providers: List[PriceDataSource],
+        news_providers: list[NewsDataSource],
+        price_providers: list[PriceDataSource],
         poll_interval: int
     ):
         """
@@ -51,7 +51,7 @@ class DataPoller:
         self.running = False
         self._stop_event = asyncio.Event()
 
-    async def _fetch_all_data(self, last_news_time) -> Tuple[List, int, int]:
+    async def _fetch_all_data(self, last_news_time) -> tuple[list[Any], int, int]:
         """Fetch data from all providers concurrently and return results."""
         # Create tasks for all providers
         news_tasks = [
@@ -69,7 +69,7 @@ class DataPoller:
 
         return results, len(news_tasks), len(price_tasks)
 
-    def _collect_results(self, results: List, providers: List, provider_type: str) -> Tuple[List, List]:
+    def _collect_results(self, results: list[Any], providers: list[Any], provider_type: str) -> tuple[list[Any], list[str]]:
         """Collect successful results and log errors from providers."""
         all_items = []
         errors = []
@@ -84,7 +84,7 @@ class DataPoller:
 
         return all_items, errors
 
-    async def _process_news(self, news_items: List) -> int:
+    async def _process_news(self, news_items: list[NewsItem]) -> int:
         """Store news items, classify them, and update watermark."""
 
         # Store news items
@@ -118,7 +118,7 @@ class DataPoller:
         logger.info(f"Stored {len(news_items)} news items, watermark updated to {max_time.isoformat()}")
         return len(news_items)
 
-    async def _process_prices(self, price_items: List) -> int:
+    async def _process_prices(self, price_items: list[PriceData]) -> int:
         """Store price data."""
 
         await asyncio.to_thread(
@@ -130,7 +130,7 @@ class DataPoller:
         logger.info(f"Stored {len(price_items)} price updates")
         return len(price_items)
 
-    async def poll_once(self) -> Dict[str, Any]:
+    async def poll_once(self) -> dict[str, Any]:
         """
         Execute one polling cycle.
 

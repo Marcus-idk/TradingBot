@@ -6,7 +6,6 @@ Handles storing, querying, and updating news, prices, analysis, and holdings.
 import sqlite3
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
 
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings, NewsLabel,
@@ -20,7 +19,7 @@ from .storage_utils import (
 from .db_context import _cursor_context
 
 
-def store_news_items(db_path: str, items: List[NewsItem]) -> None:
+def store_news_items(db_path: str, items: list[NewsItem]) -> None:
     """
     Store news items in the database with URL normalization.
     Uses INSERT OR IGNORE to handle duplicates gracefully.
@@ -47,7 +46,7 @@ def store_news_items(db_path: str, items: List[NewsItem]) -> None:
             ))
 
 
-def store_news_labels(db_path: str, labels: List[NewsLabel]) -> None:
+def store_news_labels(db_path: str, labels: list[NewsLabel]) -> None:
     """
     Insert or update news classification labels for stored news items.
     """
@@ -72,7 +71,7 @@ def store_news_labels(db_path: str, labels: List[NewsLabel]) -> None:
             ))
 
 
-def store_price_data(db_path: str, items: List[PriceData]) -> None:
+def store_price_data(db_path: str, items: list[PriceData]) -> None:
     """
     Store price data in the database with type conversions.
     Uses INSERT OR IGNORE to handle duplicates gracefully.
@@ -94,7 +93,7 @@ def store_price_data(db_path: str, items: List[PriceData]) -> None:
                 item.session.value
             ))
 
-def get_news_since(db_path: str, timestamp: datetime) -> List[NewsItem]:
+def get_news_since(db_path: str, timestamp: datetime) -> list[NewsItem]:
     """
     Retrieve news items since the given timestamp.
     Returns NewsItem model objects with datetime fields in UTC.
@@ -110,7 +109,7 @@ def get_news_since(db_path: str, timestamp: datetime) -> List[NewsItem]:
         return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
 
 
-def get_news_labels(db_path: str, symbol: Optional[str] = None) -> List[NewsLabel]:
+def get_news_labels(db_path: str, symbol: str | None = None) -> list[NewsLabel]:
     """Retrieve stored news labels, optionally filtered by symbol."""
     with _cursor_context(db_path, commit=False) as cursor:
         if symbol:
@@ -131,7 +130,7 @@ def get_news_labels(db_path: str, symbol: Optional[str] = None) -> List[NewsLabe
         return [_row_to_news_label(dict(row)) for row in cursor.fetchall()]
 
 
-def get_price_data_since(db_path: str, timestamp: datetime) -> List[PriceData]:
+def get_price_data_since(db_path: str, timestamp: datetime) -> list[PriceData]:
     """
     Retrieve price data since the given timestamp.
     Returns PriceData model objects with datetime fields in UTC.
@@ -147,7 +146,7 @@ def get_price_data_since(db_path: str, timestamp: datetime) -> List[PriceData]:
         return [_row_to_price_data(dict(row)) for row in cursor.fetchall()]
 
 
-def get_all_holdings(db_path: str) -> List[Holdings]:
+def get_all_holdings(db_path: str) -> list[Holdings]:
     """
     Retrieve all current holdings.
     Returns Holdings model objects with datetime fields in UTC.
@@ -163,7 +162,7 @@ def get_all_holdings(db_path: str) -> List[Holdings]:
         return [_row_to_holdings(dict(row)) for row in cursor.fetchall()]
 
 
-def get_analysis_results(db_path: str, symbol: str = None) -> List[AnalysisResult]:
+def get_analysis_results(db_path: str, symbol: str | None = None) -> list[AnalysisResult]:
     """
     Retrieve analysis results, optionally filtered by symbol.
     Returns AnalysisResult model objects with datetime fields in UTC.

@@ -5,14 +5,13 @@ Handles LLM processing batches and state tracking.
 
 import sqlite3
 from datetime import datetime
-from typing import List, Optional, Dict
 
 from data.models import NewsItem, PriceData
 from .storage_utils import _datetime_to_iso, _iso_to_datetime, _row_to_news_item, _row_to_price_data
 from .db_context import _cursor_context
 
 
-def get_last_seen(db_path: str, key: str) -> Optional[str]:
+def get_last_seen(db_path: str, key: str) -> str | None:
     """
     Get a value from last_seen table. Returns None if key doesn't exist.
 
@@ -45,7 +44,7 @@ def set_last_seen(db_path: str, key: str, value: str) -> None:
         )
 
 
-def get_last_news_time(db_path: str) -> Optional[datetime]:
+def get_last_news_time(db_path: str) -> datetime | None:
     """
     Get the timestamp of the most recent news we've fetched (news_since_iso).
 
@@ -70,7 +69,7 @@ def set_last_news_time(db_path: str, timestamp: datetime) -> None:
     set_last_seen(db_path, 'news_since_iso', iso_str)
 
 
-def get_news_before(db_path: str, cutoff: datetime) -> List[NewsItem]:
+def get_news_before(db_path: str, cutoff: datetime) -> list[NewsItem]:
     """
     Get news items created at or before the cutoff for LLM processing.
 
@@ -92,7 +91,7 @@ def get_news_before(db_path: str, cutoff: datetime) -> List[NewsItem]:
         return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
 
 
-def get_prices_before(db_path: str, cutoff: datetime) -> List[PriceData]:
+def get_prices_before(db_path: str, cutoff: datetime) -> list[PriceData]:
     """
     Get price data created at or before the cutoff for LLM processing.
 
@@ -114,7 +113,7 @@ def get_prices_before(db_path: str, cutoff: datetime) -> List[PriceData]:
         return [_row_to_price_data(dict(row)) for row in cursor.fetchall()]
 
 
-def commit_llm_batch(db_path: str, cutoff: datetime) -> Dict[str, int]:
+def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
     """
     Atomically record the LLM cutoff and prune processed raw data.
 

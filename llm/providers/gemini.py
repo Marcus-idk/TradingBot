@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError, ClientError, ServerError
-from typing import Optional, List, Dict
+from typing import Any
 from llm.base import LLMProvider, LLMError
 from config.llm import GeminiSettings
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
@@ -13,10 +13,10 @@ class GeminiProvider(LLMProvider):
         self,
         settings: GeminiSettings,
         model_name: str,
-        temperature: Optional[float] = None,
-        tools: Optional[List[Dict]] = None,
-        tool_choice: Optional[str] = None,
-        thinking_config: Optional[Dict] = None,
+        temperature: float | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | None = None,
+        thinking_config: dict[str, Any] | None = None,
         **kwargs
     ):
         super().__init__(**kwargs)

@@ -3,7 +3,7 @@ Configuration settings for Finnhub API provider
 """
 from dataclasses import dataclass
 import os
-from typing import Optional, Mapping
+from typing import Mapping
 from config.retry import DataRetryConfig, DEFAULT_DATA_RETRY
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class FinnhubSettings:
     retry_config: DataRetryConfig = DEFAULT_DATA_RETRY
     
     @staticmethod
-    def from_env(env: Optional[Mapping[str, str]] = None) -> 'FinnhubSettings':
+    def from_env(env: Mapping[str, str] | None = None) -> 'FinnhubSettings':
         """
         Create FinnhubSettings from environment variables
         

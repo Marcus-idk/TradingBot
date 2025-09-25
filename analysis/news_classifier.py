@@ -4,14 +4,13 @@ Currently returns 'Company' for all items - stub for future ML/LLM implementatio
 """
 
 import logging
-from typing import List
 
 from data.models import NewsItem, NewsLabel, NewsLabelType
 
 logger = logging.getLogger(__name__)
 
 
-def classify(news_items: List[NewsItem]) -> List[NewsLabel]:
+def classify(news_items: list[NewsItem]) -> list[NewsLabel]:
     """
     Classify news items into categories.
 

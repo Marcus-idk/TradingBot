@@ -13,7 +13,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -33,9 +32,9 @@ logger = logging.getLogger(__name__)
 class PollerConfig:
     """Configuration for the data poller."""
     db_path: str
-    symbols: List[str]
+    symbols: list[str]
     poll_interval: int
-    ui_port: Optional[int]
+    ui_port: int | None
     finnhub_settings: FinnhubSettings
 
 
@@ -101,7 +100,7 @@ def initialize_database(db_path: str) -> bool:
         return False
 
 
-def launch_ui_process(config: PollerConfig) -> Optional[subprocess.Popen]:
+def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
     """Launch Streamlit UI process, return process handle or None."""
     if config.ui_port is None:
         return None
@@ -131,7 +130,7 @@ def launch_ui_process(config: PollerConfig) -> Optional[subprocess.Popen]:
         return None
 
 
-async def create_and_validate_providers(config: PollerConfig) -> Tuple[List[NewsDataSource], List[PriceDataSource]]:
+async def create_and_validate_providers(config: PollerConfig) -> tuple[list[NewsDataSource], list[PriceDataSource]]:
     """Create and validate news and price providers."""
     logger.info(f"Tracking symbols: {', '.join(config.symbols)}")
     logger.info(f"Poll interval: {config.poll_interval} seconds")
@@ -162,7 +161,7 @@ async def create_and_validate_providers(config: PollerConfig) -> Tuple[List[News
     return [news_provider], [price_provider]
 
 
-def cleanup_ui_process(ui_process: Optional[subprocess.Popen]) -> None:
+def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
     """Clean up UI process if running."""
     if ui_process and ui_process.poll() is None:
         ui_process.terminate()

@@ -5,6 +5,7 @@ Handles URL normalization, datetime conversions, and database row mapping.
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from data.models import (
@@ -66,7 +67,7 @@ def _decimal_to_text(decimal_val: Decimal) -> str:
     return str(decimal_val)
 
 
-def _row_to_news_item(row: dict) -> NewsItem:
+def _row_to_news_item(row: dict[str, Any]) -> NewsItem:
     """Convert database row to NewsItem model."""
     return NewsItem(
         symbol=row['symbol'],
@@ -78,7 +79,7 @@ def _row_to_news_item(row: dict) -> NewsItem:
     )
 
 
-def _row_to_news_label(row: dict) -> NewsLabel:
+def _row_to_news_label(row: dict[str, Any]) -> NewsLabel:
     """Convert database row to NewsLabel model."""
     created_at = None
     if row.get('created_at_iso'):
@@ -91,7 +92,7 @@ def _row_to_news_label(row: dict) -> NewsLabel:
     )
 
 
-def _row_to_price_data(row: dict) -> PriceData:
+def _row_to_price_data(row: dict[str, Any]) -> PriceData:
     """Convert database row to PriceData model."""
     return PriceData(
         symbol=row['symbol'],
@@ -102,7 +103,7 @@ def _row_to_price_data(row: dict) -> PriceData:
     )
 
 
-def _row_to_analysis_result(row: dict) -> AnalysisResult:
+def _row_to_analysis_result(row: dict[str, Any]) -> AnalysisResult:
     """Convert database row to AnalysisResult model."""
     created_at = None
     if 'created_at_iso' in row and row['created_at_iso']:
@@ -120,7 +121,7 @@ def _row_to_analysis_result(row: dict) -> AnalysisResult:
     )
 
 
-def _row_to_holdings(row: dict) -> Holdings:
+def _row_to_holdings(row: dict[str, Any]) -> Holdings:
     """Convert database row to Holdings model."""
     created_at = None
     updated_at = None
