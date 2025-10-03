@@ -3,6 +3,15 @@
 ## What this file is
 A **contract-only reference** for external data providers we call. It explains **what data** we use them for and **how to call** them (auth, base URLs, routes, params) with brief response semantics. Implementation details live elsewhere.
 
+## Symbol Guide
+For each provider's **"What they provide"** section:
+- **List items** = data domains AVAILABLE from that provider's API
+- **✅** = Available AND currently USED/IMPLEMENTED in our project
+- **❌** = Available from the API but NOT USED YET in our project
+- **Not listed** = Not available from that provider at all
+
+The **"Endpoints"** section shows only what we actually call/use (matching the ✅ items above).
+
 ## Data domains we ingest
 - **Macro News** — Major market-moving events.
 - **Company News** — News about specific companies.
@@ -19,18 +28,60 @@ A **contract-only reference** for external data providers we call. It explains *
 **What they provide**
 - Macro News — ❌
 - Company News — ✅
-- People News (tag) — ✅
-- Filings — ❌
-- Social/Sentiment — ❌
 - Prices/Market Data — ✅
 
-**Endpoints (current usage)**
-- Company news — `GET /company-news`
+**Endpoints**
+- Macro News — `GET /news`
+  - Params: `category` (`general` | `forex` | `crypto` | `merger`), `minId` (optional), `token`
+  - Returns:
+    ```json
+    [
+      {
+        "category": "general",
+        "datetime": 1727865600,
+        "headline": "Stocks rise as investors digest inflation data",
+        "id": 123456789,
+        "image": "https://example.com/image.jpg",
+        "related": "",
+        "source": "Reuters",
+        "summary": "U.S. stocks climbed after new CPI figures...",
+        "url": "https://www.reuters.com/markets/us/..."
+      }
+    ]
+    ```
+
+- Company News — `GET /company-news`
   - Params: `symbol`, `from` (`YYYY-MM-DD`), `to` (`YYYY-MM-DD`), `token`
-  - Notes: We fetch recent ranges and filter by UTC publish time.
-- Quote — `GET /quote`
+  - Returns:
+    ```json
+    [
+      {
+        "category": "company",
+        "datetime": 1696012800,
+        "headline": "Apple launches new product line",
+        "id": 987654321,
+        "image": "https://example.com/aapl.jpg",
+        "related": "AAPL",
+        "source": "Reuters",
+        "summary": "Apple unveiled its latest devices at an event...",
+        "url": "https://www.reuters.com/technology/..."
+      }
+    ]
+    ```
+
+- Prices/Market Data — `GET /quote`
   - Params: `symbol`, `token`
-  - Returns: `c` (current price), `h`, `l`, `o`, `pc` (prev close), `t` (epoch UTC)
+  - Returns:
+    ```json
+    {
+      "c": 261.74,
+      "h": 263.31,
+      "l": 260.68,
+      "o": 261.07,
+      "pc": 259.45,
+      "t": 1582641000
+    }
+    ```
 
 ---
 
@@ -38,7 +89,6 @@ A **contract-only reference** for external data providers we call. It explains *
 - Polygon — Covers: ✅ Prices (backup) · ✅ Company News *(plan-dependent)*
 - SEC EDGAR — Covers: ✅ Filings (10‑K, 10‑Q, 8‑K, insider)
 - Reddit — Covers: ✅ Social/Sentiment (subreddits, posts, comments)
-- RSS / Publisher Feeds — Covers: ✅ Macro News · ✅ Company News · ✅ People *(tagged)*
 
 ---
 

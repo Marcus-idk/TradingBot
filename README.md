@@ -18,7 +18,7 @@ A lightweight US equities trading bot skeleton with strict data models, SQLite s
 - **Writing Code**: Guidelines for code style, conventions, and best practices
   - [docs/Writing_Code.md](docs/Writing_Code.md)
   
-- **Data API Reference**: External data sources (Finnhub, Polygon, SEC EDGAR, RSS, Reddit) with rate limits and coverage
+- **Data API Reference**: External data sources (Finnhub, Polygon, SEC EDGAR, Reddit) with rate limits and coverage
   - [docs/Data_API_Reference.md](docs/Data_API_Reference.md)
   
 - **LLM Providers Guide**: OpenAI and Gemini provider parameters, tools, and usage examples

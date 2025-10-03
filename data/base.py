@@ -6,7 +6,7 @@ from data.models import NewsItem, PriceData
 
 class DataSource(ABC):
     """
-    Abstract base class for all data providers (Finnhub, RSS, Reddit, etc.)
+    Abstract base class for all data providers (Finnhub, Polygon, Reddit, etc.)
     
     Defines the contract that every data source must implement:
     - Incremental fetching (only get new data since last fetch)
@@ -19,7 +19,7 @@ class DataSource(ABC):
         Initialize data source with identifying name
         
         Args:
-            source_name: Human-readable identifier (e.g., "Finnhub", "RSS_Reuters")
+            source_name: Human-readable identifier (e.g., "Finnhub", "Polygon")
             
         Raises:
             ValueError: If source_name is invalid (None, empty, too long, or contains invalid characters)

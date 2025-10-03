@@ -21,7 +21,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Market: US equities (NYSE/NASDAQ); US-listed stocks only
 - Sessions (ET): Pre 4:00–9:30, Regular 9:30–16:00, Post 16:00–20:00, Closed 20:00–4:00
 - Timezone: Store UTC (ISO Z); convert to ET for logic; session enum {REG, PRE, POST, CLOSED}
-- Data Sources: Finnhub, Polygon.io, SEC EDGAR, RSS, Reddit
+- Data Sources: Finnhub, Polygon.io, SEC EDGAR, Reddit
 
 ---
 
@@ -97,7 +97,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 ### v0.3.3 — Multi-Source Collection
 **Achieves**:
-- RSS provider for additional news
+- Finnhub macro news endpoint (`/news?category=general`)
 - Urgent keyword detection (bankruptcy, SEC investigation, etc.)
 - Cross-source deduplication working
 - Enhanced poller for multi-source orchestration

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS news_items (
     headline TEXT NOT NULL,
     content TEXT,
     published_iso TEXT NOT NULL,        -- UTC ISO "YYYY-MM-DDTHH:MM:SSZ"
-    source TEXT NOT NULL,               -- finnhub, polygon, rss, etc.
+    source TEXT NOT NULL,               -- finnhub, polygon, etc.
     created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (symbol, url)
 ) WITHOUT ROWID;

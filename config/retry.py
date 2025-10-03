@@ -16,7 +16,7 @@ class LLMRetryConfig:
 
 @dataclass(frozen=True)
 class DataRetryConfig:
-    """Retry configuration for data providers (Finnhub, RSS, etc.)"""
+    """Retry configuration for data providers (Finnhub, Polygon, etc.)"""
     timeout_seconds: int = 30  # Data APIs are faster
     max_retries: int = 3
     base: float = 0.25

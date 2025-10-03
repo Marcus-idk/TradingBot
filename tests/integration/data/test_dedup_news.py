@@ -42,13 +42,13 @@ class TestNewsDeduplication:
             published=test_timestamp
         )
         
-        # Source 2: RSS Feed with mixed tracking parameters (case-insensitive test)
-        rss_article = NewsItem(
+        # Source 2: Polygon with mixed tracking parameters (case-insensitive test)
+        polygon_article = NewsItem(
             symbol=symbol,
-            url=f"{base_url}?UTM_SOURCE=rss&ref=feed&fbclid=IwAR1234567890&campaign=newsletter&utm_content=finance",
+            url=f"{base_url}?UTM_SOURCE=polygon&ref=feed&fbclid=IwAR1234567890&campaign=newsletter&utm_content=finance",
             headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
             content="Apple Inc. exceeded analyst expectations with quarterly earnings showing robust iPhone sales and services growth.",  # Same content
-            source="RSS Feed",
+            source="Polygon",
             published=test_timestamp
         )
         
@@ -77,8 +77,8 @@ class TestNewsDeduplication:
         expected_normalized_url = base_url  # Clean URL without any tracking parameters
         assert stored_article.url == expected_normalized_url, f"Expected normalized URL '{expected_normalized_url}', got '{stored_article.url}'"
         
-        # Store second article from RSS (should be ignored due to duplicate normalized URL)
-        store_news_items(temp_db, [rss_article])
+        # Store second article from Polygon (should be ignored due to duplicate normalized URL)
+        store_news_items(temp_db, [polygon_article])
         
         # Store third article from Google (should also be ignored due to duplicate normalized URL)
         store_news_items(temp_db, [google_article])
