@@ -3,10 +3,12 @@ Finnhub API provider implementations for news and price data.
 
 This module provides:
 - FinnhubClient: Minimal HTTP wrapper with retry logic
-- FinnhubNewsProvider: Company news fetching via /company-news endpoint  
+- FinnhubNewsProvider: Company news fetching via /company-news endpoint
+- FinnhubMacroNewsProvider: Market-wide news fetching via /news endpoint
 - FinnhubPriceProvider: Real-time quotes via /quote endpoint
 """
 
+import logging
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any
@@ -16,6 +18,9 @@ from data.base import NewsDataSource, PriceDataSource, DataSourceError
 from data.models import NewsItem, PriceData, Session
 from utils.http import get_json_with_retry
 from utils.market_sessions import classify_us_session
+from utils.symbols import parse_symbols
+
+logger = logging.getLogger(__name__)
 
 class FinnhubClient:
     """
@@ -24,10 +29,10 @@ class FinnhubClient:
     Handles authentication, timeouts, and basic retry logic for 429/5xx errors.
     """
     
-    def __init__(self, settings: FinnhubSettings):
+    def __init__(self, settings: FinnhubSettings) -> None:
         """
         Initialize client with settings.
-        
+
         Args:
             settings: Finnhub configuration (API key, timeouts, retries)
         """
@@ -86,10 +91,10 @@ class FinnhubNewsProvider(NewsDataSource):
     Supports incremental fetching based on publication dates.
     """
 
-    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"):
+    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub") -> None:
         """
         Initialize news provider with settings and symbol list.
-        
+
         Args:
             settings: Finnhub API configuration
             symbols: List of stock symbols to fetch news for (e.g., ['AAPL', 'TSLA'])
@@ -159,13 +164,15 @@ class FinnhubNewsProvider(NewsDataSource):
                         # Pass buffer_time for filtering, not original since
                         news_item = self._parse_article(article, symbol, buffer_time if since else None)
                         if news_item:
-                            news_items.append(news_item)                                
-                    except Exception:
+                            news_items.append(news_item)
+                    except Exception as e:
                         # Skip invalid articles, continue with others
+                        logger.debug(f"Failed to parse company news article for {symbol}: {e}")
                         continue
-                        
-            except Exception:
+
+            except Exception as e:
                 # Skip symbol on error, continue with remaining symbols
+                logger.warning(f"Company news fetch failed for {symbol}: {e}")
                 continue
         
         return news_items
@@ -191,11 +198,11 @@ class FinnhubNewsProvider(NewsDataSource):
         if not headline or not url or datetime_epoch <= 0:
             return None
         
-        
         # Convert epoch timestamp to UTC datetime
         try:
             published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
-        except (ValueError, OSError):
+        except (ValueError, OSError) as e:
+            logger.debug(f"Skipping company news article for {symbol} due to invalid epoch {datetime_epoch}: {e}")
             return None
         
         # Filter by buffer_time (exclusive to avoid duplicates)
@@ -216,8 +223,9 @@ class FinnhubNewsProvider(NewsDataSource):
                 source=source,
                 content=content
             )
-        except ValueError:
+        except ValueError as e:
             # NewsItem validation failed
+            logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {e}")
             return None
     
 
@@ -230,7 +238,7 @@ class FinnhubPriceProvider(PriceDataSource):
     Each fetch returns current prices for all configured symbols.
     """
     
-    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"):
+    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub") -> None:
         """
         Initialize price provider with settings and symbol list.
 
@@ -279,9 +287,10 @@ class FinnhubPriceProvider(PriceDataSource):
                 price_item = self._parse_quote(quote, symbol)
                 if price_item:
                     price_data.append(price_item)
-                    
-            except Exception:
+
+            except Exception as e:
                 # Skip symbol on error, continue with remaining symbols
+                logger.warning(f"Price quote fetch failed for {symbol}: {e}")
                 continue
         
         return price_data
@@ -305,7 +314,8 @@ class FinnhubPriceProvider(PriceDataSource):
         # Convert to Decimal for financial precision
         try:
             price = Decimal(str(current_price))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Invalid quote price for {symbol}: {current_price!r} ({e}) - skipping")
             return None
         
         # Extract timestamp (use quote timestamp if available and valid, otherwise use now)
@@ -313,7 +323,8 @@ class FinnhubPriceProvider(PriceDataSource):
         if quote_timestamp > 0:
             try:
                 timestamp = datetime.fromtimestamp(quote_timestamp, tz=timezone.utc)
-            except (ValueError, OSError):
+            except (ValueError, OSError) as e:
+                logger.debug(f"Invalid quote timestamp for {symbol}: {quote_timestamp!r} ({e}) - using now()")
                 timestamp = datetime.now(timezone.utc)
         else:
             timestamp = datetime.now(timezone.utc)
@@ -321,11 +332,223 @@ class FinnhubPriceProvider(PriceDataSource):
         try:
             return PriceData(
                 symbol=symbol,
-                timestamp=timestamp, 
+                timestamp=timestamp,
                 price=price,
                 volume=None,  # Not provided by /quote endpoint
                 session=classify_us_session(timestamp)  # Determine actual session based on ET
             )
-        except ValueError:
+        except ValueError as e:
             # PriceData validation failed
+            logger.debug(f"PriceData validation failed for {symbol} (price={price}): {e}")
             return None
+
+
+class FinnhubMacroNewsProvider(NewsDataSource):
+    """
+    Fetches market-wide macro news from Finnhub's /news endpoint.
+
+    Uses category='general' for broad market news. Maps news articles to NewsItem
+    models with symbol assignment based on the 'related' field (or "ALL" fallback).
+    Supports incremental fetching based on publication dates.
+    """
+
+    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub Macro") -> None:
+        """
+        Initialize macro news provider with settings and watchlist symbols.
+
+        Args:
+            settings: Finnhub API configuration
+            symbols: List of stock symbols on watchlist for filtering (e.g., ['AAPL', 'TSLA'])
+            source_name: Data source identifier for logging/debugging
+        """
+        super().__init__(source_name)
+        self.symbols = [s.strip().upper() for s in symbols if s.strip()]
+        self.client = FinnhubClient(settings)
+        self.last_fetched_max_id: int | None = None
+
+    async def validate_connection(self) -> bool:
+        """
+        Validate connection via the centralized client method.
+
+        Returns:
+            True if connection successful, False otherwise (never raises)
+        """
+        return await self.client.validate_connection()
+
+    async def fetch_incremental(self, since: datetime | None = None, min_id: int | None = None) -> list[NewsItem]:
+        """
+        Fetch macro news articles using minId pagination.
+
+        Args:
+            since: Kept for API parity with NewsDataSource base class, but IGNORED.
+                   Macro news (/news) is independent from company news (/company-news),
+                   so the shared last_news_time watermark does not apply here.
+            min_id: Fetch articles with ID > min_id (for incremental fetching).
+                   If None, bootstrap mode (first run defaults to last 2 days).
+
+        Returns:
+            List of NewsItem objects with valid headlines, URLs, and UTC timestamps.
+            Symbol is assigned from 'related' field or defaults to "ALL".
+
+        Note:
+            Watermark strategy: This provider relies exclusively on macro_news_min_id.
+            Bootstrap always uses 2-day lookback regardless of `since` parameter.
+            After bootstrap, incremental fetching is driven solely by minId.
+        """
+        now_utc = datetime.now(timezone.utc)
+
+        # Bootstrap mode: always use 2-day lookback (ignore `since` parameter)
+        # Macro news is independent from company news, so last_news_time doesn't apply
+        if min_id is None:
+            buffer_time = now_utc - timedelta(days=2)
+        else:
+            # Incremental mode: minId is primary anchor, no datetime buffer needed
+            buffer_time = None
+
+        news_items = []
+
+        # Call /news endpoint with category=general for macro news
+        params = {'category': 'general'}
+
+        # Add minId for incremental fetching if available
+        if min_id is not None:
+            params['minId'] = min_id
+
+        articles = await self.client.get('/news', params)
+
+        if not isinstance(articles, list):
+            self.last_fetched_max_id = None
+            return []
+
+        # Filter out duplicates defensively (articles with id <= min_id)
+        if min_id is not None:
+            filtered_articles = [
+                a for a in articles
+                if isinstance(a.get('id'), int) and a['id'] > min_id
+            ]
+            if len(filtered_articles) < len(articles):
+                logger.debug(
+                    f"Filtered {len(articles) - len(filtered_articles)} articles "
+                    f"with id <= {min_id}"
+                )
+            articles = filtered_articles
+
+        # Process each article (now returns list of NewsItems, one per watchlist symbol)
+        for article in articles:
+            try:
+                # Pass buffer_time for filtering, not original since
+                # _parse_article returns list[NewsItem] (empty if filtered/invalid)
+                items = self._parse_article(article, buffer_time)
+                news_items.extend(items)
+            except Exception as e:
+                # Skip invalid articles, continue with others
+                logger.debug(f"Failed to parse article {article.get('id', 'unknown')}: {e}")
+                continue
+
+        # Track max article ID for next incremental fetch (robust validation)
+        ids = [a['id'] for a in articles if isinstance(a.get('id'), int) and a['id'] > 0]
+        if ids:
+            max_id = max(ids)
+            # Guard against unexpected API behavior
+            if min_id is not None and max_id <= min_id:
+                logger.debug(f"Max article ID {max_id} <= current min_id {min_id}, not advancing watermark")
+                self.last_fetched_max_id = None
+            else:
+                self.last_fetched_max_id = max_id
+        else:
+            self.last_fetched_max_id = None
+
+        return news_items
+
+    def _parse_article(self, article: dict[str, Any],
+                      buffer_time: datetime | None) -> list[NewsItem]:
+        """
+        Parse Finnhub macro news article JSON into NewsItem models.
+
+        Creates one NewsItem per watchlist symbol mentioned in the article's
+        'related' field, or a single ALL item if no watchlist symbols found.
+
+        Args:
+            article: Raw article data from Finnhub API
+            buffer_time: Filter out articles published at or before this time (includes buffer)
+
+        Returns:
+            List of NewsItem objects (one per watchlist symbol), or empty list if invalid/filtered
+        """
+        # Validate required fields
+        headline = article.get('headline', '').strip()
+        url = article.get('url', '').strip()
+        datetime_epoch = article.get('datetime', 0)
+
+        if not headline or not url or datetime_epoch <= 0:
+            return []
+
+        # Convert epoch timestamp to UTC datetime
+        try:
+            published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
+        except (ValueError, OSError) as e:
+            logger.debug(f"Skipping macro news article due to invalid epoch {datetime_epoch}: {e}")
+            return []
+
+        # Filter by buffer_time (exclusive to avoid duplicates)
+        if buffer_time and published <= buffer_time:
+            return []
+
+        # Extract watchlist symbols from 'related' field (returns list or ['ALL'])
+        related = article.get('related', '').strip()
+        symbols = self._extract_symbols_from_related(related)
+
+        # Extract other fields with defaults
+        source = article.get('source', '').strip() or 'Finnhub'
+        summary = article.get('summary', '').strip()
+        content = summary if summary else None
+
+        # Create one NewsItem per symbol
+        news_items = []
+        for symbol in symbols:
+            try:
+                news_item = NewsItem(
+                    symbol=symbol,
+                    url=url,
+                    headline=headline,
+                    published=published,
+                    source=source,
+                    content=content
+                )
+                news_items.append(news_item)
+            except ValueError as e:
+                # NewsItem validation failed for this symbol, skip it
+                logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {e}")
+                continue
+
+        return news_items
+
+    def _extract_symbols_from_related(self, related: str | None) -> list[str]:
+        """
+        Extract watchlist symbols from Finnhub 'related' field.
+
+        Filters related symbols to only those on our watchlist.
+        Fallback behavior:
+          - If related is empty/blank → ['ALL'] (macro-wide headline)
+          - If related has symbols but none on our watchlist → [] (drop; no ALL)
+
+        Args:
+            related: Comma-separated symbols or empty string from API response
+
+        Returns:
+            List of watchlist symbols or ['ALL'] fallback
+
+        Examples:
+            Watchlist: [AAPL, TSLA]
+            "" → ['ALL']
+            "AAPL,MSFT" → ['AAPL'] (MSFT not on watchlist)
+            "GOOGL" → ['ALL'] (not on watchlist)
+            "AAPL,TSLA" → ['AAPL', 'TSLA']
+            "  aapl  , tsla  " → ['AAPL', 'TSLA']
+        """
+        # Empty or blank related field → ALL
+        if not related or not related.strip():
+            return ['ALL']
+
+        # Parse, dedupe, and filter to watchlist (order-preserving)
+        return parse_symbols(related, filter_to=self.symbols, validate=True, log_label='RELATED')

@@ -7,8 +7,8 @@ import sqlite3
 from datetime import datetime
 
 from data.models import NewsItem, PriceData
-from .storage_utils import _datetime_to_iso, _iso_to_datetime, _row_to_news_item, _row_to_price_data
-from .db_context import _cursor_context
+from data.storage.storage_utils import _datetime_to_iso, _iso_to_datetime, _row_to_news_item, _row_to_price_data
+from data.storage.db_context import _cursor_context
 
 
 def get_last_seen(db_path: str, key: str) -> str | None:
@@ -67,6 +67,32 @@ def set_last_news_time(db_path: str, timestamp: datetime) -> None:
     """
     iso_str = _datetime_to_iso(timestamp)
     set_last_seen(db_path, 'news_since_iso', iso_str)
+
+
+def get_last_macro_min_id(db_path: str) -> int | None:
+    """
+    Get the last seen macro news article ID (minId watermark).
+
+    Returns:
+        Integer ID or None if not set (first run)
+    """
+    value = get_last_seen(db_path, 'macro_news_min_id')
+    if value:
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def set_last_macro_min_id(db_path: str, min_id: int) -> None:
+    """
+    Update the last seen macro news article ID (minId watermark).
+
+    Args:
+        min_id: The max article ID from this fetch (becomes next minId)
+    """
+    set_last_seen(db_path, 'macro_news_min_id', str(min_id))
 
 
 def get_news_before(db_path: str, cutoff: datetime) -> list[NewsItem]:

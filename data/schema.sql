@@ -62,6 +62,6 @@ CREATE TABLE IF NOT EXISTS holdings (
 
 -- State: incremental fetch and LLM cutoff
 CREATE TABLE IF NOT EXISTS last_seen (
-    key TEXT PRIMARY KEY CHECK(key IN ('news_since_iso', 'llm_last_run_iso')),
+    key TEXT PRIMARY KEY CHECK(key IN ('news_since_iso', 'llm_last_run_iso', 'macro_news_min_id')),
     value TEXT NOT NULL
 ) WITHOUT ROWID;

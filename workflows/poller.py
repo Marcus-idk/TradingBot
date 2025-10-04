@@ -7,14 +7,17 @@ storing results in SQLite, and managing watermarks for incremental fetching.
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 
 from data.models import NewsItem, PriceData
 from data.storage import (
     get_last_news_time, set_last_news_time,
+    get_last_macro_min_id, set_last_macro_min_id,
     store_news_items, store_price_data, store_news_labels
 )
 from data.base import NewsDataSource, PriceDataSource
+from data.providers.finnhub import FinnhubMacroNewsProvider
 from analysis.news_classifier import classify
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ class DataPoller:
         news_providers: list[NewsDataSource],
         price_providers: list[PriceDataSource],
         poll_interval: int
-    ):
+    ) -> None:
         """
         Initialize the data poller.
 
@@ -51,13 +54,27 @@ class DataPoller:
         self.running = False
         self._stop_event = asyncio.Event()
 
-    async def _fetch_all_data(self, last_news_time) -> tuple[list[Any], int, int]:
-        """Fetch data from all providers concurrently and return results."""
+    async def _fetch_all_data(
+        self,
+        last_news_time: datetime | None,
+        last_macro_min_id: int | None,
+    ) -> dict[str, Any]:
+        """
+        Fetch data from all providers concurrently.
+
+        Returns:
+            Dict with keys: company_news, macro_news, prices, errors
+        """
         # Create tasks for all providers
-        news_tasks = [
-            provider.fetch_incremental(last_news_time)
-            for provider in self.news_providers
-        ]
+        news_tasks = []
+        for provider in self.news_providers:
+            # Pass minId to macro news provider for efficient incremental fetching
+            if isinstance(provider, FinnhubMacroNewsProvider):
+                task = provider.fetch_incremental(last_news_time, last_macro_min_id)
+            else:
+                task = provider.fetch_incremental(last_news_time)
+            news_tasks.append(task)
+
         price_tasks = [
             provider.fetch_incremental()
             for provider in self.price_providers
@@ -67,56 +84,43 @@ class DataPoller:
         all_tasks = news_tasks + price_tasks
         results = await asyncio.gather(*all_tasks, return_exceptions=True)
 
-        return results, len(news_tasks), len(price_tasks)
-
-    def _collect_results(self, results: list[Any], providers: list[Any], provider_type: str) -> tuple[list[Any], list[str]]:
-        """Collect successful results and log errors from providers."""
-        all_items = []
+        # Separate results by provider type
+        company_news = []
+        macro_news = []
+        prices = []
         errors = []
 
-        for i, result in enumerate(results):
+        # Process news results
+        news_results = results[:len(news_tasks)]
+        for i, result in enumerate(news_results):
+            provider = self.news_providers[i]
+
             if isinstance(result, Exception):
-                provider_name = providers[i].__class__.__name__
-                logger.error(f"{provider_name} {provider_type} fetch failed: {result}")
+                provider_name = provider.__class__.__name__
+                logger.error(f"{provider_name} news fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
             else:
-                all_items.extend(result)
+                if isinstance(provider, FinnhubMacroNewsProvider):
+                    macro_news.extend(result)
+                else:
+                    company_news.extend(result)
 
-        return all_items, errors
+        # Process price results
+        price_results = results[len(news_tasks):]
+        for i, result in enumerate(price_results):
+            if isinstance(result, Exception):
+                provider_name = self.price_providers[i].__class__.__name__
+                logger.error(f"{provider_name} price fetch failed: {result}")
+                errors.append(f"{provider_name}: {str(result)}")
+            else:
+                prices.extend(result)
 
-    async def _process_news(self, news_items: list[NewsItem]) -> int:
-        """Store news items, classify them, and update watermark."""
-
-        # Store news items
-        await asyncio.to_thread(
-            store_news_items,
-            self.db_path,
-            news_items,
-        )
-
-        # Classify the news items
-        try:
-            labels = classify(news_items)
-            if labels:
-                await asyncio.to_thread(
-                    store_news_labels,
-                    self.db_path,
-                    labels
-                )
-                logger.info(f"Classified {len(labels)} news items")
-        except Exception as e:
-            logger.warning(f"News classification failed: {e}")
-
-        # Update watermark with latest timestamp
-        max_time = max(n.published for n in news_items)
-        await asyncio.to_thread(
-            set_last_news_time,
-            self.db_path,
-            max_time,
-        )
-
-        logger.info(f"Stored {len(news_items)} news items, watermark updated to {max_time.isoformat()}")
-        return len(news_items)
+        return {
+            "company_news": company_news,
+            "macro_news": macro_news,
+            "prices": prices,
+            "errors": errors
+        }
 
     async def _process_prices(self, price_items: list[PriceData]) -> int:
         """Store price data."""
@@ -130,6 +134,58 @@ class DataPoller:
         logger.info(f"Stored {len(price_items)} price updates")
         return len(price_items)
 
+    async def _process_news(self, company_news: list[NewsItem], macro_news: list[NewsItem]) -> int:
+        """Store news, classify company news, and update watermarks."""
+        all_news = company_news + macro_news
+
+        # Store all news items
+        await asyncio.to_thread(
+            store_news_items,
+            self.db_path,
+            all_news,
+        )
+
+        # Classify ONLY company news (skip macro news)
+        if company_news:
+            try:
+                labels = classify(company_news)
+                if labels:
+                    await asyncio.to_thread(
+                        store_news_labels,
+                        self.db_path,
+                        labels
+                    )
+                    logger.info(f"Classified {len(labels)} company news items")
+            except Exception as e:
+                logger.warning(f"News classification failed: {e}")
+
+        # Update watermark with latest timestamp from all news
+        max_time = max(n.published for n in all_news)
+        await asyncio.to_thread(
+            set_last_news_time,
+            self.db_path,
+            max_time,
+        )
+
+        # Persist minId watermark for macro news provider
+        for provider in self.news_providers:
+            if isinstance(provider, FinnhubMacroNewsProvider):
+                if provider.last_fetched_max_id:
+                    await asyncio.to_thread(
+                        set_last_macro_min_id,
+                        self.db_path,
+                        provider.last_fetched_max_id
+                    )
+                    logger.info(f"Updated macro news minId watermark to {provider.last_fetched_max_id}")
+
+        logger.info(
+            f"Stored {len(all_news)} news items "
+            f"({len(company_news)} company, {len(macro_news)} macro), "
+            f"watermark updated to {max_time.isoformat()}"
+        )
+
+        return len(all_news)
+
     async def poll_once(self) -> dict[str, Any]:
         """
         Execute one polling cycle.
@@ -140,50 +196,52 @@ class DataPoller:
         stats = {"news": 0, "prices": 0, "errors": []}
 
         try:
-            # Read watermark for incremental news fetching
+            # Read watermarks for incremental fetching
             last_news_time = await asyncio.to_thread(
                 get_last_news_time,
                 self.db_path,
             )
+            last_macro_min_id = await asyncio.to_thread(
+                get_last_macro_min_id,
+                self.db_path,
+            )
+
             if last_news_time:
                 logger.info(f"Fetching news since {last_news_time.isoformat()}")
             else:
                 logger.info("No watermark found, fetching all available news")
 
+            if last_macro_min_id:
+                logger.info(f"Fetching macro news with minId={last_macro_min_id}")
+
             # Fetch all data concurrently
-            results, news_count, price_count = await self._fetch_all_data(last_news_time)
+            data = await self._fetch_all_data(last_news_time, last_macro_min_id)
 
-            # Process news
-            news_results = results[:news_count]
-            all_news, news_errors = self._collect_results(
-                news_results, self.news_providers, "news"
-            )
-            stats["errors"].extend(news_errors)
+            # Extract data from dict
+            company_news = data["company_news"]
+            macro_news = data["macro_news"]
+            stats["errors"].extend(data["errors"])
 
-            if all_news:
-                stats["news"] = await self._process_news(all_news)
+            if company_news or macro_news:
+                stats["news"] = await self._process_news(company_news, macro_news)
             else:
                 logger.info("No new news items found")
 
             # Process prices
-            price_results = results[news_count:]
-            all_prices, price_errors = self._collect_results(
-                price_results, self.price_providers, "price"
-            )
-            stats["errors"].extend(price_errors)
+            prices = data["prices"]
 
-            if all_prices:
-                stats["prices"] = await self._process_prices(all_prices)
+            if prices:
+                stats["prices"] = await self._process_prices(prices)
             else:
                 logger.info("No price data fetched")
 
         except Exception as e:
-            logger.error(f"Poll cycle failed with unexpected error: {e}", exc_info=True)
+            logger.exception(f"Poll cycle failed with unexpected error: {e}")
             stats["errors"].append(f"Cycle error: {str(e)}")
 
         return stats
 
-    async def run(self):
+    async def run(self) -> None:
         """
         Run continuous polling loop.
 
@@ -238,7 +296,8 @@ class DataPoller:
                     logger.info("Wait cancelled, exiting...")
                     break
 
-    def stop(self):
+    def stop(self) -> None:
+        """Request graceful shutdown of the polling loop."""
         logger.info("Stopping poller...")
         self.running = False
         self._stop_event.set()

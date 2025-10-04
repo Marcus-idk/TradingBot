@@ -4,7 +4,7 @@ Re-exports all storage functions to maintain backward compatibility.
 """
 
 # Core database functions
-from .storage_core import (
+from data.storage.storage_core import (
     connect,
     init_database,
     finalize_database,
@@ -12,7 +12,7 @@ from .storage_core import (
 )
 
 # CRUD operations
-from .storage_crud import (
+from data.storage.storage_crud import (
     store_news_items,
     store_news_labels,
     store_price_data,
@@ -26,18 +26,20 @@ from .storage_crud import (
 )
 
 # Batch operations and watermarks
-from .storage_batch import (
+from data.storage.storage_batch import (
     get_last_seen,
     set_last_seen,
     get_last_news_time,
     set_last_news_time,
+    get_last_macro_min_id,
+    set_last_macro_min_id,
     get_news_before,
     get_prices_before,
     commit_llm_batch
 )
 
 # Utility functions (exported for tests and internal use)
-from .storage_utils import (
+from data.storage.storage_utils import (
     _normalize_url,
     _datetime_to_iso,
     _iso_to_datetime,
@@ -50,7 +52,7 @@ from .storage_utils import (
 )
 
 # Internal helpers
-from .db_context import _cursor_context
+from data.storage.db_context import _cursor_context
 
 # All public functions (for backward compatibility)
 __all__ = [
@@ -76,6 +78,8 @@ __all__ = [
     'set_last_seen',
     'get_last_news_time',
     'set_last_news_time',
+    'get_last_macro_min_id',
+    'set_last_macro_min_id',
     'get_news_before',
     'get_prices_before',
     'commit_llm_batch',

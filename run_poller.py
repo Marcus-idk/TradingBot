@@ -18,10 +18,11 @@ from dotenv import load_dotenv
 
 from config.providers.finnhub import FinnhubSettings
 from workflows.poller import DataPoller
-from data.providers.finnhub import FinnhubNewsProvider, FinnhubPriceProvider
+from data.providers.finnhub import FinnhubNewsProvider, FinnhubMacroNewsProvider, FinnhubPriceProvider
 from data.base import NewsDataSource, PriceDataSource
 from data.storage import init_database
 from utils.logging import setup_logging
+from utils.symbols import parse_symbols
 from utils.signals import register_graceful_shutdown
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -55,7 +56,7 @@ def build_config(with_viewer: bool) -> PollerConfig:
     if not symbols_env:
         raise ValueError("SYMBOLS environment variable not set. Please set SYMBOLS in .env (e.g., SYMBOLS=AAPL,MSFT,TSLA)")
 
-    symbols = [s.strip().upper() for s in symbols_env.split(",") if s.strip()]
+    symbols = parse_symbols(symbols_env, validate=True, log_label="SYMBOLS")
     if not symbols:
         raise ValueError("SYMBOLS environment variable is empty or invalid. Please provide comma-separated symbols (e.g., SYMBOLS=AAPL,MSFT,TSLA)")
 
@@ -136,17 +137,24 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
     logger.info(f"Poll interval: {config.poll_interval} seconds")
 
     # Create providers
-    news_provider = FinnhubNewsProvider(config.finnhub_settings, config.symbols)
+    company_news_provider = FinnhubNewsProvider(config.finnhub_settings, config.symbols)
+    macro_news_provider = FinnhubMacroNewsProvider(config.finnhub_settings, config.symbols)
     price_provider = FinnhubPriceProvider(config.finnhub_settings, config.symbols)
 
     # Validate connections
     logger.info("Validating API connections...")
     try:
-        news_valid = await news_provider.validate_connection()
-        if not news_valid:
-            logger.error("Failed to validate Finnhub news API connection")
-            raise ValueError("Finnhub news API connection validation failed")
-        logger.info("News API connection validated successfully")
+        company_news_valid = await company_news_provider.validate_connection()
+        if not company_news_valid:
+            logger.error("Failed to validate Finnhub company news API connection")
+            raise ValueError("Finnhub company news API connection validation failed")
+        logger.info("Company news API connection validated successfully")
+
+        macro_news_valid = await macro_news_provider.validate_connection()
+        if not macro_news_valid:
+            logger.error("Failed to validate Finnhub macro news API connection")
+            raise ValueError("Finnhub macro news API connection validation failed")
+        logger.info("Macro news API connection validated successfully")
 
         price_valid = await price_provider.validate_connection()
         if not price_valid:
@@ -158,7 +166,7 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
         logger.error(f"Connection validation failed: {e}")
         raise ValueError(f"Provider validation failed: {e}")
 
-    return [news_provider], [price_provider]
+    return [company_news_provider, macro_news_provider], [price_provider]
 
 
 def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
@@ -235,7 +243,7 @@ async def main(with_viewer: bool = False) -> int:
         logger.info("Keyboard interrupt received")
         return 0
     except Exception as e:
-        logger.error(f"Unexpected error in poller: {e}", exc_info=True)
+        logger.exception(f"Unexpected error in poller: {e}")
         return 1
     finally:
         logger.info("Poller stopped")
