@@ -30,7 +30,17 @@ Scope: Applies to all new/changed code. New code should follow existing patterns
   - `init_database()` / `finalize_database()` lifecycle calls, or
   - Highly specific PRAGMA sequences that require connection-level access (e.g., WAL checkpointing in maintenance code or tests).
   Prefer cursor-level helpers in application code; keep any direct connection usage contained and documented.
-- Logging: structured and actionable; no secrets/API keys; appropriate levels.
+- Logging: structured and actionable; no secrets/API keys; appropriate levels. Use layered logging:
+  - **Provider layer**: Module-level logger (`logger = logging.getLogger(__name__)`). Use `debug` for per-item drops (e.g., invalid article, malformed quote), `warning` for per-symbol/request failures (e.g., entire symbol fetch failed). Let genuine exceptions propagate to orchestrators.
+  - **Orchestrator layer** (e.g., poller, workflows): Log high-level summaries at `info` (successful operations, counts), `warning` (partial failures), and `error` (critical workflow failures). Avoid duplicate logging—if a provider already logged debug details, the orchestrator should only summarize.
+  - This split keeps modules cohesive: providers stay responsible for translating API responses, orchestrators stay responsible for workflow health. Operators get actionable telemetry without flooding logs.
+  - **Formatting**: Use f-strings for all log messages (e.g., `logger.info(f"Stored {count} items")`). Consistent with codebase style, readable, and performance difference is negligible for logging.
+  - **Exception logging**: In exception handlers, use `logger.exception(...)` instead of `logger.error(..., exc_info=True)`. It's clearer, shorter, and automatically includes stack traces.
+  - **When to log what** (level guide):
+    - `debug`: Invalid/filtered input (expected), skipped items with context (e.g., `Skipping article for AAPL: missing headline`)
+    - `warning`: Partial provider failures, degraded fallbacks (e.g., `Finnhub quote missing field 'c' for AAPL`, `Using now() for invalid timestamp`)
+    - `error`: Full request failures, provider outages (may retry)
+    - `exception`: Unexpected exceptions (bugs) - use in `except` blocks for automatic stack traces
 - Comments/docstrings: brief and explain "why", not just "what".
 
 ## Tests & Docs (Must)

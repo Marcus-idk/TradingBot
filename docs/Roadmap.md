@@ -98,9 +98,12 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 ### v0.3.3 — Multi-Source Collection
 **Achieves**:
 - Finnhub macro news endpoint (`/news?category=general`)
-- Urgent keyword detection (bankruptcy, SEC investigation, etc.)
 - Cross-source deduplication working
 - Enhanced poller for multi-source orchestration
+
+**Status**:
+- Implemented: Macro news ingestion, cross-source dedup, multi-source poller orchestration
+- Pending: Urgent keyword detection (bankruptcy, SEC investigation, etc.)
 
 **Flow**: Every 5 min → fetch incremental → dedup → store → filter urgent
 

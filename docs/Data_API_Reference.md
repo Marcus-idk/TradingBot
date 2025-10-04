@@ -1,4 +1,4 @@
-# Data_API_References
+# Data_API_Reference
 
 ## What this file is
 A **contract-only reference** for external data providers we call. It explains **what data** we use them for and **how to call** them (auth, base URLs, routes, params) with brief response semantics. Implementation details live elsewhere.
@@ -22,11 +22,11 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
 
 ---
 
-## Provider: Finnhub — Company News · Prices
+## Provider: Finnhub
 **Auth & Base**: API key (query/header) · Base: `https://finnhub.io/api/v1`
 
 **What they provide**
-- Macro News — ❌
+- Macro News — ✅
 - Company News — ✅
 - Prices/Market Data — ✅
 

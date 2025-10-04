@@ -42,6 +42,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 ## Main Entry Points
 - `run_poller.py` - Main data collection script
+  - `setup_environment()` - Load environment variables and configure logging
+  - `build_config()` - Parse environment variables and build PollerConfig object
+  - `initialize_database()` - Initialize database and return success status
+  - `launch_ui_process()` - Launch Streamlit UI process if `-v` flag provided
+  - `create_and_validate_providers()` - Create and validate news/price providers, returns provider lists
+  - `cleanup_ui_process()` - Terminate UI process on shutdown
   - `main()` - Async entry point with signal handling
   - Uses `utils.logging.setup_logging()` for consistent logging
   - Uses `utils.signals.register_graceful_shutdown()` for SIGINT/SIGTERM
@@ -57,14 +63,13 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Files**:
 - `config/__init__.py` - Package marker
 - `config/retry.py` - Retry configuration dataclasses and defaults
-  - `LLMRetryConfig` - Configuration for LLM providers (timeout=360s, max_retries=3)
-  - `DataRetryConfig` - Configuration for data providers (timeout=30s, max_retries=3)
-  - `DEFAULT_LLM_RETRY` - Default LLMRetryConfig instance
-  - `DEFAULT_DATA_RETRY` - Default DataRetryConfig instance
+  - `LLMRetryConfig` - Configuration for LLM providers (timeout_seconds=360, max_retries=3, base=0.25, mult=2.0, jitter=0.1)
+  - `DataRetryConfig` - Configuration for data providers (timeout_seconds=30, max_retries=3, base=0.25, mult=2.0, jitter=0.1)
+  - `DEFAULT_LLM_RETRY` / `DEFAULT_DATA_RETRY` - Default instances used across providers
 
 **Subdirectories**:
 - `config/llm/` - LLM provider settings
-  - `config/llm/__init__.py` - Package marker
+  - `config/llm/__init__.py` - Re-exports `OpenAISettings`, `GeminiSettings`
   - `config/llm/gemini.py`
     - `GeminiSettings` - Dataclass for Gemini configuration
     - `GeminiSettings.from_env()` - Load settings from environment
@@ -126,10 +131,10 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - **Query**: `get_news_since()`, `get_news_labels()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
     - **Upsert**: `upsert_analysis_result()`, `upsert_holdings()`
 
-  - `storage_batch.py` - Batch operations and watermarks (7 functions)
+  - `storage_batch.py` - Batch operations and watermarks (9 functions)
     - **Batch queries**: `get_news_before()`, `get_prices_before()` (for LLM processing)
-    - **Batch operations**: `commit_llm_batch()` - Mark data as processed and return counts
-    - **Watermarks**: `get_last_seen()`, `set_last_seen()`, `get_last_news_time()`, `set_last_news_time()`
+    - **Batch operations**: `commit_llm_batch()` - Set `llm_last_run_iso` and prune processed rows across news/news_labels/price_data
+    - **Watermarks**: `get_last_seen()`, `set_last_seen()`, `get_last_news_time()`, `set_last_news_time()`, `get_last_macro_min_id()`, `set_last_macro_min_id()`
 
   - `storage_utils.py` - Utilities and type converters (9 functions)
     - **Helpers**: `_normalize_url()`, `_datetime_to_iso()`, `_iso_to_datetime()`, `_decimal_to_text()`
@@ -140,13 +145,20 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `data/providers/finnhub.py`
     - `FinnhubClient` - HTTP client for Finnhub API with retry logic
       - `__init__()` - Initialize with settings
-      - `get()` - Make authenticated API request with retry
+      - `get()` - Make authenticated GET request with retry logic (path, optional params)
       - `validate_connection()` - Centralized API validation used by providers
-    - `FinnhubNewsProvider` - News fetching implementation
+    - `FinnhubNewsProvider` - Company news fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
       - `fetch_incremental()` - Fetch news since timestamp
       - `_parse_article()` - Convert API response to NewsItem
+    - `FinnhubMacroNewsProvider` - Market-wide macro news fetching implementation
+      - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
+      - `validate_connection()` - Delegates to client
+      - `fetch_incremental()` - Fetch macro news using Finnhub `minId` pagination (optional `min_id` argument)
+      - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
+    - `_extract_symbols_from_related()` - Filter `related` field against watchlist, fallback to ['ALL']
+      - `last_fetched_max_id` - Stores latest article ID for watermark updates
     - `FinnhubPriceProvider` - Price quote fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
@@ -204,10 +216,13 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `setup_logging()` - Configure logging level/format/handlers from env
 
 - `utils/signals.py` - Graceful shutdown utilities
-  - `register_graceful_shutdown(on_stop)` - Cross‑platform SIGINT/SIGTERM registration
+  - `register_graceful_shutdown(on_stop)` - Cross-platform SIGINT/SIGTERM registration; returns unregister callback to restore handlers
 
 - `utils/market_sessions.py` - US equity market session classification with NYSE calendar integration
   - `classify_us_session(ts_utc)` - Determine if timestamp is PRE/REG/POST/CLOSED based on ET trading hours and NYSE calendar (holidays, early closes)
+
+- `utils/symbols.py` - Symbol parsing and validation helpers
+  - `parse_symbols(raw, *, filter_to=None, validate=True, log_label="SYMBOLS")` - Parse comma-separated tickers, normalize to upper-case, optionally filter to a watchlist while deduplicating and validating format. Used by `run_poller.py` and Finnhub macro news provider.
 
 ### `workflows/` — Orchestration layer
 **Purpose**: Coordinate data collection, processing, and analysis workflows
@@ -217,7 +232,10 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `workflows/poller.py` - Data collection orchestrator
   - `DataPoller` - Orchestrates multiple providers concurrently with news classification
     - `__init__(db_path, news_providers, price_providers, poll_interval)` - Initialize poller
-    - `poll_once()` - Execute one polling cycle: fetch data, classify news, update watermarks
+    - `_fetch_all_data()` - Fetch data from all providers concurrently, returns dict with company_news/macro_news/prices/errors
+    - `_process_prices()` - Store price data and return count
+    - `_process_news()` - Store news, classify company news, update watermarks (last_news_time and macro_news_min_id)
+    - `poll_once()` - Execute one polling cycle: fetch data, classify news, update `last_news_time` and `macro_news_min_id` watermarks
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
 
@@ -245,8 +263,6 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `docs/Summary.md` - This code index, kept in sync with repository structure
 - `docs/Test_Guide.md` - Testing structure, naming conventions, and markers
 - `docs/Writing_Code.md` - Coding standards, design principles, and review checklist
-
-### `tempFiles/` — Empty workspace reserved for ad-hoc exports during development
 
 ### `tests/` — Test suite
 **Purpose**: Unit and integration tests with shared fixtures
@@ -325,6 +341,6 @@ Tables (WITHOUT ROWID):
 - `price_data(symbol, timestamp_iso, price TEXT, volume, session, created_at_iso)` — PK: (symbol, timestamp_iso)
 - `analysis_results(symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json, created_at_iso)` — PK: (symbol, analysis_type)
 - `holdings(symbol, quantity TEXT, break_even_price TEXT, total_cost TEXT, notes, created_at_iso, updated_at_iso)` — PK: symbol
-- `last_seen(key, value)` — Watermarks (`news_since_iso`, `llm_last_run_iso`)
+- `last_seen(key, value)` — Watermarks (`news_since_iso`, `llm_last_run_iso`, `macro_news_min_id`)
 
 Constraints: NOT NULL on required fields, CHECK constraints for positive values, enum validations, JSON object validation for JSON columns
