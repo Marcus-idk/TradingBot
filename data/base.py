@@ -14,13 +14,13 @@ class DataSource(ABC):
     - Consistent error handling
     """
     
-    def __init__(self, source_name: str):
+    def __init__(self, source_name: str) -> None:
         """
         Initialize data source with identifying name
-        
+
         Args:
             source_name: Human-readable identifier (e.g., "Finnhub", "Polygon")
-            
+
         Raises:
             ValueError: If source_name is invalid (None, empty, too long, or contains invalid characters)
             TypeError: If source_name is not a string

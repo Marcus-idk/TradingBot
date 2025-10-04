@@ -28,7 +28,7 @@ class OpenAIProvider(LLMProvider):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
         **kwargs
-    ):
+    ) -> None:
         super().__init__(**kwargs)
         self.settings = settings
         self.model_name = model_name

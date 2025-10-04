@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from typing import Iterator
 import sqlite3
-from .storage_core import connect
+from data.storage.storage_core import connect
 
 @contextmanager
 def _cursor_context(

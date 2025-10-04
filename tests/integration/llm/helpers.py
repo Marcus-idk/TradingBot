@@ -3,7 +3,6 @@ Helper functions for LLM integration tests.
 Focused on testing code execution capabilities of LLM providers.
 """
 
-from __future__ import annotations
 from datetime import date
 import os
 import base64

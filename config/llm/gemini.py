@@ -11,6 +11,7 @@ class GeminiSettings:
 
     @staticmethod
     def from_env(env: Mapping[str, str] | None = None) -> "GeminiSettings":
+        """Load Gemini settings from environment variables."""
         if env is None:
             env = os.environ
         key = (env.get("GEMINI_API_KEY") or "").strip()

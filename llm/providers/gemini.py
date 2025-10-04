@@ -18,7 +18,7 @@ class GeminiProvider(LLMProvider):
         tool_choice: str | None = None,
         thinking_config: dict[str, Any] | None = None,
         **kwargs
-    ):
+    ) -> None:
         super().__init__(**kwargs)
         self.settings = settings
         self.model_name = model_name

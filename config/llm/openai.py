@@ -11,6 +11,7 @@ class OpenAISettings:
 
     @staticmethod
     def from_env(env: Mapping[str, str] | None = None) -> "OpenAISettings":
+        """Load OpenAI settings from environment variables."""
         if env is None:
             env = os.environ
         key = (env.get("OPENAI_API_KEY") or "").strip()
