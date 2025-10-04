@@ -1,8 +1,11 @@
 import asyncio
+import logging
 import random
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Awaitable, Callable, TypeVar
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -28,13 +31,14 @@ def parse_retry_after(value: str | None) -> float | None:
         seconds = (retry_time - now).total_seconds()
         # Floor at 0.0 to handle past dates (don't wait negative time!)
         return max(0.0, seconds)
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError) as e:
         # Parsing failed completely, fall back to exponential backoff
+        logger.debug(f"Invalid Retry-After header {value!r}: {e}")
         return None
 
 
 class RetryableError(Exception):
-    def __init__(self, message: str, retry_after: float | None = None):
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
         super().__init__(message)
         self.retry_after = retry_after
 

@@ -5,6 +5,7 @@ Handles session classification (pre-market, regular, after-hours, closed)
 based on Eastern Time trading hours and NYSE calendar, with automatic DST handling.
 """
 
+import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -19,6 +20,8 @@ except ImportError as e:
     ) from e
 
 from data.models import Session
+
+logger = logging.getLogger(__name__)
 
 # Cache NYSE calendar
 _nyse_calendar = None
@@ -78,9 +81,9 @@ def classify_us_session(ts_utc: datetime) -> Session:
         # Any close before 4:00 PM is an early close
         if session_close_et.hour < 16:
             POST_START = session_close_et.hour * 60 + session_close_et.minute
-    except:
+    except Exception as e:
         # If we can't determine close time, assume regular hours (4:00 PM)
-        pass
+        logger.warning(f"Could not determine session close time for {session_label}, falling back to 16:00 ET: {e}")
 
     # Calculate minutes since midnight for time-based classification
     minutes = et.hour * 60 + et.minute
