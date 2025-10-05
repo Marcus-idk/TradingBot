@@ -72,7 +72,7 @@ async def test_live_news_fetch():
     
     # Fetch news from last 3 days
     since = datetime.now(timezone.utc) - timedelta(days=3)
-    results = await provider.fetch_incremental(since)
+    results = await provider.fetch_incremental(since=since)
     
     # May not always have news, so just validate structure if we get any
     if results:

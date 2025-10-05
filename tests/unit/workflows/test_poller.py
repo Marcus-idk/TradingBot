@@ -31,7 +31,12 @@ class StubNews(NewsDataSource):
     async def validate_connection(self) -> bool:
         return True
 
-    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        min_id: int | None = None,
+    ) -> list[NewsItem]:
         return self._items
 
 
@@ -45,7 +50,12 @@ class StubPrice(PriceDataSource):
     async def validate_connection(self) -> bool:
         return True
 
-    async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        min_id: int | None = None,
+    ) -> list[PriceData]:
         return self._items
 
 
@@ -89,7 +99,12 @@ class TestDataPoller:
             async def validate_connection(self) -> bool:
                 return True
 
-            async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
+            async def fetch_incremental(
+                self,
+                *,
+                since: datetime | None = None,
+                min_id: int | None = None,
+            ) -> list[NewsItem]:
                 raise RuntimeError("boom")
 
         ok_prices = [

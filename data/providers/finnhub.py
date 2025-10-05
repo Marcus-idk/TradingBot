@@ -113,14 +113,20 @@ class FinnhubNewsProvider(NewsDataSource):
         """
         return await self.client.validate_connection()
     
-    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        min_id: int | None = None
+    ) -> list[NewsItem]:
         """
         Fetch company news articles since the given timestamp.
-        
+
         Args:
             since: Only fetch articles published after this UTC datetime.
                   If None, fetch articles from 2 days ago to avoid missing items.
-                  
+            min_id: Ignored (used by ID-based providers, not date-based)
+
         Returns:
             List of NewsItem objects with valid headlines, URLs, and UTC timestamps
         """
@@ -375,12 +381,17 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         """
         return await self.client.validate_connection()
 
-    async def fetch_incremental(self, since: datetime | None = None, min_id: int | None = None) -> list[NewsItem]:
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        min_id: int | None = None
+    ) -> list[NewsItem]:
         """
         Fetch macro news articles using minId pagination.
 
         Args:
-            since: Kept for API parity with NewsDataSource base class, but IGNORED.
+            since: Ignored (used by date-based providers, not ID-based).
                    Macro news (/news) is independent from company news (/company-news),
                    so the shared last_news_time watermark does not apply here.
             min_id: Fetch articles with ID > min_id (for incremental fetching).

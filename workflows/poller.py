@@ -54,6 +54,12 @@ class DataPoller:
         self.running = False
         self._stop_event = asyncio.Event()
 
+        # Identify macro providers once at init (avoid isinstance in hot path)
+        self._macro_providers = {
+            provider for provider in news_providers
+            if isinstance(provider, FinnhubMacroNewsProvider)
+        }
+
     async def _fetch_all_data(
         self,
         last_news_time: datetime | None,
@@ -65,15 +71,11 @@ class DataPoller:
         Returns:
             Dict with keys: company_news, macro_news, prices, errors
         """
-        # Create tasks for all providers
-        news_tasks = []
-        for provider in self.news_providers:
-            # Pass minId to macro news provider for efficient incremental fetching
-            if isinstance(provider, FinnhubMacroNewsProvider):
-                task = provider.fetch_incremental(last_news_time, last_macro_min_id)
-            else:
-                task = provider.fetch_incremental(last_news_time)
-            news_tasks.append(task)
+        # Create tasks for all providers (uniform interface)
+        news_tasks = [
+            provider.fetch_incremental(since=last_news_time, min_id=last_macro_min_id)
+            for provider in self.news_providers
+        ]
 
         price_tasks = [
             provider.fetch_incremental()
@@ -100,7 +102,7 @@ class DataPoller:
                 logger.error(f"{provider_name} news fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
             else:
-                if isinstance(provider, FinnhubMacroNewsProvider):
+                if provider in self._macro_providers:
                     macro_news.extend(result)
                 else:
                     company_news.extend(result)
@@ -167,16 +169,15 @@ class DataPoller:
             max_time,
         )
 
-        # Persist minId watermark for macro news provider
-        for provider in self.news_providers:
-            if isinstance(provider, FinnhubMacroNewsProvider):
-                if provider.last_fetched_max_id:
-                    await asyncio.to_thread(
-                        set_last_macro_min_id,
-                        self.db_path,
-                        provider.last_fetched_max_id
-                    )
-                    logger.info(f"Updated macro news minId watermark to {provider.last_fetched_max_id}")
+        # Persist minId watermark for macro news providers
+        for provider in self._macro_providers:
+            if provider.last_fetched_max_id:
+                await asyncio.to_thread(
+                    set_last_macro_min_id,
+                    self.db_path,
+                    provider.last_fetched_max_id
+                )
+                logger.info(f"Updated macro news minId watermark to {provider.last_fetched_max_id}")
 
         logger.info(
             f"Stored {len(all_news)} news items "

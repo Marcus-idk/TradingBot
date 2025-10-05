@@ -22,6 +22,14 @@ Scope: Applies to all new/changed code. New code should follow existing patterns
 - Imports: absolute project imports. Default to folder‑level (`from data.storage import …`); use submodules only when needed. Prefer top‑of‑file imports; use function‑level imports only for optional dependencies or to avoid cycles (and document why). Facades (e.g., `data/storage/__init__.py`) keep `from data.storage` stable.
 - Naming: modules/functions `snake_case`, classes `PascalCase`, constants `UPPER_SNAKE`.
 - Type annotations (Python 3.10+): use built-in generics and unions — for example `list[str]`, `dict[str, Any]`, `tuple[int, ...]`, and `X | None` instead of `typing.List`, `typing.Dict`, `typing.Tuple`, `typing.Optional`, or `typing.Union`. Preserve type parameters when converting. Keep `typing.Mapping`, `Any`, `Callable`, `Awaitable`, `Iterator`, and `TypeVar` where needed.
+- Keyword-only arguments: Use `*` to enforce keyword-only params when:
+  - Function has 4+ optional parameters (easy to mix up order)
+  - Multiple similar types (e.g., `timeout, max_retries, base, mult` - all numbers)
+  - Boolean flags benefit from named clarity (`validate=True` clearer than `True`)
+  - Base classes with multiple cursors/strategies (e.g., `since` vs `min_id`)
+  - Examples: `get_json_with_retry(url, *, timeout, max_retries, base, mult, jitter)`, `fetch_incremental(self, *, since=None, min_id=None)`, `parse_symbols(raw, filter_to, *, validate=True, log_label="SYMBOLS")`
+  - Don't use for simple 1-3 param functions, obvious param order, or dataclasses (convention: positional-or-keyword)
+  - Rule of thumb: if caller would benefit from seeing parameter names, use `*`
 - Time and numbers: use timezone‑aware timestamps (UTC recommended); use precise numeric types for money (avoid binary floats).
 - Datetime flow: API/raw input → model constructors (normalize to UTC) → storage helpers (`_datetime_to_iso`) → SQLite ISO strings ending with `Z`; read paths reverse this. Never format timestamps by hand. Use `data.models._normalize_to_utc(dt)` inside models for consistency.
 - Market sessions: Use `utils.market_sessions.classify_us_session()` for session classification (PRE/REG/POST/CLOSED). Handles NYSE holidays/early closes and UTC→ET conversion.

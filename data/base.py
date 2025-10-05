@@ -60,10 +60,29 @@ class DataSourceError(Exception):
 
 class NewsDataSource(DataSource):
     """Abstract base class for data sources that provide news content"""
-    
+
     @abstractmethod
-    async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
-        """Fetch new news items since the specified timestamp"""
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        min_id: int | None = None
+    ) -> list[NewsItem]:
+        """
+        Fetch new news items using incremental cursors.
+
+        Args:
+            since: Fetch items published after this timestamp (used by date-based providers)
+            min_id: Fetch items with ID > min_id (used by ID-based providers)
+
+        Returns:
+            List of NewsItem objects
+
+        Note:
+            Implementations use whichever cursor makes sense for their API.
+            Date-based providers (company news) use `since`, ignore `min_id`.
+            ID-based providers (macro news) use `min_id`, ignore `since`.
+        """
         pass
 
 

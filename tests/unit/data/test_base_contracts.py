@@ -100,7 +100,12 @@ class TestAbstractMethodEnforcement:
             async def validate_connection(self) -> bool:
                 return True
             
-            async def fetch_incremental(self, since: datetime | None = None) -> list[NewsItem]:
+            async def fetch_incremental(
+                self,
+                *,
+                since: datetime | None = None,
+                min_id: int | None = None,
+            ) -> list[NewsItem]:
                 return []
         
         news_source = ConcreteNews("NewsTest")
@@ -111,7 +116,12 @@ class TestAbstractMethodEnforcement:
             async def validate_connection(self) -> bool:
                 return True
             
-            async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
+            async def fetch_incremental(
+                self,
+                *,
+                since: datetime | None = None,
+                min_id: int | None = None,
+            ) -> list[PriceData]:
                 return []
         
         price_source = ConcretePrice("PriceTest")

@@ -116,7 +116,7 @@ class TestFinnhubNewsProvider:
         provider.client.get = mock_get
         
         since = datetime(2024, 1, 13, 5, 0, tzinfo=timezone.utc)
-        await provider.fetch_incremental(since)
+        await provider.fetch_incremental(since=since)
         
         # Should use min(since.date, yesterday) = 2024-01-13
         assert captured_params['from'] == '2024-01-13'
@@ -153,7 +153,7 @@ class TestFinnhubNewsProvider:
         
         provider.client.get = mock_get
         
-        await provider.fetch_incremental(None)
+        await provider.fetch_incremental(since=None)
         
         # Should use 2 days ago
         assert captured_params['from'] == '2024-01-13'
@@ -183,7 +183,7 @@ class TestFinnhubNewsProvider:
         
         # Set since to datetime(1000)
         since = datetime.fromtimestamp(1000, tz=timezone.utc)
-        results = await provider.fetch_incremental(since)
+        results = await provider.fetch_incremental(since=since)
         
         # Should keep articles at 950, 1000, and 1100 (3 articles)
         assert len(results) == 3

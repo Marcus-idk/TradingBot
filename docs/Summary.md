@@ -93,7 +93,11 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `DataSource` - Base class for all data sources
   - `DataSourceError` - Exception for data source failures
   - `NewsDataSource` - Abstract class for news providers
+    - `fetch_incremental(*, since: datetime | None = None, min_id: int | None = None)` — unified cursor interface
+      - Date-based providers use `since` (ignore `min_id`)
+      - ID-based providers use `min_id` (ignore `since`)
   - `PriceDataSource` - Abstract class for price providers
+    - `fetch_incremental(since: datetime | None = None)` — price fetch (since unused for quotes)
 
 - `data/models.py` - Core dataclasses and enums
   **Enums**:
@@ -150,12 +154,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `FinnhubNewsProvider` - Company news fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental()` - Fetch news since timestamp
+      - `fetch_incremental(since=..., min_id=None)` - Date-based; applies 2‑min buffer; ignores `min_id`
       - `_parse_article()` - Convert API response to NewsItem
     - `FinnhubMacroNewsProvider` - Market-wide macro news fetching implementation
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental()` - Fetch macro news using Finnhub `minId` pagination (optional `min_id` argument)
+      - `fetch_incremental(since=None, min_id=...)` - ID-based; uses Finnhub `minId`; ignores `since`; tracks `last_fetched_max_id`
       - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
     - `_extract_symbols_from_related()` - Filter `related` field against watchlist, fallback to ['ALL']
       - `last_fetched_max_id` - Stores latest article ID for watermark updates
@@ -232,10 +236,10 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `workflows/poller.py` - Data collection orchestrator
   - `DataPoller` - Orchestrates multiple providers concurrently with news classification
     - `__init__(db_path, news_providers, price_providers, poll_interval)` - Initialize poller
-    - `_fetch_all_data()` - Fetch data from all providers concurrently, returns dict with company_news/macro_news/prices/errors
+    - `_fetch_all_data()` - Concurrent fetch; calls `provider.fetch_incremental(since=last_news_time, min_id=last_macro_min_id)` for all news providers; returns company_news/macro_news/prices/errors
     - `_process_prices()` - Store price data and return count
-    - `_process_news()` - Store news, classify company news, update watermarks (last_news_time and macro_news_min_id)
-    - `poll_once()` - Execute one polling cycle: fetch data, classify news, update `last_news_time` and `macro_news_min_id` watermarks
+    - `_process_news()` - Store news, classify company news, update watermarks (`news_since_iso`, `macro_news_min_id`)
+    - `poll_once()` - One cycle: fetch, classify, update `news_since_iso` and `macro_news_min_id`
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
 
