@@ -87,7 +87,7 @@ class TestWALSqlite:
         }
         operation_lock = threading.Lock()
         
-        def track_result(operation_type, success=True, error=None, data=None):
+        def track_result(operation_type, *, success=True, error=None, data=None):
             """Thread-safe result tracking"""
             with operation_lock:
                 if operation_type == 'write':

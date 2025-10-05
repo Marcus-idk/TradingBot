@@ -8,6 +8,7 @@ from data.storage.storage_core import connect
 @contextmanager
 def _cursor_context(
     db_path: str,
+    *,
     commit: bool = True
 ) -> Iterator[sqlite3.Cursor]:
     """

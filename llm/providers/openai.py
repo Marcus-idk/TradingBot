@@ -23,6 +23,7 @@ class OpenAIProvider(LLMProvider):
         self,
         settings: OpenAISettings,
         model_name: str,
+        *,
         temperature: float | None = None,
         reasoning: dict[str, Any] | None = None,
         tools: list[dict[str, Any]] | None = None,

@@ -13,6 +13,7 @@ class GeminiProvider(LLMProvider):
         self,
         settings: GeminiSettings,
         model_name: str,
+        *,
         temperature: float | None = None,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | None = None,
