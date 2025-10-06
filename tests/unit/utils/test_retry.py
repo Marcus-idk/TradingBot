@@ -5,6 +5,7 @@ Focus on behaviors we rely on in v0.3.1.
 
 import pytest
 import asyncio
+import logging
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, AsyncMock
 from utils.retry import parse_retry_after, retry_and_call, RetryableError
@@ -47,6 +48,42 @@ class TestParseRetryAfter:
         assert parse_retry_after("") is None
         assert parse_retry_after(None) is None
         assert parse_retry_after("not-a-number-or-date") is None
+
+    def test_invalid_retry_after_values_log_debug_and_return_none(self, caplog):
+        """Test graceful handling of malformed Retry-After headers with logging"""
+
+        # Test junk string
+        with caplog.at_level(logging.DEBUG):
+            result = parse_retry_after("garbage")
+
+        assert result is None
+        assert any("Invalid Retry-After header 'garbage'" in record.message
+                   for record in caplog.records)
+
+        # Test non-string numeric value (treated as numeric seconds, no debug log)
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG):
+            result = parse_retry_after(123)
+
+        assert result == pytest.approx(123.0)
+        assert not any("Invalid Retry-After" in record.message for record in caplog.records)
+
+        # Test empty string (returns None early without logging)
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG):
+            result = parse_retry_after("")
+
+        assert result is None
+
+        # Test valid numeric (should work without logging)
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG):
+            result = parse_retry_after("30")
+
+        assert result == 30.0
+        # No debug logs for valid values
+        assert not any("Invalid Retry-After" in record.message
+                       for record in caplog.records)
 
 
 class TestRetryAndCall:

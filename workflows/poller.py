@@ -173,8 +173,8 @@ class DataPoller:
                         labels
                     )
                     logger.info(f"Classified {len(labels)} company news items")
-            except Exception as e:
-                logger.warning(f"News classification failed: {e}")
+            except Exception:
+                logger.exception("News classification failed")
 
         # Update watermark with latest timestamp from all news
         max_time = max(n.published for n in all_news)

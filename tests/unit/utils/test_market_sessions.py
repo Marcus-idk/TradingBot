@@ -4,9 +4,11 @@ Tests US equity market session detection based on Eastern Time.
 """
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+import logging
 import pytest
 
 from data.models import Session
+from utils import market_sessions
 from utils.market_sessions import classify_us_session
 
 
@@ -106,3 +108,31 @@ class TestClassifyUsSession:
         assert classify_us_session(datetime(2024, 7, 15, 13, 30, tzinfo=timezone.utc)) == Session.REG
         # 13:30 UTC → 08:30 ET in January (EST) = PRE
         assert classify_us_session(datetime(2024, 1, 17, 13, 30, tzinfo=timezone.utc)) == Session.PRE
+
+    def test_close_time_lookup_failure_falls_back_to_16_et_and_logs_warning(self, caplog, monkeypatch):
+        """Test graceful degradation when NYSE calendar close time lookup fails"""
+
+        # Mock the calendar to raise an exception when accessing session_close
+        def mock_session_close(session_label):
+            raise KeyError("Mock calendar failure")
+
+        # Patch the NYSE calendar's session_close method
+        nyse_calendar = market_sessions._get_nyse_calendar()
+        monkeypatch.setattr(nyse_calendar, 'session_close', mock_session_close)
+
+        # Test timestamp: 2024-01-17 21:00 UTC = 16:00 ET (Wednesday)
+        # This is exactly at the regular close time
+        ts = datetime(2024, 1, 17, 21, 0, tzinfo=timezone.utc)
+
+        with caplog.at_level(logging.WARNING):
+            result = classify_us_session(ts)
+
+        # Should fall back to 16:00 ET default (POST session starts at 16:00)
+        assert result == Session.POST
+
+        # Verify warning was logged about fallback
+        assert any(
+            "Could not determine session close time" in record.message
+            and "falling back to 16:00 ET" in record.message
+            for record in caplog.records
+        )

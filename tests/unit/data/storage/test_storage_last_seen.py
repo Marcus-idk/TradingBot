@@ -13,6 +13,7 @@ from data.storage import (
     get_news_since, get_price_data_since, upsert_analysis_result,
     upsert_holdings, get_all_holdings, get_analysis_results,
     get_last_seen, set_last_seen, get_last_news_time, set_last_news_time,
+    get_last_macro_min_id, set_last_macro_min_id,
     get_news_before, get_prices_before, commit_llm_batch, finalize_database,
 )
 from data.storage.db_context import _cursor_context
@@ -137,4 +138,48 @@ class TestLastNewsTime:
         """Test None returned when news_since_iso key doesn't exist"""
         # Don't set anything
         result = get_last_news_time(temp_db)
+        assert result is None
+
+
+class TestLastMacroMinId:
+    """Test specialized macro news min_id tracking functions"""
+
+    def test_macro_min_id_roundtrip_int(self, temp_db):
+        """Test basic get/set flow for integer watermark"""
+        # Set integer watermark
+        set_last_macro_min_id(temp_db, 12345)
+
+        # Retrieve it
+        result = get_last_macro_min_id(temp_db)
+
+        # Should be equal as integer
+        assert result == 12345
+        assert isinstance(result, int)
+
+        # Check underlying storage (stored as string)
+        raw_value = get_last_seen(temp_db, 'macro_news_min_id')
+        assert raw_value == "12345"
+
+    def test_macro_min_id_missing_returns_none(self, temp_db):
+        """Test first-run behavior when no watermark exists"""
+        # Fresh database - never called set_last_macro_min_id
+        result = get_last_macro_min_id(temp_db)
+
+        # Should return None to indicate bootstrap needed
+        assert result is None
+
+    def test_macro_min_id_overwrite_and_nonint_value_returns_none(self, temp_db):
+        """Test overwrite behavior and graceful failure on corrupted data"""
+        # Test overwrite: last write wins
+        set_last_macro_min_id(temp_db, 100)
+        assert get_last_macro_min_id(temp_db) == 100
+
+        set_last_macro_min_id(temp_db, 200)
+        assert get_last_macro_min_id(temp_db) == 200
+
+        # Test corrupted data: manually set non-int value
+        set_last_seen(temp_db, 'macro_news_min_id', 'garbage')
+
+        # Should return None without crashing
+        result = get_last_macro_min_id(temp_db)
         assert result is None

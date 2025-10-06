@@ -59,9 +59,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             ]
             if len(filtered_articles) < len(articles):
                 logger.debug(
-                    "Filtered %d articles with id <= %s",
-                    len(articles) - len(filtered_articles),
-                    min_id,
+                    f"Filtered {len(articles) - len(filtered_articles)} articles with id <= {min_id}"
                 )
             articles = filtered_articles
 
@@ -70,7 +68,9 @@ class FinnhubMacroNewsProvider(NewsDataSource):
                 items = self._parse_article(article, buffer_time)
                 news_items.extend(items)
             except Exception as exc:  # noqa: BLE001
-                logger.debug("Failed to parse article %s: %s", article.get("id", "unknown"), exc)
+                logger.debug(
+                    f"Failed to parse article {article.get('id', 'unknown')}: {exc}"
+                )
                 continue
 
         ids = [
@@ -98,9 +98,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
         except (ValueError, OSError) as exc:  # pragma: no cover
             logger.debug(
-                "Skipping macro news article due to invalid epoch %s: %s",
-                datetime_epoch,
-                exc,
+                f"Skipping macro news article due to invalid epoch {datetime_epoch}: {exc}"
             )
             return []
 
@@ -126,7 +124,9 @@ class FinnhubMacroNewsProvider(NewsDataSource):
                 )
                 news_items.append(news_item)
             except ValueError as exc:  # pragma: no cover
-                logger.debug("NewsItem validation failed for %s (url=%s): %s", symbol, url, exc)
+                logger.debug(
+                    f"NewsItem validation failed for {symbol} (url={url}): {exc}"
+                )
                 continue
 
         return news_items

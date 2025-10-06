@@ -64,10 +64,14 @@ class FinnhubNewsProvider(NewsDataSource):
                         if news_item:
                             news_items.append(news_item)
                     except Exception as exc:  # noqa: BLE001
-                        logger.debug("Failed to parse company news article for %s: %s", symbol, exc)
+                        logger.debug(
+                            f"Failed to parse company news article for {symbol}: {exc}"
+                        )
                         continue
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Company news fetch failed for %s: %s", symbol, exc)
+                logger.warning(
+                    f"Company news fetch failed for {symbol}: {exc}"
+                )
                 continue
 
         return news_items
@@ -89,10 +93,7 @@ class FinnhubNewsProvider(NewsDataSource):
             published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
         except (ValueError, OSError) as exc:  # pragma: no cover
             logger.debug(
-                "Skipping company news article for %s due to invalid epoch %s: %s",
-                symbol,
-                datetime_epoch,
-                exc,
+                f"Skipping company news article for {symbol} due to invalid epoch {datetime_epoch}: {exc}"
             )
             return None
 
@@ -113,6 +114,8 @@ class FinnhubNewsProvider(NewsDataSource):
                 content=content,
             )
         except ValueError as exc:  # pragma: no cover
-            logger.debug("NewsItem validation failed for %s (url=%s): %s", symbol, url, exc)
+            logger.debug(
+                f"NewsItem validation failed for {symbol} (url={url}): {exc}"
+            )
             return None
 

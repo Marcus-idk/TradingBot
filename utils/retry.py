@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-def parse_retry_after(value: str | None) -> float | None:
+def parse_retry_after(value: str | float | int | None) -> float | None:
     """Parse Retry-After header value (numeric seconds or HTTP-date).
 
     Returns seconds to wait (floored at 0.0), or None if parsing fails.

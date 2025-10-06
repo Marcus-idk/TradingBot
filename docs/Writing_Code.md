@@ -1,71 +1,297 @@
-# Writing Code Guidelines
+# Writing Code Guidelines - LLM-Optimized
 
-Purpose: Keep code simple, correct, and consistent with the codebase.
+## 📝 HOW TO EXTEND THIS DOCUMENT
+- Add rules under appropriate section (MUST/SHOULD)
+- Format: `### RULE_NAME` → description → example
+- Keep examples minimal but demonstrative
+- Test that examples work before adding
 
-Scope: Applies to all new/changed code. New code should follow existing patterns first; propose improvements when they clearly reduce complexity or risk.
+---
 
-## Python Version
-- **Target version: Python 3.13+** (project uses 3.13.4)
-- Use modern syntax: built-in generics (`list[str]`), union operator (`X | None`), `match` statements where appropriate
-- All developers should use the same Python version to avoid compatibility issues
+## PROJECT CONTEXT
+- **Python Version**: 3.13.4 (target 3.13+)
+- **Principle**: Follow existing patterns. Propose improvements only when they clearly reduce complexity.
+- **Scope**: All new/changed code
 
-## SWE Best Practices (Must)
-- Prefer simple solutions (KISS). One clear responsibility per module/function.
-- Avoid duplication (DRY) when the abstraction is real; avoid premature abstraction.
-- Validate inputs at boundaries; fail fast on invalid state; make types explicit (use dataclasses/enums where helpful).
-- Handle errors explicitly; raise domain‑specific exceptions; do not swallow errors.
-- Centralize cross‑cutting concerns (I/O, HTTP, retries/backoff, time zones, data normalization, logging). Reuse helpers.
+---
 
-## Long‑Term Design (Must Think)
-- Ask: Will this be reused soon? If yes, follow existing interfaces. If no, keep it local and simple.
-- Keep boundaries clean: configuration → adapters/clients → models/storage → services/workflows; avoid circular dependencies.
-- Add extension points only when there are at least two real uses.
-- Use async for I/O; never block inside async paths; reuse retry/HTTP utilities.
-- Asyncio event loops: use `asyncio.get_running_loop()` inside coroutines (not the deprecated `get_event_loop()`). Fails fast if called outside async context, making bugs obvious.
+# MUST-FOLLOW RULES
 
-## Consistency (Must)
-- Mirror existing file layout, naming, and style. New code follows old code.
-- Imports: always use absolute project imports. Default to package facades for public APIs (`from data.storage import commit_llm_batch`, `from data.providers.finnhub import FinnhubNewsProvider`). Import submodules directly when you need an internal helper or tighter scope. Function-level imports are allowed only for optional dependencies or to break cycles—document the rationale inline.
-- Facades (`__init__.py`): keep them thin and side-effect free. Declare an explicit `__all__` and expose only public names—never re-export helpers that start with `_`. When a private helper is required (e.g., `_cursor_context`), import it from its defining module (`from data.storage.db_context import _cursor_context`). Add new provider packages to `data/providers/__init__.py` so IDEs and reviewers see the full surface area.
-- Naming: modules/functions `snake_case`, classes `PascalCase`, constants `UPPER_SNAKE`.
-- Type annotations (Python 3.10+): use built-in generics and unions — for example `list[str]`, `dict[str, Any]`, `tuple[int, ...]`, and `X | None` instead of `typing.List`, `typing.Dict`, `typing.Tuple`, `typing.Optional`, or `typing.Union`. Preserve type parameters when converting. Keep `typing.Mapping`, `Any`, `Callable`, `Awaitable`, `Iterator`, and `TypeVar` where needed.
-- Keyword-only arguments: Use `*` to enforce keyword-only params when:
-  - Function has 4+ optional parameters (easy to mix up order)
-  - Multiple similar types (e.g., `timeout, max_retries, base, mult` - all numbers)
-  - Boolean flags benefit from named clarity (`validate=True` clearer than `True`)
-  - Base classes with multiple cursors/strategies (e.g., `since` vs `min_id`)
-  - Examples: `get_json_with_retry(url, *, timeout, max_retries, base, mult, jitter)`, `fetch_incremental(self, *, since=None, min_id=None)`, `parse_symbols(raw, filter_to, *, validate=True, log_label="SYMBOLS")`
-  - Don't use for simple 1-3 param functions, obvious param order, or dataclasses (convention: positional-or-keyword)
-  - Rule of thumb: if caller would benefit from seeing parameter names, use `*`
-- Time and numbers: use timezone‑aware timestamps (UTC recommended); use precise numeric types for money (avoid binary floats).
-- Datetime flow: API/raw input → model constructors (normalize to UTC) → storage helpers (`_datetime_to_iso`) → SQLite ISO strings ending with `Z`; read paths reverse this. Never format timestamps by hand. Use `data.models._normalize_to_utc(dt)` inside models for consistency.
-- Market sessions: Use `utils.market_sessions.classify_us_session()` for session classification (PRE/REG/POST/CLOSED). Handles NYSE holidays/early closes and UTC→ET conversion.
-- Persistence: validate at write boundaries; choose stable representations; version schema/migrations clearly.
-- SQLite access: use `_cursor_context` from its home module (`from data.storage.db_context import _cursor_context`) for all read/write operations. It ensures foreign keys, row factory, commit/rollback, and cleanup. Avoid direct `connect()` except for:
-  - `init_database()` / `finalize_database()` lifecycle calls, or
-  - Highly specific PRAGMA sequences that require connection-level access (e.g., WAL checkpointing in maintenance code or tests).
-  Prefer cursor-level helpers in application code; keep any direct connection usage contained and documented.
-- Logging: structured and actionable; no secrets/API keys; appropriate levels. Use layered logging:
-  - **Provider layer**: Module-level logger (`logger = logging.getLogger(__name__)`). Use `debug` for per-item drops (e.g., invalid article, malformed quote), `warning` for per-symbol/request failures (e.g., entire symbol fetch failed). Let genuine exceptions propagate to orchestrators.
-  - **Orchestrator layer** (e.g., poller, workflows): Log high-level summaries at `info` (successful operations, counts), `warning` (partial failures), and `error` (critical workflow failures). Avoid duplicate logging—if a provider already logged debug details, the orchestrator should only summarize.
-  - This split keeps modules cohesive: providers stay responsible for translating API responses, orchestrators stay responsible for workflow health. Operators get actionable telemetry without flooding logs.
-  - **Formatting**: Use f-strings for all log messages (e.g., `logger.info(f"Stored {count} items")`). Consistent with codebase style, readable, and performance difference is negligible for logging.
-  - **Exception logging**: In exception handlers, use `logger.exception(...)` instead of `logger.error(..., exc_info=True)`. It's clearer, shorter, and automatically includes stack traces.
-  - **When to log what** (level guide):
-    - `debug`: Invalid/filtered input (expected), skipped items with context (e.g., `Skipping article for AAPL: missing headline`)
-    - `warning`: Partial provider failures, degraded fallbacks (e.g., `Finnhub quote missing field 'c' for AAPL`, `Using now() for invalid timestamp`)
-    - `error`: Full request failures, provider outages (may retry)
-    - `exception`: Unexpected exceptions (bugs) - use in `except` blocks for automatic stack traces
-- Comments/docstrings: brief and explain "why", not just "what".
+### PYTHON_VERSION
+Use Python 3.13+ modern syntax.
+```python
+# ✅ list[str], dict[str, int | None], match statements, built-in generics
+# ❌ typing.List, typing.Optional, typing.Union
+```
 
-## Tests & Docs (Must)
-- Add/adjust tests for every change. Follow the project’s testing conventions; mark slower integration/network tests.
-- Update summary/architecture docs when public APIs, schemas, or test structure change. Keep README links valid.
-- Prefer small, focused tests and minimal examples with clear names.
-- Monkeypatch the symbol where it is looked up (module under test). Do not patch through facades; import the concrete module path instead.
+### SIMPLICITY_KISS
+One clear responsibility per module/function.
+```python
+# ✅ calculate_session(timestamp) - single purpose
+# ❌ process_and_store_and_notify_and_log(data) - too many responsibilities
+```
 
-## Code Review Quick Checklist
-- Correctness: timezones/units precise; money uses precise types; error paths covered; retries/backoff where needed.
-- Consistency: matches surrounding style, import order, naming.
-- Design: right abstraction level; clear boundaries; no premature generalization.
-- Security/Perf: no secrets in code/logs; validate inputs; batch external calls; respect rate limits/timeouts; avoid unnecessary allocations.
+### DRY_PRINCIPLE
+Avoid duplication when abstraction is real. Avoid premature abstraction.
+```python
+# ✅ _datetime_to_iso() used 10+ times - good abstraction
+# ❌ extract_number() used once - premature
+```
+
+### VALIDATE_INPUTS
+Validate at boundaries, fail fast on invalid state, make types explicit.
+```python
+def store_price(symbol: str, price: Decimal) -> None:
+    if price <= 0:
+        raise ValueError(f"Invalid price {price} for {symbol}")
+    # Use dataclasses/enums where helpful
+```
+
+### ERROR_HANDLING
+Handle errors explicitly. Never swallow. Raise domain-specific exceptions.
+```python
+try:
+    response = api_call(symbol)
+except RequestException as e:
+    logger.exception(f"Failed to fetch {symbol}")
+    raise DataFetchError(f"Cannot retrieve {symbol}: {e}") from e
+```
+
+### CENTRALIZE_CONCERNS
+Centralize I/O, HTTP, retries/backoff, timezones, data normalization, logging.
+```python
+# Reuse helpers instead of reimplementing
+from utils.http import get_json_with_retry  # Don't reimplement retry logic
+from data.models import _normalize_to_utc  # Don't reimplement TZ handling
+```
+
+### BOUNDARIES_CLEAN
+Keep layers clean. Avoid circular dependencies.
+```
+Configuration → Adapters/Clients → Models/Storage → Services/Workflows
+```
+
+### EXTENSION_POINTS
+Add only when 2+ real uses exist.
+```python
+# ✅ Add interface when FinnhubProvider AND AlphaVantageProvider need it
+# ❌ Don't add "just in case"
+```
+
+### IMPORTS_ABSOLUTE
+Always absolute. Default to package facades for public APIs.
+```python
+# ✅ from data.storage import commit_llm_batch  # Public via facade
+# ✅ from data.storage.db_context import _cursor_context  # Private from source
+# ✅ from data.providers.finnhub import FinnhubNewsProvider  # Specific provider
+# ❌ from .storage import anything  # Never relative
+```
+
+### IMPORT_PLACEMENT
+All imports at module level (top of file). Function-level imports allowed ONLY for:
+- Optional dependencies (with try/except)
+- Breaking circular dependencies (document why inline)
+```python
+# DEFAULT: Everything at module level
+import json
+from data.storage import commit_llm_batch
+from utils.http import get_json_with_retry
+from data.models import NewsItem  # Even if used in one function
+
+def process():
+    # RARE EXCEPTION: Only if circular dependency
+    # from data.models import NewsItem  # Document why!
+    return NewsItem(...)
+```
+
+### FACADES_THIN
+Keep `__init__.py` thin, side-effect free, explicit `__all__`.
+```python
+"""Data providers package."""
+from data.providers.finnhub import FinnhubNewsProvider
+
+__all__ = ["FinnhubNewsProvider"]  # Only public names
+
+# Add new providers here so IDEs see full surface area
+```
+
+### NAMING_CONVENTIONS
+- Modules/functions: `snake_case`
+- Classes: `PascalCase`  
+- Constants: `UPPER_SNAKE`
+- Private: `_leading_underscore`
+
+### TYPE_ANNOTATIONS
+Use built-in generics. Preserve type parameters when converting.
+```python
+def process(items: list[str]) -> dict[str, int | None]:
+    ...
+# Keep from typing: Mapping, Any, Callable, Awaitable, Iterator, TypeVar
+```
+
+### KEYWORD_ONLY_ARGS
+Use `*` for clarity when needed.
+```python
+# Use when: 4+ optional params, similar types, boolean flags, multiple cursors
+def fetch(url, *, timeout=30, max_retries=3, validate=True):
+    ...
+# Don't use for: simple 1-3 params, obvious order, dataclasses
+```
+
+### DATETIME_HANDLING
+Always UTC timezone-aware. Never format timestamps by hand.
+```python
+# Flow: API input → normalize_to_utc() → _datetime_to_iso() → SQLite ISO+Z
+from data.models import _normalize_to_utc
+
+class NewsItem:
+    def __init__(self, published: datetime | str):
+        self.published = _normalize_to_utc(published)  # Always normalize
+```
+
+### MARKET_SESSIONS
+Use standard classifier for US sessions.
+```python
+from utils.market_sessions import classify_us_session
+session = classify_us_session(timestamp)  # Returns PRE/REG/POST/CLOSED
+# Handles NYSE holidays, early closes, UTC→ET conversion
+```
+
+### MONEY_PRECISION
+Use Decimal for money. Avoid binary floats.
+```python
+from decimal import Decimal
+price = Decimal("150.25")  # Never float for money
+```
+
+### PERSISTENCE
+Validate at write boundaries. Choose stable representations. Version schemas clearly.
+
+### DATABASE_SQLITE
+Always use `_cursor_context` for all operations.
+```python
+from data.storage.db_context import _cursor_context
+
+with _cursor_context(db_path) as cursor:
+    cursor.execute("INSERT INTO items VALUES (?)", (data,))
+# Auto-commit, foreign keys, row factory, cleanup
+
+# Exceptions: Only direct connect() for:
+# - init_database() / finalize_database()
+# - Connection-level PRAGMAs (document why)
+```
+
+### ASYNC_PATTERNS
+Use async for I/O. Never block in async paths.
+```python
+async def fetch_all(symbols):
+    loop = asyncio.get_running_loop()  # NOT get_event_loop()
+    tasks = [fetch_one(s) for s in symbols]
+    return await asyncio.gather(*tasks)
+```
+
+### LOGGING_LAYERED
+Module-level loggers with appropriate levels. Use f-strings.
+```python
+logger = logging.getLogger(__name__)
+
+# Provider layer:
+logger.debug(f"Skipping item for {symbol}: {reason}")  # Expected drops
+logger.warning(f"Failed to fetch {symbol}")  # Request failures
+# Let exceptions propagate to orchestrators
+
+# Orchestrator layer:
+logger.info(f"Processed {count} items")  # Success summaries  
+logger.exception("Workflow failed")  # In except blocks for stack trace
+```
+
+### TESTING_REQUIRED
+Add/adjust tests for every change.
+- Prefer explicit clock helpers over monkeypatching time/datetime
+- Follow project testing conventions
+- Mark slower integration/network tests
+- Monkeypatch where symbol is looked up (module under test), not facades
+
+### DOCUMENTATION
+Update docs when public APIs, schemas, or test structure change.
+- Brief comments explain "why" not "what"
+- Keep README links valid
+- Prefer small, focused tests with clear names
+
+---
+
+# SHOULD-FOLLOW RULES
+
+### REUSE_FIRST
+Will this be reused soon? If yes, follow existing interfaces. If no, keep local and simple.
+
+### COMMENTS_BRIEF
+```python
+# Batch size of 100 to stay under API rate limits
+BATCH_SIZE = 100
+
+# Import here to avoid circular dependency with models
+from data.models import NewsItem
+```
+
+---
+
+# CODE REVIEW CHECKLIST
+
+### Correctness
+- [ ] Timezones UTC-aware with proper units?
+- [ ] Money using Decimal not float?
+- [ ] Error paths covered with explicit handling?
+- [ ] Retries/backoff where needed?
+
+### Consistency
+- [ ] Absolute imports following patterns?
+- [ ] Using `_cursor_context` for SQLite?
+- [ ] Following naming conventions?
+- [ ] Matches surrounding style?
+
+### Design
+- [ ] Right abstraction level?
+- [ ] Clean boundaries, no circular deps?
+- [ ] No premature generalization?
+
+### Security/Performance
+- [ ] No secrets in code/logs?
+- [ ] Input validation at boundaries?
+- [ ] Batch external calls?
+- [ ] Respect rate limits/timeouts?
+- [ ] Avoid unnecessary allocations?
+
+---
+
+# QUICK REFERENCE
+
+## Import Decision Tree
+```
+Public API? → facade import
+Private (_)? → import from source module
+Circular dep? → function-level with comment
+Optional dep? → function-level with try/except
+```
+
+## Type Conversion Table
+| Old typing | New built-in |
+|------------|--------------|
+| List[str] | list[str] |
+| Dict[str, Any] | dict[str, Any] |
+| Optional[int] | int \| None |
+| Union[str, int] | str \| int |
+| Tuple[...] | tuple[...] |
+
+## Datetime Flow
+```
+Input → _normalize_to_utc() → _datetime_to_iso() → SQLite ISO+Z
+```
+
+## Logging Levels
+```
+DEBUG: Expected failures (invalid data)
+WARNING: Partial failures (request failed)
+ERROR: Workflow failures  
+EXCEPTION: Bugs (auto stack trace)
+```

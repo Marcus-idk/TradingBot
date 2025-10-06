@@ -43,7 +43,7 @@ class FinnhubPriceProvider(PriceDataSource):
                 if price_item:
                     price_data.append(price_item)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Price quote fetch failed for %s: %s", symbol, exc)
+                logger.warning(f"Price quote fetch failed for {symbol}: {exc}")
                 continue
 
         return price_data
@@ -56,7 +56,9 @@ class FinnhubPriceProvider(PriceDataSource):
         try:
             price = Decimal(str(current_price))
         except (ValueError, TypeError) as exc:
-            logger.debug("Invalid quote price for %s: %r (%s) - skipping", symbol, current_price, exc)
+            logger.debug(
+                f"Invalid quote price for {symbol}: {current_price!r} ({exc}) - skipping"
+            )
             return None
 
         quote_timestamp = quote.get("t", 0)
@@ -64,7 +66,9 @@ class FinnhubPriceProvider(PriceDataSource):
             try:
                 timestamp = datetime.fromtimestamp(quote_timestamp, tz=timezone.utc)
             except (ValueError, OSError) as exc:
-                logger.debug("Invalid quote timestamp for %s: %r (%s) - using now()", symbol, quote_timestamp, exc)
+                logger.debug(
+                    f"Invalid quote timestamp for {symbol}: {quote_timestamp!r} ({exc}) - using now()"
+                )
                 timestamp = datetime.now(timezone.utc)
         else:
             timestamp = datetime.now(timezone.utc)
@@ -78,6 +82,8 @@ class FinnhubPriceProvider(PriceDataSource):
                 session=classify_us_session(timestamp),
             )
         except ValueError as exc:  # pragma: no cover
-            logger.debug("PriceData validation failed for %s (price=%s): %s", symbol, price, exc)
+            logger.debug(
+                f"PriceData validation failed for {symbol} (price={price}): {exc}"
+            )
             return None
 
