@@ -146,6 +146,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 **Subdirectories**:
 - `data/providers/` - Data source implementations
+  - `data/providers/__init__.py` - Public facade; import via `from data.providers import finnhub`
   - `data/providers/finnhub/`
     - `FinnhubClient` - HTTP client for Finnhub API with retry logic
       - `__init__()` - Initialize with settings
@@ -242,6 +243,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `poll_once()` - One cycle: fetch, classify, update `news_since_iso` and `macro_news_min_id`
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
+  - `DataBatch` (TypedDict) - Batch result with `company_news`, `macro_news`, `prices`, `errors`
+  - `PollStats` (TypedDict) - Per-cycle stats with `news`, `prices`, `errors`
 
 ### `analysis/` — Business logic and classification
 **Purpose**: News classification, sentiment analysis, and trading decisions
@@ -290,11 +293,15 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `tests/unit/data/` - Data module tests
     - `tests/unit/data/test_base_contracts.py` - Abstract base class contracts
     - `tests/unit/data/test_models.py` - Dataclass validation tests
-    - `tests/unit/data/providers/test_finnhub.py` - Finnhub provider unit coverage
-    - `tests/unit/data/providers/test_finnhub_critical.py` - Critical error handling for providers
+  - `tests/unit/data/providers/test_finnhub_client.py` - Finnhub client behavior and validation
+  - `tests/unit/data/providers/test_finnhub_news.py` - Company news provider
+  - `tests/unit/data/providers/test_finnhub_macro.py` - Macro news provider
+  - `tests/unit/data/providers/test_finnhub_prices.py` - Price quotes provider
+  - `tests/unit/data/providers/test_finnhub_critical.py` - Critical error handling for providers
     - `tests/unit/data/schema/test_schema_confidence_and_json.py` - JSON fields and confidence constraints
     - `tests/unit/data/schema/test_schema_defaults_and_structure.py` - Default values and schema structure
     - `tests/unit/data/schema/test_schema_enums.py` - Enum value locking
+    - `tests/unit/data/schema/test_schema_last_seen_keys.py` - Watermark key presence/constraints
     - `tests/unit/data/schema/test_schema_financial_values.py` - Decimal and numeric constraints
     - `tests/unit/data/schema/test_schema_not_null.py` - NOT NULL coverage
     - `tests/unit/data/schema/test_schema_primary_keys.py` - Primary key enforcement
@@ -315,6 +322,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `tests/unit/utils/test_http.py` - HTTP retry helper tests
     - `tests/unit/utils/test_market_sessions.py` - Market session classification tests
     - `tests/unit/utils/test_retry.py` - Generic retry logic tests
+    - `tests/unit/utils/test_symbols.py` - SYMBOLS parsing/validation helpers
 
   - `tests/unit/workflows/` - Workflow orchestration tests
     - `tests/unit/workflows/test_poller.py` - DataPoller orchestration tests
