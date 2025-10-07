@@ -106,13 +106,15 @@ def process():
 
 ### FACADES_THIN
 Keep `__init__.py` thin, side-effect free, explicit `__all__`.
+- **Never re-export `_private` helpers** - import them from the defining module when needed
 ```python
 """Data providers package."""
 from data.providers.finnhub import FinnhubNewsProvider
 
-__all__ = ["FinnhubNewsProvider"]  # Only public names
+__all__ = ["FinnhubNewsProvider"]  # Only public names, no _private exports
 
-# Add new providers here so IDEs see full surface area
+# When you need a private helper:
+# from data.storage.db_context import _cursor_context  # Import from source
 ```
 
 ### NAMING_CONVENTIONS
@@ -185,6 +187,7 @@ with _cursor_context(db_path) as cursor:
 Use async for I/O. Never block in async paths.
 ```python
 async def fetch_all(symbols):
+    # get_running_loop() fails fast if called outside async context (surfaces bugs)
     loop = asyncio.get_running_loop()  # NOT get_event_loop()
     tasks = [fetch_one(s) for s in symbols]
     return await asyncio.gather(*tasks)
@@ -192,6 +195,7 @@ async def fetch_all(symbols):
 
 ### LOGGING_LAYERED
 Module-level loggers with appropriate levels. Use f-strings.
+- **Avoid duplicate logging across layers** - provider logs details, orchestrator only summarizes
 ```python
 logger = logging.getLogger(__name__)
 
@@ -201,8 +205,10 @@ logger.warning(f"Failed to fetch {symbol}")  # Request failures
 # Let exceptions propagate to orchestrators
 
 # Orchestrator layer:
-logger.info(f"Processed {count} items")  # Success summaries  
+logger.info(f"Processed {count} items")  # Success summaries only!
 logger.exception("Workflow failed")  # In except blocks for stack trace
+
+# Use logger.exception() instead of logger.error(..., exc_info=True) for clarity
 ```
 
 ### TESTING_REQUIRED
