@@ -1,3 +1,6 @@
+import logging
+from typing import Any
+
 from openai import AsyncOpenAI
 from openai import (
     RateLimitError,
@@ -11,10 +14,12 @@ from openai import (
     UnprocessableEntityError,
     ConflictError
 )
-from typing import Any
 from llm.base import LLMProvider, LLMError
 from config.llm import OpenAISettings
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
+
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(LLMProvider):
@@ -127,5 +132,6 @@ class OpenAIProvider(LLMProvider):
         try:
             await self.client.models.list()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"OpenAIProvider connection validation failed: {exc}")
             return False

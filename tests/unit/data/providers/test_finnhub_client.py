@@ -7,7 +7,7 @@ import pytest
 
 from config.providers.finnhub import FinnhubSettings
 from config.retry import DEFAULT_DATA_RETRY
-from data.providers.finnhub import FinnhubClient
+from data.providers.finnhub.finnhub_client import FinnhubClient
 
 
 class TestFinnhubClient:

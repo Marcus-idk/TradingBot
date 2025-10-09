@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data.base import NewsDataSource
+from data import NewsDataSource
 from data.models import NewsItem
 from data.providers.finnhub.finnhub_client import FinnhubClient
 
@@ -63,12 +63,12 @@ class FinnhubNewsProvider(NewsDataSource):
                         news_item = self._parse_article(article, symbol, buffer_time if since else None)
                         if news_item:
                             news_items.append(news_item)
-                    except Exception as exc:  # noqa: BLE001
+                    except Exception as exc:
                         logger.debug(
                             f"Failed to parse company news article for {symbol}: {exc}"
                         )
                         continue
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(
                     f"Company news fetch failed for {symbol}: {exc}"
                 )

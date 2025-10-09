@@ -2,7 +2,7 @@ import os
 import re
 import pandas as pd
 import streamlit as st
-from data.storage.storage_core import connect
+from data.storage.db_context import _cursor_context
 
 def _friendly_table_name(raw_name: str) -> str:
     """Convert raw table names like `price_data` into `Price Data`."""
@@ -10,11 +10,10 @@ def _friendly_table_name(raw_name: str) -> str:
     cleaned = " ".join(cleaned.split())
     return cleaned.title() if cleaned else raw_name
 
-def fetch_table_names(conn) -> list[str]:
-    df = pd.read_sql_query(
-        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;", conn
-    )
-    return df["name"].tolist()
+def fetch_table_names(db_path: str) -> list[str]:
+    with _cursor_context(db_path, commit=False) as cursor:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+        return [row["name"] for row in cursor.fetchall()]
 
 
 def build_display_map(names: list[str]) -> dict[str, str]:
@@ -33,9 +32,7 @@ st.set_page_config(
 )
 
 DB_PATH = os.getenv("DATABASE_PATH", "data/trading_bot.db")
-conn = connect(DB_PATH, check_same_thread=False)
-
-table_names = fetch_table_names(conn)
+table_names = fetch_table_names(DB_PATH)
 
 if not table_names:
     st.sidebar.info("No tables found in the database.")
@@ -48,8 +45,11 @@ else:
 st.header("TradingBot DB")
 
 if selected:
+    with _cursor_context(DB_PATH, commit=False) as cursor:
+        cursor.execute(f"SELECT * FROM {selected} LIMIT 1000")
+        rows = [dict(row) for row in cursor.fetchall()]
     st.dataframe(
-        pd.read_sql_query(f"SELECT * FROM {selected} LIMIT 1000", conn),
+        pd.DataFrame.from_records(rows),
         use_container_width=True,
         height=500,
     )

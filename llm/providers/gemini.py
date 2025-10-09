@@ -1,10 +1,15 @@
+import logging
+from typing import Any
+
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError, ClientError, ServerError
-from typing import Any
 from llm.base import LLMProvider, LLMError
 from config.llm import GeminiSettings
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
+
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiProvider(LLMProvider):
@@ -157,5 +162,6 @@ class GeminiProvider(LLMProvider):
         try:
             await self.client.aio.models.list()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"GeminiProvider connection validation failed: {exc}")
             return False

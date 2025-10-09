@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data.base import NewsDataSource
+from data import NewsDataSource
 from data.models import NewsItem
 from utils.symbols import parse_symbols
 from data.providers.finnhub.finnhub_client import FinnhubClient
@@ -67,7 +67,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             try:
                 items = self._parse_article(article, buffer_time)
                 news_items.extend(items)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.debug(
                     f"Failed to parse article {article.get('id', 'unknown')}: {exc}"
                 )

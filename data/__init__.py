@@ -2,7 +2,7 @@
 # Components will be added as they're implemented
 
 # Core abstractions (available immediately)
-from data.base import DataSource, NewsDataSource, PriceDataSource
+from data.base import DataSource, NewsDataSource, PriceDataSource, DataSourceError
 
 # Data models
 from data.models import NewsItem, PriceData, AnalysisResult, Holdings, NewsLabel, Session, Stance, AnalysisType, NewsLabelType
@@ -18,7 +18,7 @@ from data.storage import (
 )
 
 __all__ = [
-    'DataSource', 'NewsDataSource', 'PriceDataSource',
+    'DataSource', 'NewsDataSource', 'PriceDataSource', 'DataSourceError',
     'NewsItem', 'PriceData', 'AnalysisResult', 'Holdings', 'NewsLabel',
     'Session', 'Stance', 'AnalysisType', 'NewsLabelType',
     'init_database', 'finalize_database', 'store_news_items', 'store_news_labels', 'store_price_data',

@@ -9,7 +9,8 @@ from decimal import Decimal
 from unittest.mock import Mock, patch, AsyncMock
 
 from config.providers.finnhub import FinnhubSettings
-from data.providers.finnhub import FinnhubClient, FinnhubPriceProvider
+from data.providers.finnhub.finnhub_client import FinnhubClient
+from data.providers.finnhub import FinnhubPriceProvider
 from data.base import DataSourceError
 from utils.retry import RetryableError
 

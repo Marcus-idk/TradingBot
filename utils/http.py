@@ -2,7 +2,7 @@ from typing import Any
 
 import httpx
 
-from data.base import DataSourceError
+from data import DataSourceError
 from utils.retry import RetryableError, retry_and_call, parse_retry_after
 
 

@@ -1,9 +1,14 @@
 """Finnhub API client wrapper."""
 
+import logging
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
 from utils.http import get_json_with_retry
+
+
+logger = logging.getLogger(__name__)
+
 
 class FinnhubClient:
     """Minimal async HTTP client wrapper for Finnhub API calls."""
@@ -29,6 +34,7 @@ class FinnhubClient:
         try:
             await self.get("/quote", {"symbol": "SPY"})
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"FinnhubClient connection validation failed: {exc}")
             return False
 

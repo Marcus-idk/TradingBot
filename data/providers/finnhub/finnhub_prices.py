@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data.base import PriceDataSource
+from data import PriceDataSource
 from data.models import PriceData
 from utils.market_sessions import classify_us_session
 from data.providers.finnhub.finnhub_client import FinnhubClient
@@ -42,7 +42,7 @@ class FinnhubPriceProvider(PriceDataSource):
                 price_item = self._parse_quote(quote, symbol)
                 if price_item:
                     price_data.append(price_item)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.warning(f"Price quote fetch failed for {symbol}: {exc}")
                 continue
 

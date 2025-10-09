@@ -6,6 +6,9 @@ Handles database initialization, connections, and finalization.
 import sqlite3
 import os
 from importlib.resources import files
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def connect(db_path: str, **kwargs) -> sqlite3.Connection:
@@ -18,8 +21,8 @@ def connect(db_path: str, **kwargs) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, **kwargs)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
-    except sqlite3.Error:
-        pass
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to enable SQLite foreign_keys pragma: {e}")
     return conn
 
 
