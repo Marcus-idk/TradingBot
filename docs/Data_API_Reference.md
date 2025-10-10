@@ -89,9 +89,63 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
 **Auth & Base**: API key (query param `apiKey`) · Base: `https://api.polygon.io`
 
 **What they provide**
+- Macro News — ✅
+- Company News — ✅
 - Prices/Market Data — ✅
 
 **Endpoints**
+- Company News — `GET /v2/reference/news`
+  - Params: `ticker` (required for company news), `published_utc` (RFC3339), `published_utc.gte`, `published_utc.gt`, `published_utc.lte`, `published_utc.lt`, `sort` (default `published_utc`), `order` (asc/desc), `limit` (default 10, max 1000), `cursor` (pagination), `apiKey`
+  - Returns:
+    ```json
+    {
+      "count": 1,
+      "next_url": "https://api.polygon.io/v2/reference/news?cursor=...",
+      "results": [
+        {
+          "id": "8ec638777ca03b553ae516761c2a22ba2fdd2f37befae3ab6fdab74e9e5193eb",
+          "title": "Markets are underestimating Fed cuts: UBS",
+          "published_utc": "2024-06-24T18:33:53Z",
+          "article_url": "https://uk.investing.com/news/...",
+          "tickers": ["UBS"],
+          "description": "UBS analysts warn that markets are underestimating...",
+          "publisher": {
+            "name": "Investing.com",
+            "homepage_url": "https://www.investing.com/",
+            "logo_url": "https://s3.polygon.io/public/assets/news/logos/investing.png"
+          }
+        }
+      ]
+    }
+    ```
+  - **Note**: Timestamps in RFC3339 format. Use `published_utc.gt` for incremental fetching. Follow `next_url` for pagination.
+
+- Macro News — `GET /v2/reference/news`
+  - Params: `published_utc` (RFC3339), `published_utc.gte`, `published_utc.gt`, `published_utc.lte`, `published_utc.lt`, `sort` (default `published_utc`), `order` (asc/desc), `limit` (default 10, max 1000), `cursor` (pagination), `apiKey`
+  - Returns:
+    ```json
+    {
+      "count": 1,
+      "next_url": "https://api.polygon.io/v2/reference/news?cursor=...",
+      "results": [
+        {
+          "id": "8ec638777ca03b553ae516761c2a22ba2fdd2f37befae3ab6fdab74e9e5193eb",
+          "title": "Markets are underestimating Fed cuts: UBS",
+          "published_utc": "2024-06-24T18:33:53Z",
+          "article_url": "https://uk.investing.com/news/...",
+          "tickers": ["UBS"],
+          "description": "UBS analysts warn that markets are underestimating...",
+          "publisher": {
+            "name": "Investing.com",
+            "homepage_url": "https://www.investing.com/",
+            "logo_url": "https://s3.polygon.io/public/assets/news/logos/investing.png"
+          }
+        }
+      ]
+    }
+    ```
+  - **Note**: Omit `ticker` parameter to get general market news. Filter results using `tickers` array to match watchlist symbols; articles with no matches map to 'ALL'.
+
 - Prices/Market Data — `GET /v2/snapshot/locale/us/markets/stocks/tickers/{symbol}`
   - Path: `symbol` (ticker, case-sensitive)
   - Params: `apiKey`
@@ -133,8 +187,11 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
   - Used for validating API connectivity (cheap endpoint, doesn't count against rate limits)
 
 **Rate Limits**
-- Free tier: ~5 calls/min
-- Caution: Fetching per-symbol snapshots with large watchlists may exceed free tier limits (e.g., >25 symbols with 5-min polling)
+- Free tier: ~5 calls/min (shared across all endpoints)
+- Company news: 1 call per symbol per poll (+ pagination)
+- Macro news: 1 call per poll (+ pagination)
+- Prices: 1 call per symbol per poll
+- Caution: Combined news + price fetching with large watchlists may exceed free tier limits
 
 ---
 

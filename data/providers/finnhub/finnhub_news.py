@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data import NewsDataSource
+from data import NewsDataSource, DataSourceError
 from data.models import NewsItem
 from data.providers.finnhub.finnhub_client import FinnhubClient
 
@@ -56,7 +56,9 @@ class FinnhubNewsProvider(NewsDataSource):
                 articles = await self.client.get("/company-news", params)
 
                 if not isinstance(articles, list):
-                    continue
+                    raise DataSourceError(
+                        f"Finnhub API returned {type(articles).__name__} instead of list"
+                    )
 
                 for article in articles:
                     try:
@@ -68,6 +70,8 @@ class FinnhubNewsProvider(NewsDataSource):
                             f"Failed to parse company news article for {symbol}: {exc}"
                         )
                         continue
+            except DataSourceError:
+                raise
             except Exception as exc:
                 logger.warning(
                     f"Company news fetch failed for {symbol}: {exc}"

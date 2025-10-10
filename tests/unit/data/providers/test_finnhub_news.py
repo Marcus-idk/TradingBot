@@ -9,6 +9,7 @@ from datetime import timedelta as real_timedelta
 
 from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub import FinnhubNewsProvider
+from data.base import DataSourceError
 
 
 class TestFinnhubNewsProvider:
@@ -265,8 +266,8 @@ class TestFinnhubNewsProvider:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_company_news_skips_non_list_response(self, monkeypatch):
-        """Test graceful handling when API returns non-list response"""
+    async def test_company_news_raises_on_non_list_response(self, monkeypatch):
+        """Test fail-fast when API returns non-list response (structural error)"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
 
@@ -274,6 +275,7 @@ class TestFinnhubNewsProvider:
             return {'unexpected': 'object'}  # not a list
 
         provider.client.get = mock_get
-        results = await provider.fetch_incremental()
-        assert results == []  # graceful skip
+
+        with pytest.raises(DataSourceError, match="returned dict instead of list"):
+            await provider.fetch_incremental()
 

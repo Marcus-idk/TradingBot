@@ -31,11 +31,88 @@ One clear responsibility per module/function.
 # ❌ process_and_store_and_notify_and_log(data) - too many responsibilities
 ```
 
+### FOLLOW_SIMILAR_CODE
+When implementing similar functionality, find and study the existing implementation. Follow its structure, patterns, and conventions—including variable naming, comments, and code style—but don't blindly copy code that doesn't apply to your use case.
+```python
+# SCENARIO: Implementing PolygonNewsProvider
+# STEP 1: Find similar code → FinnhubNewsProvider exists
+# STEP 2: Study its structure
+#   ✅ Copy: class structure, method signatures, error handling patterns
+#   ✅ Copy: logging approach (debug for skips, warning for failures)
+#   ✅ Copy: buffer_time logic, symbol iteration, NewsItem construction
+#   ✅ Copy: variable names (use `articles` not `results` if similar code uses `articles`)
+#   ✅ Copy: comment style ("# Parse articles" matches existing pattern)
+#   ✅ Copy: log message format ("Failed to parse macro news article" for consistency)
+#   ❌ Don't blindly copy: min_id parameter (Finnhub macro uses ID-based cursor, Polygon uses time-based)
+#   ❌ Don't blindly copy: MAX_PAGES constant (different pagination approach)
+
+# ✅ GOOD: Thoughtful consistency (matches variable names, comments, style)
+class PolygonNewsProvider(NewsDataSource):
+    async def fetch_incremental(self, *, since: datetime | None = None):
+        # Polygon only needs time-based filtering
+        buffer_time = since - timedelta(minutes=2)
+        published_gt = _datetime_to_iso(buffer_time)
+
+        articles = response.get("results", [])  # Use 'articles' like Finnhub does
+        # Parse articles  # Same comment style
+        for article in articles:
+            # ... follows Finnhub's error handling and logging patterns
+
+# ❌ BAD: Blind copying
+class PolygonNewsProvider(NewsDataSource):
+    async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
+        # Copied min_id from Finnhub but never use it - WRONG!
+        # Polygon API doesn't support ID-based cursors
+
+        results = response.get("results", [])  # Inconsistent naming
+        for article in results:  # Different variable name than similar code
+```
+
 ### DRY_PRINCIPLE
 Avoid duplication when abstraction is real. Avoid premature abstraction.
 ```python
 # ✅ _datetime_to_iso() used 10+ times - good abstraction
 # ❌ extract_number() used once - premature
+```
+
+### NO_DEAD_CODE
+Remove unused variables, imports, and functions. Keep function signatures consistent with base contracts even if some parameters aren’t used by a specific implementation (document that they’re ignored).
+```python
+# ✅ GOOD: Keep unified provider contract; ignore irrelevant cursors
+async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
+    # Date-based provider: ignore min_id (ID-based cursor not supported)
+    buffer_time = since - timedelta(minutes=2) if since else None
+    published_gt = _datetime_to_iso(buffer_time) if buffer_time else None
+    ...
+
+# ❌ BAD: Diverging signature breaks orchestrator/generic calls
+async def fetch_incremental(self, *, since: datetime | None = None):  # Missing min_id
+    ...
+
+# ❌ BAD: Unused imports
+import json  # Never used
+from typing import Dict  # Never used
+
+# ❌ BAD: Defensive code that serves no purpose
+if min_id is not None:
+    pass  # Does nothing, parameter ignored
+
+# Remove it entirely - if code isn't defensive or functional, delete it
+```
+
+Defensive checks for external contracts must log a warning or raise when triggered; otherwise remove them.
+
+```python
+# ✅ GOOD: Assert external API contract with visible signal
+if buffer_time and published <= buffer_time:
+    logger.warning(
+        f"Provider returned item at/before cutoff {published} (filter gt {buffer_time})"
+    )
+    return None
+
+# ❌ BAD: Silent redundant check (hidden anomaly)
+if buffer_time and published <= buffer_time:
+    return None
 ```
 
 ### VALIDATE_INPUTS
@@ -57,12 +134,53 @@ except RequestException as e:
     raise DataFetchError(f"Cannot retrieve {symbol}: {e}") from e
 ```
 
+Fail‑fast for structural errors; degrade gracefully for malformed items; empty pages are valid termination.
+
+```python
+# Structural/contract errors → raise immediately
+if not isinstance(response, dict):
+    raise DataFetchError(f"Expected dict, got {type(response).__name__}")
+
+results = response.get("results", [])
+if not isinstance(results, list):
+    raise DataFetchError("results must be list")
+
+# Valid "no data" case → stop cleanly
+if not results:
+    return []
+
+# Malformed items → skip with DEBUG log
+for article in results:
+    try:
+        items.extend(parse_article(article))
+    except Exception as exc:
+        logger.debug(f"Skipping malformed item: {exc}")
+```
+
 ### CENTRALIZE_CONCERNS
 Centralize I/O, HTTP, retries/backoff, timezones, data normalization, logging.
+**ALWAYS check `utils/` and `data/storage/storage_utils.py` for existing helpers before writing new code.**
 ```python
-# Reuse helpers instead of reimplementing
+# ✅ GOOD: Use existing utilities
 from utils.http import get_json_with_retry  # Don't reimplement retry logic
 from data.models import _normalize_to_utc  # Don't reimplement TZ handling
+from data.storage.storage_utils import _datetime_to_iso  # Don't manually format ISO strings
+from utils.market_sessions import classify_us_session  # Don't reimplement session logic
+
+# ❌ BAD: Reimplementing existing utilities
+published_gt = buffer_time.isoformat().replace("+00:00", "Z")  # _datetime_to_iso exists!
+# Custom retry logic with exponential backoff  # get_json_with_retry exists!
+```
+
+Timestamp parsing: prefer shared helpers for RFC3339/ISO conversions; don’t duplicate parsing across providers.
+
+```python
+# ✅ GOOD: Centralize parsing
+from data.storage.storage_utils import _parse_rfc3339, _datetime_to_iso
+published = _parse_rfc3339(ts_str)
+published_iso = _datetime_to_iso(published)
+
+# ❌ BAD: Repeating multi-branch parsing logic inline in providers
 ```
 
 ### BOUNDARIES_CLEAN
@@ -76,6 +194,19 @@ Add only when 2+ real uses exist.
 ```python
 # ✅ Add interface when FinnhubProvider AND AlphaVantageProvider need it
 # ❌ Don't add "just in case"
+```
+
+Provider parameters and configurability: avoid premature config; use internal constants unless there’s demonstrated need.
+
+```python
+# ✅ Internal constants within provider package
+_NEWS_LIMIT = 100
+_NEWS_ORDER = "asc"
+
+# ❌ Premature user-facing config for fixed behavior
+class PolygonSettings:
+    news_limit: int  # avoid until real need
+    news_order: str  # avoid; asc is required for incremental
 ```
 
 ### IMPORTS_ABSOLUTE

@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data import NewsDataSource
+from data import NewsDataSource, DataSourceError
 from data.models import NewsItem
 from utils.symbols import parse_symbols
 from data.providers.finnhub.finnhub_client import FinnhubClient
@@ -15,9 +15,20 @@ logger = logging.getLogger(__name__)
 
 
 class FinnhubMacroNewsProvider(NewsDataSource):
-    """Fetches market-wide macro news from Finnhub's /news endpoint."""
+    """Fetches market-wide macro news from Finnhub's /news endpoint.
 
-    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub Macro") -> None:
+    Fetches general market news using ID-based pagination and maps articles to watchlist
+    symbols based on the related field in each article. Falls back to 'ALL' for
+    articles that don't match any watchlist symbols.
+
+    Rate Limits:
+        Free tier: 60 calls/min.
+        Each poll cycle makes one call (no per-symbol iteration for macro news).
+    """
+
+    def __init__(
+        self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub Macro"
+    ) -> None:
         super().__init__(source_name)
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
@@ -48,8 +59,9 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         articles = await self.client.get("/news", params)
 
         if not isinstance(articles, list):
-            self.last_fetched_max_id = None
-            return []
+            raise DataSourceError(
+                f"Finnhub API returned {type(articles).__name__} instead of list"
+            )
 
         if min_id is not None:
             filtered_articles = [
@@ -69,7 +81,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
                 news_items.extend(items)
             except Exception as exc:
                 logger.debug(
-                    f"Failed to parse article {article.get('id', 'unknown')}: {exc}"
+                    f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
                 )
                 continue
 

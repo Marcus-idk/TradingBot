@@ -9,6 +9,9 @@ from utils.http import get_json_with_retry
 
 logger = logging.getLogger(__name__)
 
+_NEWS_LIMIT = 100  # Page size for news pagination
+_NEWS_ORDER = "asc"  # Required for incremental fetching
+
 
 class PolygonClient:
     """Minimal async HTTP client wrapper for Polygon.io API calls."""

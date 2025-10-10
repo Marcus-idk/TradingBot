@@ -209,10 +209,35 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Flat file support where necessary (CSV exports, bulk historical data)
 - Provider abstraction over multiple transport types
 
-## Runtime Flow Snapshot
+## Runtime Flow Snapshot (v0.3.3)
 - Startup
-  - Load environment and logging, initialize the database, optionally launch the local UI, and validate provider connectivity.
-- Poll cycle
-  - Read watermarks, fetch news and prices concurrently, store results, classify company news, update watermarks, then sleep until the next interval.
-- Example
-  - First run: fetch a recent window for each source; next cycle: fetch only items newer than the stored watermark.
+  - Loads `.env` and logging; parses `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, `DATABASE_PATH` (default `data/trading_bot.db`). If `-v`, also uses `STREAMLIT_PORT`. Initializes SQLite (JSON1 required).
+  - Launches optional Streamlit viewer if requested (`-v`) before provider validation.
+  - Creates Finnhub providers (company, macro, price) and validates API connections.
+- Every poll (interval = `POLL_INTERVAL`, e.g., 300s; first cycle runs immediately)
+  - Read watermarks: `news_since_iso` (company/macro published time), `macro_news_min_id` (macro minId).
+  - Fetch company news (`/company-news` per symbol)
+    - If `news_since_iso` missing: use from = UTC date 2 days ago, to = today.
+    - Else: use from = date(since − 2 minutes), to = today; then ignore articles published ≤ (since − 2 minutes). Articles at exactly the watermark are kept.
+  - Fetch macro news (`/news?category=general`)
+    - If `macro_news_min_id` missing: no `minId` param; keep only articles published in the last 2 days.
+    - Else: pass `minId = macro_news_min_id`; keep only articles with id > minId. Track `last_fetched_max_id`.
+  - Fetch prices (`/quote` per symbol) and classify session (REG/PRE/POST/CLOSED) from ET.
+  - Store results
+    - `store_news_items` with URL dedup; classify company news and `store_news_labels` (stub classifier).
+    - Run urgency detector (stub; returns none; no urgent headlines logged).
+    - Advance `news_since_iso` to the max published timestamp across all news fetched.
+    - If present, advance `macro_news_min_id` to provider `last_fetched_max_id`.
+  - Sleep until next cycle.
+
+Example timeline (first run, no watermarks)
+- Now = 2024-01-15T12:00:00Z
+- Company news: from=2024-01-13, to=2024-01-15 (last 2 UTC days) for each symbol.
+- Macro news: no `minId`; keep only items with published > 2024-01-13T12:00:00Z.
+- Prices: fetch current `/quote` for each symbol; store with session classification.
+- After storing, set `news_since_iso` to the latest news.publish time (e.g., 2024-01-15T11:58:00Z) and set `macro_news_min_id` to the highest macro id seen (e.g., 123456789).
+
+Next cycle (e.g., 2024-01-15T12:05:00Z)
+- Company news: from = date(2024-01-15T11:56:00Z), filter out articles published ≤ 11:56:00Z; items at 11:58:00Z and later are included.
+- Macro news: pass `minId=123456789`; keep only articles with id > 123456789.
+- Prices: fetch current quotes; store.

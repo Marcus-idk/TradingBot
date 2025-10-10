@@ -179,6 +179,20 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
       - `__init__()` - Initialize with settings
       - `get()` - Make authenticated GET request with retry logic (path, optional params)
       - `validate_connection()` - API validation using market status endpoint
+    - `PolygonNewsProvider` - Company news fetching implementation
+      - `__init__()` - Initialize with settings and symbols
+      - `validate_connection()` - Delegates to client
+      - `fetch_incremental(since=..., min_id=None)` - Date-based; applies 2‑min buffer; ignores `min_id`
+      - `_fetch_symbol_news()` - Fetch news for single symbol with pagination until complete
+      - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
+      - `_parse_article()` - Convert API response to NewsItem; parses RFC3339 timestamps
+    - `PolygonMacroNewsProvider` - Market-wide macro news fetching implementation
+      - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
+      - `validate_connection()` - Delegates to client
+      - `fetch_incremental(since=..., min_id=None)` - Date-based; applies 2‑min buffer; handles pagination; ignores `min_id`
+      - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
+      - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
+      - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['ALL'] for market-wide coverage
     - `PolygonPriceProvider` - Price snapshot fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
