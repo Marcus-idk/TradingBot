@@ -3,7 +3,6 @@ Tests for utils.symbols module.
 Focus on parse_symbols() helper for ticker parsing and filtering.
 """
 
-import pytest
 import logging
 from utils.symbols import parse_symbols
 

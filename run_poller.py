@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import logging
 import os
+import sqlite3
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -19,13 +20,18 @@ from dotenv import load_dotenv
 from config.providers.finnhub import FinnhubSettings
 from config.providers.polygon import PolygonSettings
 from workflows.poller import DataPoller
-from data.providers.finnhub import FinnhubNewsProvider, FinnhubMacroNewsProvider, FinnhubPriceProvider
+from data.providers.finnhub import (
+    FinnhubMacroNewsProvider,
+    FinnhubNewsProvider,
+    FinnhubPriceProvider,
+)
 from data.providers.polygon import PolygonPriceProvider
-from data import NewsDataSource, PriceDataSource
+from data import DataSourceError, NewsDataSource, PriceDataSource
 from data.storage import init_database
 from utils.logging import setup_logging
 from utils.symbols import parse_symbols
 from utils.signals import register_graceful_shutdown
+from utils.retry import RetryableError
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
@@ -112,8 +118,8 @@ def initialize_database(db_path: str) -> bool:
         init_database(db_path)
         logger.info(f"Database initialized at {db_path}")
         return True
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
+    except (RuntimeError, sqlite3.Error, OSError) as exc:
+        logger.error(f"Failed to initialize database: {exc}")
         return False
 
 
@@ -141,8 +147,8 @@ def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
         logger.warning("Streamlit not found. Install with: pip install streamlit")
         logger.warning("Continuing without UI...")
         return None
-    except Exception as e:
-        logger.warning(f"Failed to start Streamlit: {e}")
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        logger.warning(f"Failed to start Streamlit: {exc}")
         logger.warning("Continuing without UI...")
         return None
 
@@ -192,7 +198,7 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
             raise ValueError("Polygon price API connection validation failed")
         logger.info("Polygon price API connection validated successfully")
 
-    except Exception as exc:
+    except (DataSourceError, RetryableError, RuntimeError) as exc:
         logger.error(f"Connection validation failed: {exc}")
         raise ValueError(f"Provider validation failed: {exc}") from exc
 
@@ -206,11 +212,13 @@ def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
         try:
             ui_process.wait(timeout=5)
             logger.info("Streamlit UI stopped")
-        except Exception as exc:
+        except subprocess.TimeoutExpired as exc:
             logger.warning(
                 f"Streamlit UI did not stop gracefully; forcing termination: {exc}"
             )
             ui_process.kill()
+        except OSError as exc:
+            logger.warning(f"Error while stopping Streamlit UI: {exc}")
 
 
 async def main(with_viewer: bool = False) -> int:
@@ -275,13 +283,25 @@ async def main(with_viewer: bool = False) -> int:
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")
         return 0
-    except Exception as e:
-        logger.exception(f"Unexpected error in poller: {e}")
+    except (
+        DataSourceError,
+        RetryableError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        sqlite3.Error,
+        asyncio.TimeoutError,
+        OSError,
+    ) as exc:
+        logger.exception(f"Unexpected error in poller: {exc}")
         return 1
     finally:
-        logger.info("Poller stopped")
-        cleanup_ui_process(ui_process)
-        logger.info("Shutdown complete")
+        try:
+            logger.info("Poller stopped")
+            cleanup_ui_process(ui_process)
+            logger.info("Shutdown complete")
+        except Exception as cleanup_exc:
+            logger.error(f"Error during cleanup: {cleanup_exc}")
 
 
 if __name__ == "__main__":

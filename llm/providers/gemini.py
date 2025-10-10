@@ -90,7 +90,15 @@ class GeminiProvider(LLMProvider):
                         out.append(p.code_execution_result.output or "")
                 return "\n".join(out).strip()
                 
-            except Exception as exc:
+            except (
+                APIError,
+                ClientError,
+                ServerError,
+                RetryableError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+            ) as exc:
                 raise self._classify_gemini_exception(exc) from exc
         
         # Use retry wrapper with provider's settings
@@ -162,6 +170,14 @@ class GeminiProvider(LLMProvider):
         try:
             await self.client.aio.models.list()
             return True
-        except Exception as exc:
+        except (
+            APIError,
+            ClientError,
+            ServerError,
+            RetryableError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+        ) as exc:
             logger.warning(f"GeminiProvider connection validation failed: {exc}")
             return False

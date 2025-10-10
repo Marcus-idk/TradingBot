@@ -16,7 +16,7 @@ class TestFinnhubPriceProvider:
     """Test FinnhubPriceProvider quote fetching and parsing"""
 
     @pytest.mark.asyncio
-    async def test_requires_positive_price(self, monkeypatch):
+    async def test_requires_positive_price(self):
         """Test that quotes with c <= 0 are skipped"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL'])
@@ -35,7 +35,7 @@ class TestFinnhubPriceProvider:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_decimal_conversion(self, monkeypatch):
+    async def test_decimal_conversion(self):
         """Test that price is converted to Decimal with string precision"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL'])
@@ -123,7 +123,7 @@ class TestFinnhubPriceProvider:
         assert results[0].timestamp == fixed_now
 
     @pytest.mark.asyncio
-    async def test_defaults_session_and_volume(self, monkeypatch):
+    async def test_defaults_session_and_volume(self):
         """Test session classification and default volume"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL'])
@@ -145,7 +145,7 @@ class TestFinnhubPriceProvider:
         assert results[0].volume is None
 
     @pytest.mark.asyncio
-    async def test_validate_connection_success(self, monkeypatch):
+    async def test_validate_connection_success(self):
         """Test validate_connection returns True on success"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL'])
@@ -161,13 +161,13 @@ class TestFinnhubPriceProvider:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_validate_connection_failure(self, monkeypatch):
+    async def test_validate_connection_failure(self):
         """Test validate_connection returns False on exception"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL'])
 
         async def mock_get(path, params=None):
-            raise Exception('Connection failed')
+            raise ValueError('Connection failed')
 
         provider.client.get = mock_get
 
@@ -175,7 +175,7 @@ class TestFinnhubPriceProvider:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_price_per_symbol_isolation(self, monkeypatch):
+    async def test_price_per_symbol_isolation(self):
         """Test that error in one symbol doesn't prevent others from succeeding"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubPriceProvider(settings, ['AAPL', 'FAIL', 'TSLA'])
@@ -183,7 +183,7 @@ class TestFinnhubPriceProvider:
         async def mock_get(path, params=None):
             sym = params.get('symbol') if params else None
             if sym == 'FAIL':
-                raise Exception('quote error')
+                raise ValueError('quote error')
             return {'c': 123.45, 't': 1705320000}
 
         provider.client.get = mock_get

@@ -3,13 +3,10 @@ CRUD operations for trading bot data storage.
 Handles storing, querying, and updating news, prices, analysis, and holdings.
 """
 
-import sqlite3
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from data.models import (
     NewsItem, PriceData, AnalysisResult, Holdings, NewsLabel,
-    Session, Stance, AnalysisType, NewsLabelType
 )
 from data.storage.storage_utils import (
     _normalize_url, _datetime_to_iso, _decimal_to_text,

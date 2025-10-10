@@ -4,7 +4,6 @@ Handles LLM processing batches and state tracking.
 """
 
 import logging
-import sqlite3
 from datetime import datetime
 
 from data.models import NewsItem, PriceData

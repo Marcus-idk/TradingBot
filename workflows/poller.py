@@ -10,8 +10,9 @@ import asyncio
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, TypedDict
+from typing import TypedDict
 
+from data import DataSourceError
 from data.models import NewsItem, PriceData
 from data.storage import (
     get_last_news_time, set_last_news_time,
@@ -22,6 +23,8 @@ from data.base import NewsDataSource, PriceDataSource
 from data.providers.finnhub import FinnhubMacroNewsProvider
 from analysis.news_classifier import classify
 from analysis.urgency_detector import detect_urgency
+from llm.base import LLMError
+from utils.retry import RetryableError
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +104,16 @@ class DataPoller:
         errors = []
 
         # Start both news and price fetches concurrently (don't await yet)
+        news_tasks = []
+        for provider in self.news_providers:
+            if provider in self._macro_providers:
+                news_tasks.append(provider.fetch_incremental(min_id=last_macro_min_id))
+            else:
+                news_tasks.append(provider.fetch_incremental(since=last_news_time))
+
         news_coro = asyncio.gather(
-            *(provider.fetch_incremental(since=last_news_time, min_id=last_macro_min_id)
-              for provider in self.news_providers),
-            return_exceptions=True
+            *news_tasks,
+            return_exceptions=True,
         )
         price_coro = asyncio.gather(
             *(provider.fetch_incremental() for provider in self.price_providers),
@@ -246,15 +255,15 @@ class DataPoller:
                         labels
                     )
                     logger.info(f"Classified {len(labels)} company news items")
-            except Exception:
-                logger.exception("News classification failed")
+            except (LLMError, ValueError, TypeError, RuntimeError) as exc:
+                logger.exception("News classification failed: %s", exc)
 
         # Detect urgent items from all news
         if all_news:
             try:
                 self._log_urgent_items(detect_urgency(all_news))
-            except Exception:
-                logger.exception("Urgency detection failed")
+            except (LLMError, ValueError, TypeError, RuntimeError) as exc:
+                logger.exception("Urgency detection failed: %s", exc)
 
         # Update watermark with latest timestamp from all news
         max_time = max(n.published for n in all_news)
@@ -324,9 +333,17 @@ class DataPoller:
             else:
                 logger.info("No price data fetched")
 
-        except Exception as e:
-            logger.exception(f"Poll cycle failed with unexpected error: {e}")
-            stats["errors"].append(f"Cycle error: {str(e)}")
+        except (
+            DataSourceError,
+            RetryableError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            asyncio.TimeoutError,
+            OSError,
+        ) as exc:
+            logger.exception("Poll cycle failed with error: %s", exc)
+            stats["errors"].append(f"Cycle error: {exc}")
 
         return stats
 

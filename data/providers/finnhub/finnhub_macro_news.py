@@ -40,7 +40,6 @@ class FinnhubMacroNewsProvider(NewsDataSource):
     async def fetch_incremental(
         self,
         *,
-        since: datetime | None = None,
         min_id: int | None = None,
     ) -> list[NewsItem]:
         now_utc = datetime.now(timezone.utc)
@@ -82,11 +81,6 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.debug(
                     f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
-                )
-                continue
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(
-                    f"Unexpected error parsing macro news article {article.get('id', 'unknown')}: {exc}"
                 )
                 continue
 

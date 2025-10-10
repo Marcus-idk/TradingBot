@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
@@ -52,9 +52,6 @@ class FinnhubPriceProvider(PriceDataSource):
             ) as exc:
                 logger.warning(f"Price quote fetch failed for {symbol}: {exc}")
                 continue
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(f"Unexpected error fetching price for {symbol}: {exc}")
-                continue
 
         return price_data
 
@@ -65,7 +62,7 @@ class FinnhubPriceProvider(PriceDataSource):
 
         try:
             price = Decimal(str(current_price))
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, InvalidOperation) as exc:
             logger.debug(
                 f"Invalid quote price for {symbol}: {current_price!r} ({exc}) - skipping"
             )

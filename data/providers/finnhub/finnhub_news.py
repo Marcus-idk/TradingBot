@@ -29,7 +29,6 @@ class FinnhubNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None,
     ) -> list[NewsItem]:
         if not self.symbols:
             return []
@@ -76,11 +75,6 @@ class FinnhubNewsProvider(NewsDataSource):
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.warning(
                     f"Company news fetch failed for {symbol}: {exc}"
-                )
-                continue
-            except Exception as exc:  # pragma: no cover - unexpected, logged for visibility
-                logger.exception(
-                    f"Unexpected error fetching company news for {symbol}: {exc}"
                 )
                 continue
 

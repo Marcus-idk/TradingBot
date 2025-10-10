@@ -38,7 +38,6 @@ class PolygonNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None,
     ) -> list[NewsItem]:
         if not self.symbols:
             return []
@@ -60,16 +59,9 @@ class PolygonNewsProvider(NewsDataSource):
                     symbol, published_gt, buffer_time
                 )
                 news_items.extend(symbol_news)
-            except DataSourceError:
-                raise
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.warning(
                     f"Company news fetch failed for {symbol}: {exc}"
-                )
-                continue
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(
-                    f"Unexpected error fetching company news for {symbol}: {exc}"
                 )
                 continue
 
@@ -144,11 +136,6 @@ class PolygonNewsProvider(NewsDataSource):
             ) as exc:
                 logger.warning(
                     f"Company news pagination failed for {symbol}: {exc}"
-                )
-                raise
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(
-                    f"Unexpected error during company news pagination for {symbol}: {exc}"
                 )
                 raise
 

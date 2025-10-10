@@ -5,7 +5,7 @@ Follow Writing_Code.md: simple, clear, and consistent utilities.
 """
 
 import logging
-from typing import Iterable
+from collections.abc import Iterable
 
 
 logger = logging.getLogger(__name__)

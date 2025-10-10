@@ -6,6 +6,7 @@ Provides cross-platform signal registration for SIGINT (Ctrl+C) and SIGTERM.
 
 import signal
 import logging
+from types import FrameType
 from typing import Callable
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def register_graceful_shutdown(on_stop: Callable[[], None]) -> Callable[[], None
         - SIGTERM mainly used in Linux/containers, limited on Windows
         - The handler logs which signal was received before calling on_stop
     """
-    def signal_handler(signum, frame):
+    def signal_handler(signum: int, _frame: FrameType | None) -> None:
         """Handle shutdown signals with logging."""
         sig_name = signal.Signals(signum).name
         logger.info(f"Received {sig_name} signal, initiating graceful shutdown...")
@@ -39,7 +40,7 @@ def register_graceful_shutdown(on_stop: Callable[[], None]) -> Callable[[], None
     original_sigterm = signal.signal(signal.SIGTERM, signal_handler)
     
     # Return unregister function
-    def unregister():
+    def unregister() -> None:
         """Restore original signal handlers."""
         signal.signal(signal.SIGINT, original_sigint)
         signal.signal(signal.SIGTERM, original_sigterm)

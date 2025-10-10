@@ -30,9 +30,8 @@ class TestFinnhubMacroNewsProvider:
 
         provider.client.get = AsyncMock(side_effect=mock_get)
 
-        # Call with since parameter (should be ignored in bootstrap mode)
+        # Call in bootstrap mode (no watermark)
         await provider.fetch_incremental(
-            since=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
             min_id=None  # Bootstrap mode
         )
 

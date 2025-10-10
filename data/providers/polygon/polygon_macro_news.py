@@ -43,7 +43,6 @@ class PolygonMacroNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None,
     ) -> list[NewsItem]:
         now_utc = datetime.now(timezone.utc)
 
@@ -117,11 +116,6 @@ class PolygonMacroNewsProvider(NewsDataSource):
             ) as exc:
                 logger.warning(
                     f"Macro news pagination failed: {exc}"
-                )
-                raise
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(
-                    f"Unexpected error during macro news pagination: {exc}"
                 )
                 raise
 

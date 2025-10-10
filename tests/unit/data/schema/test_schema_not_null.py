@@ -5,7 +5,6 @@ Tests NOT NULL constraints for required database fields.
 import sqlite3
 import pytest
 
-from data.storage import init_database
 from data.storage.db_context import _cursor_context
 
 class TestNotNullConstraints:

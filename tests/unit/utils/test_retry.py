@@ -4,7 +4,6 @@ Focus on behaviors we rely on in v0.3.1.
 """
 
 import pytest
-import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, AsyncMock

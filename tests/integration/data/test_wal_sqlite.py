@@ -10,6 +10,7 @@ import time
 import concurrent.futures
 from datetime import datetime, timezone
 from decimal import Decimal
+import sqlite3
 
 # Mark all tests in this module as integration tests
 pytestmark = [pytest.mark.integration]
@@ -126,8 +127,8 @@ class TestWALSqlite:
                     # Small delay to simulate network latency
                     time.sleep(0.01)
                     
-            except Exception as e:
-                track_result('write', success=False, error=f"Thread {thread_id} news write error: {str(e)}")
+            except (sqlite3.Error, ValueError, RuntimeError) as exc:
+                track_result('write', success=False, error=f"Thread {thread_id} news write error: {exc}")
         
         def write_price_data(thread_id, symbol_batch):
             """Simulate price data polling from different exchanges"""
@@ -146,8 +147,8 @@ class TestWALSqlite:
                     
                     time.sleep(0.01)
                     
-            except Exception as e:
-                track_result('write', success=False, error=f"Thread {thread_id} price write error: {str(e)}")
+            except (sqlite3.Error, ValueError, RuntimeError) as exc:
+                track_result('write', success=False, error=f"Thread {thread_id} price write error: {exc}")
         
         def write_analysis_data(thread_id, symbol_batch):
             """Simulate analysis results from different models"""
@@ -168,8 +169,8 @@ class TestWALSqlite:
                     
                     time.sleep(0.01)
                     
-            except Exception as e:
-                track_result('write', success=False, error=f"Thread {thread_id} analysis write error: {str(e)}")
+            except (sqlite3.Error, ValueError, RuntimeError) as exc:
+                track_result('write', success=False, error=f"Thread {thread_id} analysis write error: {exc}")
         
         # SCENARIO 2: CONCURRENT READS (Simulating multiple LLM agents analyzing data)
         def read_for_analysis(thread_id, query_type):
@@ -188,8 +189,8 @@ class TestWALSqlite:
                     
                     time.sleep(0.01)  # Simulate analysis processing time
                     
-            except Exception as e:
-                track_result('read', success=False, error=f"Thread {thread_id} {query_type} read error: {str(e)}")
+            except (sqlite3.Error, ValueError, RuntimeError) as exc:
+                track_result('read', success=False, error=f"Thread {thread_id} {query_type} read error: {exc}")
         
         # EXECUTE CONCURRENT OPERATIONS
         print(f"\nStarting concurrent operations test with database: {temp_db}")
@@ -219,8 +220,8 @@ class TestWALSqlite:
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result(timeout=30)  # 30 second timeout per operation
-                except Exception as e:
-                    thread_errors.append(f"Thread operation failed: {str(e)}")
+                except (sqlite3.Error, ValueError, RuntimeError, TimeoutError) as exc:
+                    thread_errors.append(f"Thread operation failed: {exc}")
         
         execution_time = time.time() - start_time
         

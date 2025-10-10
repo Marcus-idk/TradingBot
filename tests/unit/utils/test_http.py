@@ -4,7 +4,6 @@ Use mock_http_client fixture to stub AsyncClient; count calls; simulate status c
 """
 
 import pytest
-import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime, timezone, timedelta
 import json

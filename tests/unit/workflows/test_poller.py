@@ -31,7 +31,6 @@ class StubNews(NewsDataSource):
         super().__init__("StubNews")
         self._items = items
         self.last_called_with_since: datetime | None = None
-        self.last_called_with_min_id: int | None = None
 
     async def validate_connection(self) -> bool:
         return True
@@ -40,10 +39,8 @@ class StubNews(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None,
     ) -> list[NewsItem]:
         self.last_called_with_since = since
-        self.last_called_with_min_id = min_id
         return self._items
 
 
@@ -61,7 +58,6 @@ class StubPrice(PriceDataSource):
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None,
     ) -> list[PriceData]:
         return self._items
 
@@ -82,12 +78,11 @@ class StubMacroNews(NewsDataSource):
     async def fetch_incremental(
         self,
         *,
-        since: datetime | None = None,
         min_id: int | None = None,
     ) -> list[NewsItem]:
         # Track what parameters we were called with
-        self.last_called_with_since = since
         self.last_called_with_min_id = min_id
+        self.last_called_with_since = None
         return self._items
 
 
@@ -240,9 +235,7 @@ class TestDataPoller:
 
         # Verify both providers were called
         assert company_provider.last_called_with_since is None  # First run, no watermark
-        assert company_provider.last_called_with_min_id == 100  # DataPoller forwards macro min_id to all news providers
 
-        assert macro_provider.last_called_with_since is None  # First run
         assert macro_provider.last_called_with_min_id == 100  # Macro provider gets min_id watermark
 
         # Verify both sets of news were stored

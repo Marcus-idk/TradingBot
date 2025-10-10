@@ -76,28 +76,32 @@ Avoid duplication when abstraction is real. Avoid premature abstraction.
 ```
 
 ### NO_DEAD_CODE
-Remove unused variables, imports, and functions. Keep function signatures consistent with base contracts even if some parameters aren’t used by a specific implementation (document that they’re ignored).
+Remove unused variables, imports, and functions. Implementations should only
+declare the cursor parameters they actually support, and orchestrators must
+invoke providers with the matching keyword arguments.
 ```python
-# ✅ GOOD: Keep unified provider contract; ignore irrelevant cursors
-async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
-    # Date-based provider: ignore min_id (ID-based cursor not supported)
-    buffer_time = since - timedelta(minutes=2) if since else None
-    published_gt = _datetime_to_iso(buffer_time) if buffer_time else None
+# ✅ GOOD: Time-based provider declares just the cursor it needs
+async def fetch_incremental(self, *, since: datetime | None = None):
+    if since is None:
+        since = datetime.now(timezone.utc) - timedelta(days=2)
     ...
 
-# ❌ BAD: Diverging signature breaks orchestrator/generic calls
-async def fetch_incremental(self, *, since: datetime | None = None):  # Missing min_id
+# ✅ GOOD: ID-based provider declares min_id cursor
+async def fetch_incremental(self, *, min_id: int | None = None):
+    if min_id is not None:
+        params["minId"] = min_id
+    ...
+
+# ❌ BAD: Accepting unused cursor arguments
+async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
+    # Never reads min_id → violates NO_DEAD_CODE
     ...
 
 # ❌ BAD: Unused imports
 import json  # Never used
 from typing import Dict  # Never used
 
-# ❌ BAD: Defensive code that serves no purpose
-if min_id is not None:
-    pass  # Does nothing, parameter ignored
-
-# Remove it entirely - if code isn't defensive or functional, delete it
+# Remove unused code entirely—if it is not defensive or functional, delete it.
 ```
 
 Defensive checks for external contracts must log a warning or raise when triggered; otherwise remove them.

@@ -50,6 +50,8 @@ def _normalize_url(url: str) -> str:
 
 def _datetime_to_iso(dt: datetime) -> str:
     """Convert datetime to UTC ISO string format expected by database."""
+    # Guideline note: this is the central helper the codebase should use for ISO strings.
+    # The normalization below intentionally handles the 'Z' suffix.
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     else:

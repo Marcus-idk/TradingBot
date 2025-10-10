@@ -93,7 +93,7 @@ class TestFinnhubNewsProvider:
         assert captured_params['to'] == '2024-01-15'
 
     @pytest.mark.asyncio
-    async def test_filters_old_articles(self, monkeypatch):
+    async def test_filters_old_articles(self):
         """Test that articles are filtered with 2-minute buffer (published <= buffer_time)"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
@@ -125,7 +125,7 @@ class TestFinnhubNewsProvider:
         assert results[2].headline == 'Latest News'    # After watermark
 
     @pytest.mark.asyncio
-    async def test_parses_valid_article(self, monkeypatch):
+    async def test_parses_valid_article(self):
         """Test parsing of valid article with all fields"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['TSLA'])
@@ -157,7 +157,7 @@ class TestFinnhubNewsProvider:
         assert item.published == datetime.fromtimestamp(1705320000, tz=timezone.utc)
 
     @pytest.mark.asyncio
-    async def test_skips_missing_headline(self, monkeypatch):
+    async def test_skips_missing_headline(self):
         """Test that articles without headline are skipped"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
@@ -181,7 +181,7 @@ class TestFinnhubNewsProvider:
         assert results[0].headline == 'Valid News'
 
     @pytest.mark.asyncio
-    async def test_skips_invalid_epoch(self, monkeypatch):
+    async def test_skips_invalid_epoch(self):
         """Test that articles with invalid epoch timestamps are skipped"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
@@ -205,7 +205,7 @@ class TestFinnhubNewsProvider:
         assert results[0].headline == 'Valid News'
 
     @pytest.mark.asyncio
-    async def test_per_symbol_isolation(self, monkeypatch):
+    async def test_per_symbol_isolation(self):
         """Test that error in one symbol doesn't affect others"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['FAIL', 'AAPL', 'TSLA'])
@@ -218,7 +218,7 @@ class TestFinnhubNewsProvider:
             if path == '/company-news' and params:
                 symbol = params.get('symbol')
                 if symbol == 'FAIL':
-                    raise Exception('API error for FAIL symbol')
+                    raise ValueError('API error for FAIL symbol')
                 elif symbol == 'AAPL':
                     return [{'headline': 'Apple News', 'url': 'http://apple.com', 'datetime': 1705320000}]
                 elif symbol == 'TSLA':
@@ -236,7 +236,7 @@ class TestFinnhubNewsProvider:
         assert 'Tesla News' in headlines
 
     @pytest.mark.asyncio
-    async def test_validate_connection_success(self, monkeypatch):
+    async def test_validate_connection_success(self):
         """Test validate_connection returns True on success"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
@@ -252,13 +252,13 @@ class TestFinnhubNewsProvider:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_validate_connection_failure(self, monkeypatch):
+    async def test_validate_connection_failure(self):
         """Test validate_connection returns False on exception"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])
 
         async def mock_get(path, params=None):
-            raise Exception('Connection failed')
+            raise ValueError('Connection failed')
 
         provider.client.get = mock_get
 
@@ -266,7 +266,7 @@ class TestFinnhubNewsProvider:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_company_news_raises_on_non_list_response(self, monkeypatch):
+    async def test_company_news_raises_on_non_list_response(self):
         """Test fail-fast when API returns non-list response (structural error)"""
         settings = FinnhubSettings(api_key='test_key')
         provider = FinnhubNewsProvider(settings, ['AAPL'])

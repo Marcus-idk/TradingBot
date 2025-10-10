@@ -5,7 +5,6 @@ Tests primary key uniqueness constraints for all database tables.
 import sqlite3
 import pytest
 
-from data.storage import init_database
 from data.storage.db_context import _cursor_context
 
 class TestPrimaryKeyConstraints:

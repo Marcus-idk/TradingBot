@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from config.providers.polygon import PolygonSettings
@@ -66,9 +66,6 @@ class PolygonPriceProvider(PriceDataSource):
             ) as exc:
                 logger.warning(f"Price snapshot fetch failed for {symbol}: {exc}")
                 continue
-            except Exception as exc:  # pragma: no cover - unexpected
-                logger.exception(f"Unexpected error fetching polygon snapshot for {symbol}: {exc}")
-                continue
 
         return price_data
 
@@ -98,7 +95,7 @@ class PolygonPriceProvider(PriceDataSource):
         # Convert to Decimal
         try:
             price = Decimal(str(price_value))
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, InvalidOperation) as exc:
             logger.debug(
                 f"Invalid price for {symbol}: {price_value!r} ({exc}) - skipping"
             )

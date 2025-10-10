@@ -18,6 +18,8 @@ def connect(db_path: str, **kwargs) -> sqlite3.Connection:
     be enabled per-connection. This helper ensures `PRAGMA foreign_keys = ON` is
     set for all callers in this module.
     """
+    # Direct sqlite3.connect is allowed here: this helper is the sanctioned entry point
+    # that applies required PRAGMAs before use elsewhere in the codebase.
     conn = sqlite3.connect(db_path, **kwargs)
     try:
         conn.execute("PRAGMA foreign_keys = ON")
@@ -43,6 +45,7 @@ def init_database(db_path: str) -> None:
     Requires SQLite JSON1 extension for data integrity.
     """
     # Check JSON1 support at startup - fail fast if missing
+    # In-memory connection is acceptable for capability checks; no disk access occurs.
     with sqlite3.connect(":memory:") as conn:
         if not _check_json1_support(conn):
             raise RuntimeError(

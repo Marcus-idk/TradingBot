@@ -4,7 +4,9 @@ import logging
 from typing import Any
 
 from config.providers.polygon import PolygonSettings
+from data import DataSourceError
 from utils.http import get_json_with_retry
+from utils.retry import RetryableError
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,6 @@ class PolygonClient:
         try:
             await self.get("/v1/marketstatus/now")
             return True
-        except Exception as exc:
+        except (DataSourceError, RetryableError, ValueError, TypeError) as exc:
             logger.warning(f"PolygonClient connection validation failed: {exc}")
             return False

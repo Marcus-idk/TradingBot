@@ -57,7 +57,7 @@ class NewsItem:
     source: str
     content: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.symbol = self.symbol.strip().upper()
         self.url = self.url.strip()
         self.headline = self.headline.strip()
@@ -75,7 +75,7 @@ class NewsLabel:
     label: NewsLabelType
     created_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.symbol = self.symbol.strip().upper()
         self.url = self.url.strip()
         if isinstance(self.label, str):
@@ -100,7 +100,7 @@ class PriceData:
     volume: int | None = None
     session: Session = Session.REG
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.symbol = self.symbol.strip().upper()
         if not self.symbol: raise ValueError("symbol cannot be empty")
         self.timestamp = _normalize_to_utc(self.timestamp)
@@ -120,7 +120,7 @@ class AnalysisResult:
     result_json: str
     created_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.symbol = self.symbol.strip().upper()
         self.model_name = self.model_name.strip()
         self.result_json = self.result_json.strip()
@@ -153,7 +153,7 @@ class Holdings:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.symbol = self.symbol.strip().upper()
         if self.notes is not None:
             self.notes = self.notes.strip()

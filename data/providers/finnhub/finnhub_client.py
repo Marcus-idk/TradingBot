@@ -4,7 +4,9 @@ import logging
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
+from data import DataSourceError
 from utils.http import get_json_with_retry
+from utils.retry import RetryableError
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +36,6 @@ class FinnhubClient:
         try:
             await self.get("/quote", {"symbol": "SPY"})
             return True
-        except Exception as exc:
+        except (DataSourceError, RetryableError, ValueError, TypeError) as exc:
             logger.warning(f"FinnhubClient connection validation failed: {exc}")
             return False
-

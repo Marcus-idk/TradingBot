@@ -12,7 +12,7 @@ from decimal import Decimal
 pytestmark = [pytest.mark.integration]
 
 from data.storage import (
-    init_database, store_news_items, store_price_data,
+    store_news_items, store_price_data,
     get_news_since, get_price_data_since, upsert_analysis_result,
     upsert_holdings, get_all_holdings, get_analysis_results
 )

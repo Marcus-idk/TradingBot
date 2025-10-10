@@ -4,7 +4,6 @@ Tests the most important error scenarios that could break production.
 """
 
 import pytest
-from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import Mock, patch, AsyncMock
 
@@ -12,7 +11,6 @@ from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub.finnhub_client import FinnhubClient
 from data.providers.finnhub import FinnhubPriceProvider
 from data.base import DataSourceError
-from utils.retry import RetryableError
 
 
 class TestFinnhubCriticalErrorHandling:

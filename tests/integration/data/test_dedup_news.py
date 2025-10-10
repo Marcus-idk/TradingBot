@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 pytestmark = [pytest.mark.integration]
 
 from data.storage import store_news_items, get_news_since
-from data.models import Session, Stance, AnalysisType, NewsItem
+from data.models import NewsItem
 
 
 class TestNewsDeduplication:

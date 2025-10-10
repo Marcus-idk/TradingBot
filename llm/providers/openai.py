@@ -68,7 +68,22 @@ class OpenAIProvider(LLMProvider):
             try:
                 resp = await self.client.responses.create(**args)
                 return resp.output_text
-            except Exception as exc:
+            except (
+                RateLimitError,
+                APITimeoutError,
+                APIConnectionError,
+                APIStatusError,
+                AuthenticationError,
+                PermissionDeniedError,
+                BadRequestError,
+                NotFoundError,
+                UnprocessableEntityError,
+                ConflictError,
+                RetryableError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+            ) as exc:
                 raise self._classify_openai_exception(exc) from exc
         
         # Use retry wrapper with provider's settings
@@ -132,6 +147,21 @@ class OpenAIProvider(LLMProvider):
         try:
             await self.client.models.list()
             return True
-        except Exception as exc:
+        except (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            APIStatusError,
+            AuthenticationError,
+            PermissionDeniedError,
+            BadRequestError,
+            NotFoundError,
+            UnprocessableEntityError,
+            ConflictError,
+            RetryableError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+        ) as exc:
             logger.warning(f"OpenAIProvider connection validation failed: {exc}")
             return False

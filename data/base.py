@@ -1,30 +1,15 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+ 
 
 from data.models import NewsItem, PriceData
 
 
 class DataSource(ABC):
-    """
-    Abstract base class for all data providers (Finnhub, Polygon, Reddit, etc.)
-    
-    Defines the contract that every data source must implement:
-    - Incremental fetching (only get new data since last fetch)
-    - Connection validation 
-    - Consistent error handling
-    """
-    
+    """Abstract base class for all data providers (Finnhub, Polygon, Reddit, etc.)."""
+
     def __init__(self, source_name: str) -> None:
-        """
-        Initialize data source with identifying name
-
-        Args:
-            source_name: Human-readable identifier (e.g., "Finnhub", "Polygon")
-
-        Raises:
-            ValueError: If source_name is invalid (None, empty, too long, or contains invalid characters)
-            TypeError: If source_name is not a string
-        """
+        """Validate and store a human-readable provider name."""
         if source_name is None:
             raise ValueError("source_name cannot be None")
         if not isinstance(source_name, str):
@@ -33,63 +18,58 @@ class DataSource(ABC):
             raise ValueError("source_name cannot be empty or whitespace only")
         if len(source_name) > 100:
             raise ValueError(f"source_name too long: {len(source_name)} characters (max 100)")
-        
+
         self.source_name = source_name.strip()
-    
-    
+
     @abstractmethod
     async def validate_connection(self) -> bool:
-        """
-        Test if the data source is reachable and credentials work
-        
-        Returns:
-            True if connection successful, False otherwise
-            
-        Note:
-            Should not raise exceptions - return False for any connection issues
-        """
-        pass
-    
-    pass
+        """Test whether the remote service is reachable and credentials work."""
+
+    ...
 
 
 class DataSourceError(Exception):
-    """Base exception for data source related errors"""
+    """Base exception for data source related errors."""
+
     pass
 
 
 class NewsDataSource(DataSource):
-    """Abstract base class for data sources that provide news content"""
+    """Abstract base class for data sources that provide news content."""
 
     @abstractmethod
     async def fetch_incremental(
         self,
         *,
         since: datetime | None = None,
-        min_id: int | None = None
+        min_id: int | None = None,
     ) -> list[NewsItem]:
         """
         Fetch new news items using incremental cursors.
 
-        Args:
-            since: Fetch items published after this timestamp (used by date-based providers)
-            min_id: Fetch items with ID > min_id (used by ID-based providers)
+        Keyword Args:
+            since: Fetch items published after this timestamp (time-based providers).
+            min_id: Fetch items with ID greater than this value (ID-based providers).
 
         Returns:
-            List of NewsItem objects
+            List of :class:`NewsItem` instances.
 
-        Note:
-            Implementations use whichever cursor makes sense for their API.
-            Date-based providers (company news) use `since`, ignore `min_id`.
-            ID-based providers (macro news) use `min_id`, ignore `since`.
+        Implementations may declare only the cursor(s) they actually support.
+        Orchestrators must pass only relevant cursors to each provider.
         """
-        pass
+        raise NotImplementedError(
+            "fetch_incremental must be implemented by subclasses "
+            f"(since={since!r}, min_id={min_id!r})"
+        )
 
 
 class PriceDataSource(DataSource):
-    """Abstract base class for data sources that provide price/market data"""
-    
+    """Abstract base class for data sources that provide price/market data."""
+
     @abstractmethod
     async def fetch_incremental(self, since: datetime | None = None) -> list[PriceData]:
-        """Fetch new price data since the specified timestamp"""
-        pass
+        """Fetch new price data since the specified timestamp."""
+
+        raise NotImplementedError(
+            f"fetch_incremental must be implemented by subclasses (since={since!r})"
+        )

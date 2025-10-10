@@ -1,4 +1,5 @@
-"""
-Configuration settings for TradingBot
-"""
-# Settings classes will be imported here when they're available
+"""Configuration package exposing settings modules for TradingBot."""
+
+from config import llm, providers, retry
+
+__all__ = ["llm", "providers", "retry"]

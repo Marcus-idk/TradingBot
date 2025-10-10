@@ -72,9 +72,9 @@ async def get_json_with_retry(
         except (RetryableError, DataSourceError):
             # Re-raise our own exceptions unchanged
             raise
-        except Exception as exc:
-            # Any other unexpected error - don't retry unknown problems
-            raise DataSourceError(f"Unexpected error during HTTP request: {exc}") from exc
+        except httpx.HTTPError as exc:
+            # Any other HTTP-layer error - treat as non-retryable unless prior branch caught it
+            raise DataSourceError(f"Unexpected HTTP error during request: {exc}") from exc
 
     # Call the retry wrapper - will run _op() up to max_retries+1 times
     # (1 initial attempt + max_retries additional attempts)

@@ -104,7 +104,6 @@ class TestAbstractMethodEnforcement:
                 self,
                 *,
                 since: datetime | None = None,
-                min_id: int | None = None,
             ) -> list[NewsItem]:
                 return []
         
@@ -120,7 +119,6 @@ class TestAbstractMethodEnforcement:
                 self,
                 *,
                 since: datetime | None = None,
-                min_id: int | None = None,
             ) -> list[PriceData]:
                 return []
         
