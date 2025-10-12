@@ -176,6 +176,74 @@ def test_finnhub_live():
 
 # TEST PATTERNS
 
+## FOLLOW_SIMILAR_TESTS → Study existing tests before writing new ones
+When writing tests for similar functionality, find and study the existing test implementation. Follow its structure, patterns, and conventions—including test naming, mock setup, assertion style, and organization—but don't blindly copy tests that don't apply to your use case.
+
+**Pattern:**
+1. Find similar test file (e.g., testing PolygonClient? → look at test_finnhub_client.py)
+2. Study its structure: class names, test method names, mock patterns, assertions
+3. Copy what applies: naming conventions, mock setup patterns, assertion patterns
+4. Adapt what doesn't: API differences, different behaviors, different error types
+
+**Example:**
+```python
+# SCENARIO: Writing tests for PolygonNewsProvider
+# STEP 1: Find similar tests → test_finnhub_news.py exists
+
+# STEP 2: Study test structure
+# From test_finnhub_news.py:
+class TestFinnhubNewsProvider:
+    async def test_parses_valid_article(self):
+        news_fixture = [{
+            'headline': 'Tesla Stock Rises',
+            'url': 'https://example.com/tesla-news',
+            'datetime': 1705320000,  # Epoch
+            'source': 'Reuters',
+            'summary': 'Tesla stock rose 5% today.'
+        }]
+        # ... rest of test
+
+# STEP 3: Copy structure and naming for Polygon tests
+# ✅ Copy: test class name pattern (TestPolygonNewsProvider)
+# ✅ Copy: test method name pattern (test_parses_valid_article)
+# ✅ Copy: mock setup pattern (provider.client.get = AsyncMock(...))
+# ✅ Copy: assertion style (assert result.symbol == 'AAPL')
+# ❌ Don't copy: Field names (Polygon uses 'title' not 'headline')
+# ❌ Don't copy: Timestamp format (Polygon uses RFC3339 not epoch)
+
+class TestPolygonNewsProvider:
+    async def test_parse_article_valid(self):  # Same naming pattern
+        article = {
+            'title': 'Apple Announces iPhone',      # Polygon field name
+            'article_url': 'https://example.com/1', # Polygon field name
+            'published_utc': '2024-01-15T12:00:00Z', # RFC3339, not epoch
+            'publisher': {'name': 'TechCrunch'},
+            'description': 'Apple unveils...'
+        }
+        # Same assertion pattern as Finnhub tests
+        assert result.symbol == 'AAPL'
+        assert result.headline == 'Apple Announces iPhone'
+```
+
+**Key Benefits:**
+- Consistent test style across similar modules
+- Faster test development (copy proven patterns)
+- Easier code review (reviewers recognize patterns)
+- Reduced bugs (proven test patterns work)
+
+**When to Study Similar Tests:**
+- ✅ Writing provider tests → Study other provider tests
+- ✅ Writing storage tests → Study other storage tests
+- ✅ Writing LLM tests → Study existing LLM tests
+- ✅ Adding new test to existing file → Match that file's style
+
+**References:**
+- Provider tests: `test_finnhub_client.py`, `test_finnhub_news.py`, `test_finnhub_macro.py`
+- Storage tests: `test_storage_news.py`, `test_storage_prices.py`
+- LLM tests: `test_openai_provider.py`, `test_gemini_provider.py`
+
+---
+
 ## Testing Retry Logic
 Mock HTTP client with response sequences, not the retry wrapper.
 ```python
@@ -334,6 +402,7 @@ Classes get 1:1, functions get feature grouping.
 - [ ] Using _cursor_context for SQLite?
 - [ ] Mocking at correct level (not facades)?
 - [ ] Integration tests marked correctly?
+- [ ] Following similar test patterns? (studied existing tests first?)
 
 ## When in Doubt
 1. **Make it obvious** where to find/add tests
@@ -345,7 +414,16 @@ Classes get 1:1, functions get feature grouping.
 
 # EXAMPLE PATTERNS REFERENCE
 
+**Use these as templates when writing similar tests (see FOLLOW_SIMILAR_TESTS above)**
+
 - **1:1 Class Mapping**: Source `data/providers/finnhub/client.py` → Test `tests/unit/data/providers/test_finnhub.py` has `TestFinnhubClient`
+  - Copy for: Polygon providers, new data providers
+
 - **Feature-Based Functions**: Source `data/storage/storage_crud.py` → Tests split into `test_storage_news.py`, `test_storage_prices.py`
+  - Copy for: New storage operations, utility modules
+
 - **Integration Test**: `tests/integration/data/test_dedup_news.py`, `test_roundtrip_e2e.py`, `test_timezone_pipeline.py`
+  - Copy for: New workflows, E2E validation
+
 - **Retry Logic**: `tests/unit/utils/test_http.py::test_429_numeric_retry_after`
+  - Copy for: HTTP clients, retry wrappers
