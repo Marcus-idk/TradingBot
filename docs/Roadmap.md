@@ -120,10 +120,11 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 ### v0.3.4 — Complete Data Pipeline
 **Goal**:
-- Complete ingestion with dual price providers and dedup
+- Complete ingestion with multi-source news and price dedup framework
 
 **Achieves**:
-- Polygon.io (concurrent price provider, 5 calls/min free tier; fetches alongside Finnhub every cycle)
+- Polygon.io news providers (company + macro) for multi-source news coverage
+- Price deduplication framework (ready for multiple providers)
 - Reddit sentiment (PRAW, ~100 queries/min)
 - SEC EDGAR (filings/insider trades, 10 req/sec)
 - RSS feeds (custom news sources)
@@ -133,7 +134,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 **Notes**:
 - Provider pattern: Dual providers (news+price) or single-purpose
  - Price dedup: Compare to primary; log mismatches >= $0.01; store primary.
- - Partial progress: Polygon price provider is implemented; Reddit, SEC EDGAR, and RSS integrations remain planned.
+ - Partial progress: Polygon news providers implemented; price dedup framework in place (single Finnhub provider currently; Polygon price endpoint requires paid plan). Reddit, SEC EDGAR, and RSS integrations remain planned.
 
 
 ---

@@ -26,7 +26,6 @@ from data.providers.finnhub import (
     FinnhubPriceProvider,
 )
 from data.providers.polygon import (
-    PolygonPriceProvider,
     PolygonNewsProvider,
     PolygonMacroNewsProvider,
 )
@@ -170,7 +169,6 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
     # Create Polygon providers
     polygon_company_news_provider = PolygonNewsProvider(config.polygon_settings, config.symbols)
     polygon_macro_news_provider = PolygonMacroNewsProvider(config.polygon_settings, config.symbols)
-    polygon_price_provider = PolygonPriceProvider(config.polygon_settings, config.symbols)
 
     # Group providers by type
     news_providers = [
@@ -179,7 +177,7 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
         polygon_company_news_provider,
         polygon_macro_news_provider,
     ]
-    price_providers = [finnhub_price_provider, polygon_price_provider]
+    price_providers = [finnhub_price_provider]
 
     # Validate connections
     logger.info("Validating API connections...")
@@ -190,7 +188,6 @@ async def create_and_validate_providers(config: PollerConfig) -> tuple[list[News
             (finnhub_price_provider, "Finnhub price"),
             (polygon_company_news_provider, "Polygon company news"),
             (polygon_macro_news_provider, "Polygon macro news"),
-            (polygon_price_provider, "Polygon price"),
         ]
 
         results = await asyncio.gather(*[p.validate_connection() for p, _ in providers_to_validate])

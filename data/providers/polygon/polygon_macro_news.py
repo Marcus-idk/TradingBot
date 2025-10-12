@@ -25,7 +25,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
     articles that don't match any watchlist symbols.
 
     Rate Limits:
-        Free tier: ~5 calls/min (shared with other Polygon providers).
+        Free tier: ~5 calls/min (shared across all Polygon endpoints).
         Each poll cycle makes pagination requests until complete.
     """
 

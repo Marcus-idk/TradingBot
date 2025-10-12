@@ -91,7 +91,7 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
 **What they provide**
 - Macro News — ✅
 - Company News — ✅
-- Prices/Market Data — ✅
+- Prices/Market Data — ❌ (available but requires paid plan, not implemented)
 
 **Endpoints**
 - Company News — `GET /v2/reference/news`
@@ -146,7 +146,7 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
     ```
   - **Note**: Omit `ticker` parameter to get general market news. Filter results using `tickers` array to match watchlist symbols; articles with no matches map to 'ALL'.
 
-- Prices/Market Data — `GET /v2/snapshot/locale/us/markets/stocks/tickers/{symbol}`
+- Prices/Market Data — `GET /v2/snapshot/locale/us/markets/stocks/tickers/{symbol}` *(Not implemented - requires paid Polygon plan)*
   - Path: `symbol` (ticker, case-sensitive)
   - Params: `apiKey`
   - Returns:
@@ -190,8 +190,6 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
 - Free tier: ~5 calls/min (shared across all endpoints)
 - Company news: 1 call per symbol per poll (+ pagination)
 - Macro news: 1 call per poll (+ pagination)
-- Prices: 1 call per symbol per poll
-- Caution: Combined news + price fetching with large watchlists may exceed free tier limits
 
 ---
 

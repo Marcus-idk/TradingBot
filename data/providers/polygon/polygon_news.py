@@ -20,7 +20,7 @@ class PolygonNewsProvider(NewsDataSource):
     """Fetches company-specific news from Polygon.io's /v2/reference/news endpoint.
 
     Rate Limits:
-        Free tier: ~5 calls/min (shared with price provider).
+        Free tier: ~5 calls/min (shared across all Polygon endpoints).
         Each poll cycle makes one call per symbol, plus pagination if needed.
     """
 

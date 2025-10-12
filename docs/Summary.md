@@ -23,7 +23,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 ## Environment Variables
 - `FINNHUB_API_KEY` - Required for market data fetching
-- `POLYGON_API_KEY` - Required for Polygon.io price data
+- `POLYGON_API_KEY` - Required for Polygon.io news data
 - `OPENAI_API_KEY` - Required for OpenAI LLM provider
 - `GEMINI_API_KEY` - Required for Gemini LLM provider
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
@@ -182,22 +182,17 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `PolygonNewsProvider` - Company news fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=..., min_id=None)` - Date-based; applies 2‑min buffer; ignores `min_id`
+      - `fetch_incremental(since=...)` - Date-based; applies 2‑min buffer
       - `_fetch_symbol_news()` - Fetch news for single symbol with pagination until complete
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
       - `_parse_article()` - Convert API response to NewsItem; parses RFC3339 timestamps
     - `PolygonMacroNewsProvider` - Market-wide macro news fetching implementation
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=..., min_id=None)` - Date-based; applies 2‑min buffer; handles pagination; ignores `min_id`
+      - `fetch_incremental(since=...)` - Date-based; applies 2‑min buffer; handles pagination
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
       - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
       - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['ALL'] for market-wide coverage
-    - `PolygonPriceProvider` - Price snapshot fetching implementation
-      - `__init__()` - Initialize with settings and symbols
-      - `validate_connection()` - Delegates to client
-      - `fetch_incremental()` - Fetch current price snapshots
-      - `_parse_snapshot()` - Convert API response to PriceData; prefers lastTrade.p, fallbacks to quote midpoint; nanosecond timestamp conversion
 
 ### `llm/` — LLM provider abstractions
 **Purpose**: Base classes and provider implementations for LLM interactions

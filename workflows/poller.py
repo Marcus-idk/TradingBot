@@ -192,7 +192,10 @@ class DataPoller:
             # Always store primary provider's price
             deduplicated_prices.append(primary_price_data)
 
-            # Compare with other providers
+            # Skip comparison if only one provider configured
+            if len(provider_order) == 1:
+                continue
+
             for provider_name in provider_order[1:]:
                 if provider_name not in prices_by_provider:
                     continue
