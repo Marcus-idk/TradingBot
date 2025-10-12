@@ -11,6 +11,7 @@ When updating this file, follow this checklist:
 6. **Alphabetical order**: Keep functions/classes in alphabetical order within each file section
 7. **Include all public APIs**: Document all functions/classes that other modules import
 8. **Test updates**: When test structure changes, update the tests/ section
+9. **Ignore tempFiles/**: Do not flag tempFiles/ directory for updates; it contains temporary planning notes only
 
 ---
 
@@ -40,9 +41,11 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `requirements.txt` - Runtime and test dependencies (OpenAI, Gemini, httpx, pytest, etc.)
 - `requirements-dev.txt` - Developer-only extras
 - `pytest.ini` - Pytest configuration (pythonpath, markers, default flags)
+- `.env.example` - Example environment configuration (copy to `.env` and set API keys)
 
 ## Main Entry Points
 - `run_poller.py` - Main data collection script
+  - `PollerConfig` - Configuration dataclass (db_path, symbols, poll_interval, ui_port, finnhub_settings, polygon_settings)
   - `setup_environment()` - Load environment variables and configure logging
   - `build_config()` - Parse environment variables and build PollerConfig object
   - `initialize_database()` - Initialize database and return success status
@@ -62,11 +65,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Purpose**: Provider settings, environment loaders, and retry policies
 
 **Files**:
-- `config/__init__.py` - Package marker
+- `config/__init__.py` - Public facade (re-exports llm, providers, retry modules)
 - `config/retry.py` - Retry configuration dataclasses and defaults
-  - `LLMRetryConfig` - Configuration for LLM providers (timeout_seconds=360, max_retries=3, base=0.25, mult=2.0, jitter=0.1)
   - `DataRetryConfig` - Configuration for data providers (timeout_seconds=30, max_retries=3, base=0.25, mult=2.0, jitter=0.1)
-  - `DEFAULT_LLM_RETRY` / `DEFAULT_DATA_RETRY` - Default instances used across providers
+  - `DEFAULT_DATA_RETRY` - Default data retry instance used across providers
+  - `DEFAULT_LLM_RETRY` - Default LLM retry instance used across providers
+  - `LLMRetryConfig` - Configuration for LLM providers (timeout_seconds=360, max_retries=3, base=0.25, mult=2.0, jitter=0.1)
 
 **Subdirectories**:
 - `config/llm/` - LLM provider settings
@@ -90,7 +94,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Purpose**: Core data structures, SQLite operations, and data source implementations
 
 **Files**:
-- `data/__init__.py` - Package marker
+- `data/__init__.py` - Public facade (exports base classes, models, and storage operations)
 - `data/schema.sql` - SQLite schema definition with constraints
 
 - `data/base.py` - Abstract base classes for data sources
@@ -105,22 +109,22 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 - `data/models.py` - Core dataclasses and enums
   **Enums**:
-  - `Session` - Trading sessions: REG, PRE, POST, CLOSED
-  - `Stance` - Analysis stances: BULL, BEAR, NEUTRAL
   - `AnalysisType` - Types: `news_analysis`, `sentiment_analysis`, `sec_filings`, `head_trader`
   - `NewsLabelType` - News focus tags: Company, People, MarketWithMention
+  - `Session` - Trading sessions: REG, PRE, POST, CLOSED
+  - `Stance` - Analysis stances: BULL, BEAR, NEUTRAL
   - `Urgency` - News urgency levels: URGENT, NOT_URGENT
-  
+
   **Dataclasses**:
+  - `AnalysisResult` - `symbol`, `analysis_type` (AnalysisType), `model_name`, `stance` (Stance), `confidence_score` (0–1), `last_updated` (UTC), `result_json` (JSON string), `created_at` (UTC, optional)
+  - `Holdings` - `symbol`, `quantity` (Decimal), `break_even_price` (Decimal), `total_cost` (Decimal), `notes` (optional), `created_at`/`updated_at` (UTC, optional)
   - `NewsItem` - `symbol`, `url`, `headline`, `published` (UTC), `source`, `content` (optional)
   - `NewsLabel` - `symbol`, `url`, `label` (NewsLabelType), `created_at` (UTC, optional)
   - `PriceData` - `symbol`, `timestamp` (UTC), `price` (Decimal), `volume` (optional), `session` (Session)
-  - `AnalysisResult` - `symbol`, `analysis_type` (AnalysisType), `model_name`, `stance` (Stance), `confidence_score` (0–1), `last_updated` (UTC), `result_json` (JSON string), `created_at` (UTC, optional)
-  - `Holdings` - `symbol`, `quantity` (Decimal), `break_even_price` (Decimal), `total_cost` (Decimal), `notes` (optional), `created_at`/`updated_at` (UTC, optional)
-  
+
   **Functions**:
-  - `_valid_http_url()` - Validate HTTP/HTTPS URLs
   - `_normalize_to_utc()` - Normalize naive/aware datetimes to UTC for model constructors
+  - `_valid_http_url()` - Validate HTTP/HTTPS URLs
 
 - `data/storage/` - SQLite storage package (organized into focused modules)
   **Import paths unchanged**: All functions accessible via `from data.storage import ...`
@@ -131,8 +135,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
   - `storage_core.py` - Database lifecycle and connections (4 functions)
     - `connect()` - Open SQLite connection with required PRAGMAs (enables foreign keys)
-    - `init_database()` - Create tables (WAL via schema PRAGMA)
     - `finalize_database()` - Checkpoint WAL and optimize database
+    - `init_database()` - Create tables (WAL via schema PRAGMA)
     - `_check_json1_support()` - Verify SQLite JSON1 extension
 
   - `storage_crud.py` - CRUD operations for all data types (10 functions)
@@ -145,13 +149,13 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - **Batch operations**: `commit_llm_batch()` - Set `llm_last_run_iso` and prune processed rows across news/news_labels/price_data
     - **Watermarks**: `get_last_seen()`, `set_last_seen()`, `get_last_news_time()`, `set_last_news_time()`, `get_last_macro_min_id()`, `set_last_macro_min_id()`
 
-  - `storage_utils.py` - Utilities and type converters (9 functions)
-    - **Helpers**: `_normalize_url()`, `_datetime_to_iso()`, `_iso_to_datetime()`, `_decimal_to_text()`
-    - **Row converters**: `_row_to_news_item()`, `_row_to_news_label()`, `_row_to_price_data()`, `_row_to_analysis_result()`, `_row_to_holdings()`
+  - `storage_utils.py` - Utilities and type converters (10 functions)
+    - **Helpers**: `_datetime_to_iso()`, `_decimal_to_text()`, `_iso_to_datetime()`, `_normalize_url()`, `_parse_rfc3339()`
+    - **Row converters**: `_row_to_analysis_result()`, `_row_to_holdings()`, `_row_to_news_item()`, `_row_to_news_label()`, `_row_to_price_data()`
 
 **Subdirectories**:
 - `data/providers/` - Data source implementations
-  - `data/providers/__init__.py` - Public facade; import via `from data.providers import finnhub`
+  - `data/providers/__init__.py` - Public facade; import via `from data.providers import finnhub, polygon`
   - `data/providers/finnhub/`
     - `FinnhubClient` - HTTP client for Finnhub API with retry logic
       - `__init__()` - Initialize with settings
@@ -198,7 +202,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Purpose**: Base classes and provider implementations for LLM interactions
 
 **Files**:
-- `llm/__init__.py` - Package marker
+- `llm/__init__.py` - Public facade (re-exports LLMProvider, OpenAIProvider, GeminiProvider)
 
 - `llm/base.py` - Abstract base classes
   - `LLMProvider` - Base class for all LLM providers
@@ -234,8 +238,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `utils/__init__.py` - Package marker
 
 - `utils/retry.py` - Retry logic with exponential backoff
-  - `RetryableError` - Exception with retry_after hint
   - `parse_retry_after()` - Parse Retry-After header values
+  - `RetryableError` - Exception with retry_after hint
   - `retry_and_call()` - Generic async retry wrapper with backoff
 
 - `utils/http.py` - HTTP utilities
@@ -257,13 +261,15 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Purpose**: Coordinate data collection, processing, and analysis workflows
 
 **Files**:
-- `workflows/__init__.py` - Package marker
+- `workflows/__init__.py` - Public facade (exports DataPoller)
 - `workflows/poller.py` - Data collection orchestrator
   - `DataPoller` - Orchestrates multiple providers concurrently with news classification and urgency detection
     - `__init__(db_path, news_providers, price_providers, poll_interval)` - Initialize poller
     - `_fetch_all_data()` - Concurrently fetch news and prices; return company/macro news and per‑provider prices with errors
+    - `_log_urgent_items()` - Log urgent news items to console
     - `_process_news()` - Store news, classify company items, detect urgency, update watermarks
     - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only
+    - `_read_watermarks()` - Read last_news_time and last_macro_min_id from database
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
@@ -274,7 +280,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Purpose**: News classification, sentiment analysis, and trading decisions
 
 **Files**:
-- `analysis/__init__.py` - Package marker
+- `analysis/__init__.py` - Public facade (re-exports news_classifier, urgency_detector submodules)
 - `analysis/news_classifier.py` - News classification module
   - `classify(news_items)` - Classify news into Company/People/MarketWithMention (currently stub returning 'Company' for all)
 - `analysis/urgency_detector.py` - Urgency detection module
@@ -287,6 +293,19 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `ui/app_min.py` - Default-style Streamlit app with:
   - "Table" select from `sqlite_master`
   - Reads `DATABASE_PATH` (defaults to `data/trading_bot.db`)
+
+### `tempFiles/` — Working notes
+**Purpose**: Temporary planning and phase documentation; not part of runtime or tests
+
+**Files**:
+- `phase1.md` - Phase 1 planning notes
+- `phase2.md` - Phase 2 planning notes
+- `phase3.md` - Phase 3 planning notes
+- `phase4.md` - Phase 4 planning notes
+- `phase5.md` - Phase 5 planning notes
+- `phase6.md` - Phase 6 planning notes
+- `phase7.md` - Phase 7 planning notes
+- `summary.md` - Summary of phases
 
 ### `docs/` — Developer and operations documentation
 **Files**:
@@ -315,6 +334,10 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `tests/unit/config/llm/test_gemini.py` - Gemini settings loader tests
     - `tests/unit/config/llm/test_openai.py` - OpenAI settings loader tests
     - `tests/unit/config/providers/test_finnhub_settings.py` - Finnhub settings tests
+    - `tests/unit/config/providers/test_polygon_settings.py` - Polygon settings tests
+
+  - `tests/unit/llm/` - LLM module tests
+    - `tests/unit/llm/test_llm_base.py` - LLM provider base class contract tests
 
   - `tests/unit/data/` - Data module tests
     - `tests/unit/data/test_base_contracts.py` - Abstract base class contracts
@@ -334,6 +357,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `tests/unit/data/storage/test_storage_analysis.py` - Analysis result storage
     - `tests/unit/data/storage/test_storage_cutoff.py` - Time-based cutoff handling
     - `tests/unit/data/storage/test_storage_db.py` - Low-level database helpers
+    - `tests/unit/data/storage/test_storage_db_context.py` - Database context manager tests
     - `tests/unit/data/storage/test_storage_errors.py` - Error pathways
     - `tests/unit/data/storage/test_storage_holdings.py` - Holdings persistence
     - `tests/unit/data/storage/test_storage_last_seen.py` - Watermark storage
