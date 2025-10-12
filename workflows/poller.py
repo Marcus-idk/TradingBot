@@ -259,14 +259,14 @@ class DataPoller:
                     )
                     logger.info(f"Classified {len(labels)} company news items")
             except (LLMError, ValueError, TypeError, RuntimeError) as exc:
-                logger.exception("News classification failed: %s", exc)
+                logger.exception(f"News classification failed: {exc}")
 
         # Detect urgent items from all news
         if all_news:
             try:
                 self._log_urgent_items(detect_urgency(all_news))
             except (LLMError, ValueError, TypeError, RuntimeError) as exc:
-                logger.exception("Urgency detection failed: %s", exc)
+                logger.exception(f"Urgency detection failed: {exc}")
 
         # Update watermark with latest timestamp from all news
         max_time = max(n.published for n in all_news)
@@ -345,7 +345,7 @@ class DataPoller:
             asyncio.TimeoutError,
             OSError,
         ) as exc:
-            logger.exception("Poll cycle failed with error: %s", exc)
+            logger.exception(f"Poll cycle failed with error: {exc}")
             stats["errors"].append(f"Cycle error: {exc}")
 
         return stats

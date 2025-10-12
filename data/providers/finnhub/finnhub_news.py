@@ -9,6 +9,7 @@ from data import NewsDataSource, DataSourceError
 from utils.retry import RetryableError
 from data.models import NewsItem
 from data.providers.finnhub.finnhub_client import FinnhubClient
+from data.storage.storage_utils import _datetime_to_iso
 
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,10 @@ class FinnhubNewsProvider(NewsDataSource):
             return None
 
         if buffer_time and published <= buffer_time:
+            logger.warning(
+                f"Finnhub API returned article with published={published.isoformat()} "
+                f"at/before cutoff {_datetime_to_iso(buffer_time)} despite from/to date filter"
+            )
             return None
 
         source = article.get("source", "").strip() or "Finnhub"

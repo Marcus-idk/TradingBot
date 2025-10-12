@@ -237,6 +237,26 @@ monkeypatch.setattr("data.providers.requests.get", mock_get)
 - Avoid duplicate assertions across layers (e.g., DB defaults live in schema tests only)
 - Prefer small, focused tests with minimal examples and clear names
 
+### No Forced Passes
+- Tests must fail on real regressions; do not hide failures.
+- Do not catch broad exceptions in tests; assert specific errors with `pytest.raises`.
+- Do not use `@pytest.mark.skip`/`xfail` without a concrete, documented reason.
+- Avoid trivial assertions (e.g., `assert True`); validate outputs and side effects.
+- Don’t over-mock to bypass code-under-test logic; mock at boundaries only.
+
+Example:
+```python
+# ✅ GOOD: Fails if validation regresses
+with pytest.raises(ValueError):
+    store_price("AAPL", Decimal("-1"))
+
+# ❌ BAD: Swallows real failures
+try:
+    store_price("AAPL", Decimal("-1"))
+except Exception:
+    pass
+```
+
 ---
 
 # FILE SIZE & NAMING
