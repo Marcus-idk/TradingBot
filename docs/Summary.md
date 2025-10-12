@@ -294,19 +294,6 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - "Table" select from `sqlite_master`
   - Reads `DATABASE_PATH` (defaults to `data/trading_bot.db`)
 
-### `tempFiles/` — Working notes
-**Purpose**: Temporary planning and phase documentation; not part of runtime or tests
-
-**Files**:
-- `phase1.md` - Phase 1 planning notes
-- `phase2.md` - Phase 2 planning notes
-- `phase3.md` - Phase 3 planning notes
-- `phase4.md` - Phase 4 planning notes
-- `phase5.md` - Phase 5 planning notes
-- `phase6.md` - Phase 6 planning notes
-- `phase7.md` - Phase 7 planning notes
-- `summary.md` - Summary of phases
-
 ### `docs/` — Developer and operations documentation
 **Files**:
 - `docs/Data_API_Reference.md` - External data sources, rate limits, and implementation notes
