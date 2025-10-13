@@ -280,22 +280,74 @@ with _cursor_context(db_path) as cursor:
 # - Connection-level PRAGMAs (e.g., WAL checkpoint)
 ```
 
-## Monkeypatching
-Patch where symbol is looked up (module under test), not facades.
+## Monkeypatching vs Direct Assignment
+Choose the right mocking approach based on what you're replacing.
+
+### Rule: Mock imports, assign to instances
+- **Monkeypatch** = Replace module-level imports (names looked up at top of file)
+- **Direct assignment** = Replace methods on instances you already have
+
+### When to Use Monkeypatch
+Use monkeypatch when testing code that **imports and calls** a function by name.
+
 ```python
-# Source: data/providers/finnhub.py
-import requests
+# Source: data/providers/polygon/polygon_client.py
+from utils.http import get_json_with_retry  # ← Module-level import
 
-class FinnhubProvider:
-    def fetch_quote(self, symbol):
-        response = requests.get(...)
+class PolygonClient:
+    async def get(self, path: str):
+        # Looks up 'get_json_with_retry' by name in module namespace
+        return await get_json_with_retry(url, ...)
 
-# ✅ CORRECT: Patch in module that uses it
+# Test: Monkeypatch the IMPORT where it's looked up
+def test_client(monkeypatch):
+    monkeypatch.setattr(
+        'data.providers.polygon.polygon_client.get_json_with_retry',  # Where client finds it
+        mock_function
+    )
+    client = PolygonClient(settings)
+    await client.get('/quote')  # Uses mocked version
+```
+
+### When to Use Direct Assignment
+Use direct assignment when testing code that **calls methods on an instance**.
+
+```python
+# Source: data/providers/polygon/polygon_news.py
+class PolygonNewsProvider:
+    def __init__(self, settings, symbols):
+        self.client = PolygonClient(settings)  # ← Creates instance
+
+    async def fetch_incremental(self):
+        response = await self.client.get('/news')  # ← Calls instance method
+
+# Test: Replace the METHOD on the instance
+async def test_provider():
+    provider = PolygonNewsProvider(settings, ['AAPL'])
+
+    async def mock_get(path, params=None):
+        return {'results': [...]}
+
+    provider.client.get = mock_get  # ← Direct assignment to instance method
+    result = await provider.fetch_incremental()  # Uses mocked version
+```
+
+### Why This Matters
+```python
+# ✅ CORRECT: Patch where symbol is looked up
 monkeypatch.setattr("data.providers.finnhub.requests.get", mock_get)
 
-# ❌ WRONG: Won't work through facades
+# ❌ WRONG: Patching facade module (won't work)
 monkeypatch.setattr("data.providers.requests.get", mock_get)
+
+# ✅ CORRECT: Direct assignment when you have the instance
+provider.client.get = mock_get
+
+# ❌ WRONG: Monkeypatching instance methods (unnecessarily complex)
+monkeypatch.setattr("provider.client.get", mock_get)
 ```
+
+**Reference**: See `test_finnhub_client.py` (monkeypatch) vs `test_finnhub_news.py` (direct assignment)
 
 ## Testing Best Practices
 - Prefer explicit clock helpers/fixture defaults over monkeypatching time/datetime

@@ -109,16 +109,16 @@ class TestClassifyUsSession:
         # 13:30 UTC → 08:30 ET in January (EST) = PRE
         assert classify_us_session(datetime(2024, 1, 17, 13, 30, tzinfo=timezone.utc)) == Session.PRE
 
-    def test_close_time_lookup_failure_falls_back_to_16_et_and_logs_warning(self, caplog, monkeypatch):
+    def test_close_time_lookup_failure_falls_back_to_16_et_and_logs_warning(self, caplog):
         """Test graceful degradation when NYSE calendar close time lookup fails"""
 
         # Mock the calendar to raise an exception when accessing session_close
         def mock_session_close(session_label):
             raise KeyError("Mock calendar failure")
 
-        # Patch the NYSE calendar's session_close method
+        # Replace instance method with direct assignment
         nyse_calendar = market_sessions._get_nyse_calendar()
-        monkeypatch.setattr(nyse_calendar, 'session_close', mock_session_close)
+        nyse_calendar.session_close = mock_session_close
 
         # Test timestamp: 2024-01-17 21:00 UTC = 16:00 ET (Wednesday)
         # This is exactly at the regular close time
