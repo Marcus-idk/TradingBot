@@ -22,11 +22,18 @@
 Is it unit or integration test?
 ├── UNIT TEST → tests/unit/ (mirrors source structure exactly)
 │   └── Continue to "Unit Test Organization Rules"
-└── INTEGRATION TEST → tests/integration/ (organized by feature)
+└── INTEGRATION TEST → tests/integration/ (organized by workflow/feature)
     ├── Mark with @pytest.mark.integration
-    ├── Name as test_<workflow>.py
-    └── STOP - you're done
+    ├── Name files as test_<workflow>.py
+    ├── Parametrize providers via fixtures when sharing behavior
+    └── STOP — do not mirror source structure here
 ```
+
+### Shared Multi-Provider Workflows (optional subfolder)
+When several providers share the same live workflow, keep files workflow-named and provider-parametrized. You may group them under a subfolder (e.g., `contracts/`) to signal “shared contract” intent, as long as:
+- Files remain workflow-named (e.g., `test_llm_web_search.py`)
+- Module-level markers include `@pytest.mark.integration` (and `@pytest.mark.network` if networked)
+- `tests/integration/llm/conftest.py` exposes a provider spec fixture with ids for readable node IDs
 
 ---
 
@@ -277,8 +284,11 @@ tests/integration/
 │   ├── test_<workflow>.py      # e.g., test_roundtrip_e2e.py
 │   └── ...
 └── llm/
-    ├── helpers.py
-    └── test_<provider>_provider.py
+    ├── helpers.py                      # shared utilities
+    ├── conftest.py                     # provider specs/fixtures
+    ├── test_llm_connection_and_generate.py
+    ├── test_llm_code_execution.py
+    └── test_llm_web_search.py
 ```
 *Illustrative structure - use as pattern, not exact inventory*
 
@@ -582,19 +592,6 @@ class TestFinnhubNewsProvider:
 - Avoid trivial assertions (e.g., `assert True`); validate outputs and side effects.
 - Don’t over-mock to bypass code-under-test logic; mock at boundaries only.
 
-Example:
-```python
-# ✅ GOOD: Fails if validation regresses
-with pytest.raises(ValueError):
-    store_price("AAPL", Decimal("-1"))
-
-# ❌ BAD: Swallows real failures
-try:
-    store_price("AAPL", Decimal("-1"))
-except Exception:
-    pass
-```
-
 ### Shared Test Setup
 Initialize shared objects at the class/fixture level, not in every test method. Avoid repeating initialization code.
 
@@ -671,12 +668,9 @@ class TestFinnhubNewsProvider:
 
 ## When to Split
 - File exceeds 600 lines → MUST split
-- Scrolling too much → split
-- Can't remember what's in file → split
 
 ## Naming Conventions
 
-### Test Files
 ```python
 # Unit tests
 test_<module>.py                # Single module
