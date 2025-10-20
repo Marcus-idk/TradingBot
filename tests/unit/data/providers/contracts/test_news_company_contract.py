@@ -11,11 +11,12 @@ import pytest
 from data import DataSourceError, NewsItem
 from data.storage.storage_utils import _datetime_to_iso
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestNewsCompanyContract:
     """Shared behavior tests for company news providers."""
 
-    @pytest.mark.asyncio
     async def test_validate_connection_success(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
@@ -25,7 +26,6 @@ class TestNewsCompanyContract:
         assert result is True
         provider.client.validate_connection.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_validate_connection_failure(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("boom"))
@@ -33,7 +33,6 @@ class TestNewsCompanyContract:
         with pytest.raises(DataSourceError):
             await provider.validate_connection()
 
-    @pytest.mark.asyncio
     async def test_parses_valid_article(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         now_epoch = int(datetime.now(timezone.utc).timestamp())
@@ -63,7 +62,6 @@ class TestNewsCompanyContract:
         assert item.source == "Reuters"
         assert item.published == datetime.fromtimestamp(now_epoch, tz=timezone.utc)
 
-    @pytest.mark.asyncio
     async def test_skips_missing_headline(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(headline="", url="https://example.com", epoch=1_705_320_000)
@@ -76,7 +74,6 @@ class TestNewsCompanyContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_skips_missing_url(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(headline="Headline", url="", epoch=1_705_320_000)
@@ -89,7 +86,6 @@ class TestNewsCompanyContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_skips_invalid_timestamp(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(epoch=0)
@@ -102,7 +98,6 @@ class TestNewsCompanyContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_filters_articles_with_buffer(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
 
@@ -136,7 +131,6 @@ class TestNewsCompanyContract:
             datetime.fromtimestamp(buffer_epoch + 600, tz=timezone.utc),
         ]
 
-    @pytest.mark.asyncio
     async def test_date_window_params_with_since(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
@@ -179,7 +173,6 @@ class TestNewsCompanyContract:
             assert params["published_utc.gt"] == expected_gt
             assert params["ticker"] in provider_spec_company.default_symbols
 
-    @pytest.mark.asyncio
     async def test_date_window_params_without_since(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
@@ -221,7 +214,6 @@ class TestNewsCompanyContract:
             assert params["published_utc.gt"] == expected_gt
             assert params["ticker"] in provider_spec_company.default_symbols
 
-    @pytest.mark.asyncio
     async def test_symbol_normalization_uppercases(self, provider_spec_company):
         provider = provider_spec_company.make_provider(symbols=["aapl", " tsla ", ""])
 
@@ -233,7 +225,6 @@ class TestNewsCompanyContract:
 
         assert provider.symbols == ["AAPL", "TSLA"]
 
-    @pytest.mark.asyncio
     async def test_summary_copied_to_content(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         article = provider_spec_company.article_factory(summary="Earnings beat expectations")
@@ -247,7 +238,6 @@ class TestNewsCompanyContract:
         assert len(results) == 1
         assert results[0].content == "Earnings beat expectations"
 
-    @pytest.mark.asyncio
     async def test_per_symbol_error_isolation(self, provider_spec_company):
         provider = provider_spec_company.make_provider(symbols=["AAPL", "TSLA", "GOOG"])
 
@@ -264,7 +254,6 @@ class TestNewsCompanyContract:
         assert len(results) == 2
         assert {item.symbol for item in results} == {"AAPL", "GOOG"}
 
-    @pytest.mark.asyncio
     async def test_structural_error_raises(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
 
@@ -276,7 +265,6 @@ class TestNewsCompanyContract:
         with pytest.raises(DataSourceError):
             await provider.fetch_incremental()
 
-    @pytest.mark.asyncio
     async def test_empty_response_returns_empty_list(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
         provider.client.get = AsyncMock(

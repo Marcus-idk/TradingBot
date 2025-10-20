@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = [pytest.mark.integration, pytest.mark.network]
+pytestmark = [pytest.mark.network]
 
 
 @pytest.mark.asyncio

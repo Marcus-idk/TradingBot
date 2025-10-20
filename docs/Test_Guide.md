@@ -37,7 +37,47 @@ When several providers share the same live workflow, keep files workflow-named a
 
 ---
 
-# UNIT TEST ORGANIZATION RULES
+
+---
+
+## Markers: integration, network, asyncio
+
+- Integration tests: set once per package.
+  - tests/integration/conftest.py
+    ```python
+    import pytest
+    pytestmark = pytest.mark.integration
+    ```
+  - Keep `pytest.mark.network` only on modules that really hit the network.
+
+- Async-heavy tests: mark the module.
+  - Put this at the top of async-heavy files (e.g., provider contracts):
+    ```python
+    import pytest
+    pytestmark = pytest.mark.asyncio
+    ```
+  - This is the simplest, explicit approach. It avoids repeating `@pytest.mark.asyncio` on every test.
+
+- Advanced (optional): directory-wide asyncio via a conftest hook.
+  - Use only if an entire folder is async and you want zero per-file marks.
+  - tests/unit/data/providers/contracts/conftest.py
+    ```python
+    import pytest
+
+    def pytest_collection_modifyitems(config, items):
+        for item in items:
+            if 'tests/unit/data/providers/contracts' in str(item.fspath):
+                item.add_marker(pytest.mark.asyncio)
+    ```
+  - Note: a plain `pytestmark = pytest.mark.asyncio` inside a conftest.py does not auto-apply to other modules; use the hook above if you need folder-wide behavior.
+
+- Network mark: keep it local.
+  - Only on tests that perform real HTTP calls: `pytestmark = [pytest.mark.network]` (module-level) or `@pytest.mark.network` (function-level).
+
+- Examples in repo:
+  - Package integration mark: `tests/integration/conftest.py`
+  - Module asyncio mark: `tests/unit/data/providers/contracts/test_prices_contract.py`
+  - Network modules: `tests/integration/llm/contracts/test_llm_connection_contract.py`# UNIT TEST ORGANIZATION RULES
 
 ## Decision Tree for Unit Tests
 ```
@@ -766,3 +806,4 @@ Classes get 1:1, functions get feature grouping.
 
 - **Retry Logic**: `tests/unit/utils/test_http.py::test_429_numeric_retry_after`
   - Copy for: HTTP clients, retry wrappers
+

@@ -9,11 +9,12 @@ import pytest
 
 from data import DataSourceError
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestClientContract:
     """Shared behavior tests for provider clients."""
 
-    @pytest.mark.asyncio
     async def test_get_builds_url_and_injects_auth(self, client_spec, monkeypatch):
         captured: dict[str, Any] = {}
 
@@ -51,7 +52,6 @@ class TestClientContract:
         assert captured["mult"] == retry.mult
         assert captured["jitter"] == retry.jitter
 
-    @pytest.mark.asyncio
     async def test_get_handles_none_params(self, client_spec, monkeypatch):
         captured: dict[str, Any] = {}
 
@@ -69,7 +69,6 @@ class TestClientContract:
 
         assert captured["params"] == {client_spec.auth_param: client_spec.api_key}
 
-    @pytest.mark.asyncio
     async def test_validate_connection_success(self, client_spec):
         client = client_spec.make_client()
         client.get = AsyncMock(return_value={"status": "ok"})
@@ -85,7 +84,6 @@ class TestClientContract:
                 client_spec.validation_params,
             )
 
-    @pytest.mark.asyncio
     async def test_validate_connection_failure_returns_false(self, client_spec):
         client = client_spec.make_client()
         client.get = AsyncMock(side_effect=DataSourceError("boom"))
@@ -94,7 +92,6 @@ class TestClientContract:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_get_respects_custom_base_url_override(self, client_spec, monkeypatch):
         """Ensures clients honor a non-default base_url from settings without provider branching."""
         from dataclasses import replace

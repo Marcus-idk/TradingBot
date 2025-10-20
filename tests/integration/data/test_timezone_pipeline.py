@@ -7,9 +7,6 @@ from model initialization through storage to retrieval.
 import pytest
 from datetime import datetime, timezone, timedelta
 
-# Mark all tests in this module as integration tests
-pytestmark = [pytest.mark.integration]
-
 from data.storage import store_news_items, store_price_data, upsert_analysis_result, upsert_holdings, get_news_since, get_price_data_since, get_analysis_results, get_all_holdings
 from data.storage.db_context import _cursor_context
 from data.models import NewsItem, PriceData, AnalysisResult, Holdings, Stance, AnalysisType

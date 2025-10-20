@@ -8,9 +8,6 @@ import pytest
 from datetime import datetime, timezone
 from decimal import Decimal
 
-# Mark all tests in this module as integration tests
-pytestmark = [pytest.mark.integration]
-
 from data.storage import store_price_data, get_price_data_since, upsert_holdings, get_all_holdings
 from data.models import PriceData, Holdings, Session
 

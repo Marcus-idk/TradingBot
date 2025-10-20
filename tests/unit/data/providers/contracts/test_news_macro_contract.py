@@ -10,11 +10,12 @@ import pytest
 
 from data import DataSourceError
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestNewsMacroContract:
     """Shared behavior tests for macro news providers."""
 
-    @pytest.mark.asyncio
     async def test_validate_connection_success(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
@@ -24,7 +25,6 @@ class TestNewsMacroContract:
         assert result is True
         provider.client.validate_connection.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_validate_connection_failure(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("fail"))
@@ -32,7 +32,6 @@ class TestNewsMacroContract:
         with pytest.raises(DataSourceError):
             await provider.validate_connection()
 
-    @pytest.mark.asyncio
     async def test_maps_related_symbols(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT", "TSLA"])
         now_epoch = int(datetime.now(timezone.utc).timestamp())
@@ -49,7 +48,6 @@ class TestNewsMacroContract:
 
         assert {item.symbol for item in results} == {"AAPL", "MSFT"}
 
-    @pytest.mark.asyncio
     async def test_falls_back_to_all_when_no_related(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT"])
         now_epoch = int(datetime.now(timezone.utc).timestamp())
@@ -64,7 +62,6 @@ class TestNewsMacroContract:
         assert len(results) == 1
         assert results[0].symbol == "ALL"
 
-    @pytest.mark.asyncio
     async def test_filters_buffer_time_when_bootstrap(self, provider_spec_macro, monkeypatch):
         provider = provider_spec_macro.make_provider()
 
@@ -98,7 +95,6 @@ class TestNewsMacroContract:
         assert len(results) == 1
         assert results[0].published == datetime.fromtimestamp(inside_epoch, tz=timezone.utc)
 
-    @pytest.mark.asyncio
     async def test_invalid_articles_are_skipped(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
         now_epoch = int(datetime.now(timezone.utc).timestamp())
@@ -120,7 +116,6 @@ class TestNewsMacroContract:
         headline_field = "title" if "title" in good_article else "headline"
         assert results[0].headline == good_article[headline_field]
 
-    @pytest.mark.asyncio
     async def test_structural_error_raises(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
 
@@ -132,7 +127,6 @@ class TestNewsMacroContract:
         with pytest.raises(DataSourceError):
             await provider.fetch_incremental()
 
-    @pytest.mark.asyncio
     async def test_empty_watchlist_falls_back_to_all(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=[])
         now_epoch = int(datetime.now(timezone.utc).timestamp())

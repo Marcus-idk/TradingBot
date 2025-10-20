@@ -12,9 +12,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import sqlite3
 
-# Mark all tests in this module as integration tests
-pytestmark = [pytest.mark.integration]
-
 from data.storage import connect, store_news_items, get_news_since, store_price_data, get_price_data_since, upsert_analysis_result, get_analysis_results
 from data.storage.db_context import _cursor_context
 from data.models import NewsItem, PriceData, AnalysisResult, Session, Stance, AnalysisType

@@ -7,9 +7,6 @@ to ensure duplicate articles from different sources are properly handled.
 import pytest
 from datetime import datetime, timezone
 
-# Mark all tests in this module as integration tests
-pytestmark = [pytest.mark.integration]
-
 from data.storage import store_news_items, get_news_since
 from data.models import NewsItem
 

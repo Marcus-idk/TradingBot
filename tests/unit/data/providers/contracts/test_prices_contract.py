@@ -11,11 +11,11 @@ import pytest
 
 from data import DataSourceError, PriceData
 
+pytestmark = pytest.mark.asyncio
 
 class TestPricesContract:
     """Shared behavior tests for price providers."""
 
-    @pytest.mark.asyncio
     async def test_validate_connection_success(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
@@ -25,7 +25,6 @@ class TestPricesContract:
         assert result is True
         provider.client.validate_connection.assert_awaited_once()
 
-    @pytest.mark.asyncio
     async def test_validate_connection_failure(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("broken"))
@@ -33,7 +32,6 @@ class TestPricesContract:
         with pytest.raises(DataSourceError):
             await provider.validate_connection()
 
-    @pytest.mark.asyncio
     async def test_decimal_conversion(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=123.4567, timestamp=1_705_320_000)
@@ -46,7 +44,6 @@ class TestPricesContract:
         assert isinstance(item, PriceData)
         assert item.price == Decimal("123.4567")
 
-    @pytest.mark.asyncio
     async def test_classifies_session(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         ts = datetime(2024, 1, 17, 15, 0, tzinfo=timezone.utc)
@@ -57,7 +54,6 @@ class TestPricesContract:
 
         assert results[0].session.name == "REG"
 
-    @pytest.mark.asyncio
     async def test_rejects_negative_price(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=-1, timestamp=1_705_320_000)
@@ -67,7 +63,6 @@ class TestPricesContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_rejects_zero_price(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=0, timestamp=1_705_320_000)
@@ -77,7 +72,6 @@ class TestPricesContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_rejects_string_price(self, provider_spec_prices, caplog):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price="invalid", timestamp=1_705_320_000)
@@ -89,7 +83,6 @@ class TestPricesContract:
         assert results == []
         assert any("invalid" in message for message in caplog.messages)
 
-    @pytest.mark.asyncio
     async def test_rejects_missing_price_field(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=None, timestamp=1_705_320_000)
@@ -101,7 +94,6 @@ class TestPricesContract:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_timestamp_fallback_when_missing(self, provider_spec_prices, monkeypatch):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
@@ -125,7 +117,6 @@ class TestPricesContract:
 
         assert results[0].timestamp == fixed_now
 
-    @pytest.mark.asyncio
     async def test_timestamp_fallback_when_invalid(self, provider_spec_prices, monkeypatch):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
@@ -149,7 +140,6 @@ class TestPricesContract:
 
         assert results[0].timestamp == fixed_now
 
-    @pytest.mark.asyncio
     async def test_error_isolation_per_symbol(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL", "FAIL", "TSLA"])
 
@@ -164,7 +154,6 @@ class TestPricesContract:
 
         assert {item.symbol for item in results} == {"AAPL", "TSLA"}
 
-    @pytest.mark.asyncio
     async def test_non_dict_quote_skipped(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         provider.client.get = AsyncMock(return_value=[provider_spec_prices.malformed(as_type=str)])

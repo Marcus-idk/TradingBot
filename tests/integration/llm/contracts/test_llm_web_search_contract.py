@@ -11,7 +11,7 @@ from tests.integration.llm.helpers import (
     normalize_title,
 )
 
-pytestmark = [pytest.mark.integration, pytest.mark.network]
+pytestmark = [pytest.mark.network]
 
 
 @pytest.mark.asyncio

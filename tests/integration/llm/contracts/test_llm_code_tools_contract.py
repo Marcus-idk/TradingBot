@@ -6,7 +6,7 @@ import pytest
 
 from tests.integration.llm.helpers import extract_hex64, make_base64_blob
 
-pytestmark = [pytest.mark.integration, pytest.mark.network]
+pytestmark = [pytest.mark.network]
 
 
 @pytest.mark.asyncio
