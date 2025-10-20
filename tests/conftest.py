@@ -13,7 +13,7 @@ import httpx
 from data.storage import init_database, connect
 
 
-def cleanup_sqlite_artifacts(db_path: str) -> None:
+def cleanup_sqlite_artifacts(db_path: str):
     """
     Windows-safe SQLite cleanup for WAL databases. Solves Windows file locking issues.
     

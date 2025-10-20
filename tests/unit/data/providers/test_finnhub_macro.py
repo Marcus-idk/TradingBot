@@ -17,10 +17,12 @@ def macro_provider() -> FinnhubMacroNewsProvider:
     return FinnhubMacroNewsProvider(settings, ["AAPL", "MSFT"])
 
 
+pytestmark = pytest.mark.asyncio
+
+
 class TestFinnhubMacroProviderSpecific:
     """Tests for Finnhub-only behaviors not covered by macro contracts."""
 
-    @pytest.mark.asyncio
     async def test_fetch_incremental_includes_min_id_param(self, macro_provider: FinnhubMacroNewsProvider):
         captured: dict[str, dict[str, str | int]] = {}
 
@@ -36,7 +38,6 @@ class TestFinnhubMacroProviderSpecific:
         assert captured["path"] == "/news"
         assert captured["params"] == {"category": "general", "minId": 123}
 
-    @pytest.mark.asyncio
     async def test_last_fetched_max_id_advances_only_on_newer_ids(
         self,
         macro_provider: FinnhubMacroNewsProvider,

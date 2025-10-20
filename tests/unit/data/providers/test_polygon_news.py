@@ -11,10 +11,12 @@ from data.providers.polygon import PolygonNewsProvider
 from data.storage.storage_utils import _datetime_to_iso
 
 
+pytestmark = pytest.mark.asyncio
+
+
 class TestPolygonNewsProvider:
     """Targeted Polygon-only behaviors not covered by contracts."""
 
-    @pytest.mark.asyncio
     async def test_fetch_incremental_handles_pagination(self, monkeypatch):
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonNewsProvider(settings, ["AAPL"])
@@ -75,7 +77,6 @@ class TestPolygonNewsProvider:
         assert len(result) == 2
         assert call_count["n"] == 2
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "next_url,expected",
         [

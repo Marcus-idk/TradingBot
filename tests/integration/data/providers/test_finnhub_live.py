@@ -1,7 +1,5 @@
 """
 Live integration tests for Finnhub provider.
-These tests make real API calls and require a valid FINNHUB_API_KEY.
-Marked with @pytest.mark.network and @pytest.mark.integration.
 """
 
 import os
@@ -30,7 +28,7 @@ async def test_live_quote_fetch():
     provider = FinnhubPriceProvider(settings, ['SPY'])
     
     # Validate connection first
-    assert await provider.validate_connection() is True
+    assert await provider.validate_connection() is True, "connection should validate"
     
     # Fetch quote
     results = await provider.fetch_incremental()
@@ -39,14 +37,12 @@ async def test_live_quote_fetch():
     assert len(results) >= 1, "Should get at least one price quote"
     
     spy_quote = results[0]
-    assert spy_quote.symbol == 'SPY'
-    assert spy_quote.price > 0
-    assert isinstance(spy_quote.price, Decimal)
-    assert spy_quote.timestamp is not None
-    assert spy_quote.timestamp.tzinfo == timezone.utc
-    assert spy_quote.session is not None
-    
-    print(f"Live test: SPY price = ${spy_quote.price} at {spy_quote.timestamp}")
+    assert spy_quote.symbol == 'SPY', "fetched symbol should be SPY"
+    assert spy_quote.price > 0, "price should be positive"
+    assert isinstance(spy_quote.price, Decimal), "price should be Decimal"
+    assert spy_quote.timestamp is not None, "timestamp should be set"
+    assert spy_quote.timestamp.tzinfo == timezone.utc, "timestamp must be UTC"
+    assert spy_quote.session is not None, "session should be set"
 
 
 async def test_live_news_fetch():
@@ -64,7 +60,7 @@ async def test_live_news_fetch():
     provider = FinnhubNewsProvider(settings, ['AAPL'])
     
     # Validate connection first
-    assert await provider.validate_connection() is True
+    assert await provider.validate_connection() is True, "connection should validate"
     
     # Fetch news from last 3 days
     since = datetime.now(timezone.utc) - timedelta(days=3)
@@ -74,17 +70,14 @@ async def test_live_news_fetch():
     if results:
         # Check first article
         article = results[0]
-        assert article.symbol == 'AAPL'
-        assert article.headline and len(article.headline) > 0
-        assert article.url and article.url.startswith('http')
-        assert article.published is not None
-        assert article.published.tzinfo == timezone.utc
-        assert article.source is not None
-        
-        print(f"Live test: Found {len(results)} news articles for AAPL")
-        print(f"  Latest: {article.headline[:60]}...")
+        assert article.symbol == 'AAPL', "fetched symbol should be AAPL"
+        assert article.headline and len(article.headline) > 0, "headline should be non-empty"
+        assert article.url and article.url.startswith('http'), "url should be http(s)"
+        assert article.published is not None, "published timestamp should be set"
+        assert article.published.tzinfo == timezone.utc, "published timestamp must be UTC"
+        assert article.source is not None, "source should be present"
     else:
-        print("Live test: No recent news for AAPL (this is normal)")
+        pass
 
 
 async def test_live_multiple_symbols():
@@ -113,11 +106,9 @@ async def test_live_multiple_symbols():
     
     # All fetched quotes should be valid
     for quote in results:
-        assert quote.symbol in symbols
-        assert quote.price > 0
-        assert isinstance(quote.price, Decimal)
-    
-    print(f"Live test: Fetched quotes for {len(fetched_symbols)} symbols: {fetched_symbols}")
+        assert quote.symbol in symbols, "quote symbol should be from requested set"
+        assert quote.price > 0, "price should be positive"
+        assert isinstance(quote.price, Decimal), "price should be Decimal"
 
 
 async def test_live_error_handling():
@@ -138,6 +129,6 @@ async def test_live_error_handling():
     results = await provider.fetch_incremental()
     
     # Invalid symbols typically return c=0 which we filter out
-    assert len(results) == 0 or all(r.price > 0 for r in results)
-    
-    print("Live test: Invalid symbol handled gracefully")
+    assert (
+        len(results) == 0 or all(r.price > 0 for r in results)
+    ), "invalid symbol should yield no results or positive quotes"

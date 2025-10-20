@@ -190,7 +190,6 @@ class TestWALSqlite:
                 track_result('read', success=False, error=f"Thread {thread_id} {query_type} read error: {exc}")
         
         # EXECUTE CONCURRENT OPERATIONS
-        print(f"\nStarting concurrent operations test with database: {temp_db}")
         start_time = time.time()
         thread_errors = []  # Collect thread failures
         
@@ -279,12 +278,3 @@ class TestWALSqlite:
         with connect(temp_db) as conn:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         
-        print(f"Concurrent operations completed successfully:")
-        print(f"  - Execution time: {execution_time:.2f}s")
-        print(f"  - Write operations: {operation_results['write_count']}")
-        print(f"  - Read operations: {operation_results['read_count']}")
-        print(f"  - Final news items: {len(final_news)}")
-        print(f"  - Final price data: {len(final_prices)}")
-        print(f"  - Final analysis results: {len(final_analysis)}")
-        print(f"  - No database locking errors occurred")
-        print(f"  - WAL mode enabled concurrent access successfully")
