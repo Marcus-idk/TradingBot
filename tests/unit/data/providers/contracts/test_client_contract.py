@@ -93,3 +93,29 @@ class TestClientContract:
         result = await client.validate_connection()
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_get_respects_custom_base_url_override(self, client_spec, monkeypatch):
+        """Ensures clients honor a non-default base_url from settings without provider branching."""
+        from dataclasses import replace
+
+        captured_url: dict[str, str] = {}
+
+        async def fake_get_json(url: str, **kwargs: Any) -> dict[str, str]:
+            captured_url["url"] = url
+            return {"status": "ok"}
+
+        monkeypatch.setattr(
+            f"{client_spec.module_path}.get_json_with_retry",
+            fake_get_json,
+        )
+
+        client = client_spec.make_client()
+        custom_base = "https://example.com/custom"
+
+        # Swap in a new settings object with the overridden base_url
+        client.settings = replace(client.settings, base_url=custom_base)
+
+        await client.get(client_spec.sample_path, dict(client_spec.sample_params))
+
+        assert captured_url["url"] == f"{custom_base}{client_spec.sample_path}"

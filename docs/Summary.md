@@ -330,17 +330,18 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `tests/unit/data/` - Data module tests
     - `tests/unit/data/test_base_contracts.py` - Abstract base class contracts
     - `tests/unit/data/test_models.py` - Dataclass validation tests
-  - `tests/unit/data/providers/` - Data provider tests
-    - `tests/unit/data/providers/conftest.py` - Provider test fixtures (CompanyProviderSpec, MacroProviderSpec, PriceProviderSpec, ClientSpec)
-    - `tests/unit/data/providers/contracts/` - Shared provider contract tests
-      - `tests/unit/data/providers/contracts/test_client_contract.py` - Client behavior contracts (URL building, auth injection, validation)
-      - `tests/unit/data/providers/contracts/test_news_company_contract.py` - Company news provider contracts (date-window params, parsing, filtering, error isolation)
-      - `tests/unit/data/providers/contracts/test_news_macro_contract.py` - Macro news provider contracts (symbol extraction, filtering, pagination)
-      - `tests/unit/data/providers/contracts/test_prices_contract.py` - Price provider contracts (quote parsing, validation, session detection)
-    - `tests/unit/data/providers/test_finnhub_client.py` - Finnhub-specific client tests (custom base URL; shared behaviors in contracts)
-    - `tests/unit/data/providers/test_finnhub_news.py` - Finnhub company news tests (provider-specific only; shared behaviors in contracts)
-    - `tests/unit/data/providers/test_finnhub_macro.py` - Finnhub macro news tests (minId parameter, ID tracking; shared behaviors in contracts)
-    - `tests/unit/data/providers/test_finnhub_prices.py` - Finnhub price tests (empty symbols handling; shared behaviors in contracts)
+    - `tests/unit/data/providers/` - Data provider tests
+      - `tests/unit/data/providers/conftest.py` - Provider test fixtures (CompanyProviderSpec, MacroProviderSpec, PriceProviderSpec, ClientSpec)
+      - `tests/unit/data/providers/contracts/` - Shared provider contract tests
+        - `tests/unit/data/providers/contracts/test_client_contract.py` - Client behavior contracts (URL building, auth injection, validation)
+        - `tests/unit/data/providers/contracts/test_news_company_contract.py` - Company news provider contracts (date-window params, parsing, filtering, error isolation)
+        - `tests/unit/data/providers/contracts/test_news_macro_contract.py` - Macro news provider contracts (symbol extraction, filtering, pagination)
+        - `tests/unit/data/providers/contracts/test_prices_contract.py` - Price provider contracts (quote parsing, validation, session detection)
+      - `tests/unit/data/providers/test_finnhub_news.py` - Finnhub company news tests (provider-specific only; shared behaviors in contracts)
+      - `tests/unit/data/providers/test_finnhub_macro.py` - Finnhub macro news tests (minId parameter, ID tracking; shared behaviors in contracts)
+      - `tests/unit/data/providers/test_finnhub_prices.py` - Finnhub price tests (empty symbols handling; shared behaviors in contracts)
+      - `tests/unit/data/providers/test_polygon_news.py` - Polygon company news tests (pagination via next_url; cursor parsing; provider-specific only)
+      - `tests/unit/data/providers/test_polygon_macro_news.py` - Polygon macro news tests (pagination via next_url; cursor parsing; provider-specific only)
     - `tests/unit/data/schema/test_schema_confidence_and_json.py` - JSON fields and confidence constraints
     - `tests/unit/data/schema/test_schema_defaults_and_structure.py` - Default values and schema structure
     - `tests/unit/data/schema/test_schema_enums.py` - Enum value locking
