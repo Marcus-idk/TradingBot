@@ -362,6 +362,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `tests/unit/data/storage/test_storage_queries.py` - Query helpers
     - `tests/unit/data/storage/test_storage_types.py` - Type conversions
     - `tests/unit/data/storage/test_storage_url.py` - URL normalization
+    - `tests/unit/data/storage/test_storage_utils_parsing.py` - ISO/RFC3339 parsing and row mappers
 
   - `tests/unit/utils/` - Utility module tests
     - `tests/unit/utils/test_http.py` - HTTP retry helper tests
@@ -385,6 +386,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `tests/integration/data/test_schema_constraints.py` - Schema constraint enforcement
     - `tests/integration/data/test_wal_sqlite.py` - WAL mode behavior
     - `tests/integration/data/providers/test_finnhub_live.py` - Live Finnhub API smoke (network-marked)
+    - `tests/integration/data/providers/test_polygon_live.py` - Live Polygon API smoke (network-marked)
 
   - `tests/integration/llm/` - LLM integration tests
     - `tests/integration/llm/conftest.py` - `ProviderSpec` dataclass and `provider_spec` fixture to parametrize LLM providers

@@ -12,8 +12,6 @@ from decimal import Decimal
 from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub import FinnhubNewsProvider, FinnhubPriceProvider
 
-
-# Mark all tests in this module as integration and network tests
 pytestmark = [pytest.mark.integration, pytest.mark.network]
 
 
