@@ -25,6 +25,11 @@ def connect(db_path: str, **kwargs) -> sqlite3.Connection:
         conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error as e:
         logger.warning(f"Failed to enable SQLite foreign_keys pragma: {e}")
+
+    try:
+        conn.execute("PRAGMA busy_timeout = 5000")
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to apply SQLite busy_timeout pragma: {e}")
     return conn
 
 

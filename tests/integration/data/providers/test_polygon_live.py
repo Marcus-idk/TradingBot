@@ -9,7 +9,7 @@ import pytest
 
 from config.providers.polygon import PolygonSettings
 from data.models import NewsItem
-from data.providers.polygon.polygon_news import PolygonNewsProvider
+from data.providers.polygon import PolygonNewsProvider
 
 pytestmark = [pytest.mark.network, pytest.mark.asyncio]
 
