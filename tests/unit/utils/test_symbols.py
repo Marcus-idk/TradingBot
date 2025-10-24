@@ -4,6 +4,7 @@ Focus on parse_symbols() helper for ticker parsing and filtering.
 """
 
 import logging
+
 from utils.symbols import parse_symbols
 
 
@@ -14,28 +15,28 @@ class TestParseSymbols:
         """Test core parsing: trim, uppercase, dedupe while preserving order"""
         result = parse_symbols(" aapl , MSFT, aapl, tsla ")
 
-        assert result == ['AAPL', 'MSFT', 'TSLA']
+        assert result == ["AAPL", "MSFT", "TSLA"]
         # Verify order preserved (AAPL before TSLA)
-        assert result.index('AAPL') < result.index('TSLA')
+        assert result.index("AAPL") < result.index("TSLA")
         # Verify second 'aapl' was deduped
-        assert result.count('AAPL') == 1
+        assert result.count("AAPL") == 1
 
     def test_filter_to_watchlist(self):
         """Test watchlist filtering keeps only allowed symbols"""
-        result = parse_symbols("AAPL,MSFT,GOOG", filter_to=['AAPL', 'MSFT'])
+        result = parse_symbols("AAPL,MSFT,GOOG", filter_to=["AAPL", "MSFT"])
 
-        assert result == ['AAPL', 'MSFT']
-        assert 'GOOG' not in result
+        assert result == ["AAPL", "MSFT"]
+        assert "GOOG" not in result
 
     def test_validation_toggle_true_skips_false_keeps(self):
         """Test validation on/off behavior"""
         # With validation (default): invalid symbols filtered out
         result_strict = parse_symbols("AAPL,TOOLONG,123", validate=True)
-        assert result_strict == ['AAPL']
+        assert result_strict == ["AAPL"]
 
         # Without validation: invalid symbols kept
         result_lenient = parse_symbols("AAPL,TOOLONG,123", validate=False)
-        assert result_lenient == ['AAPL', 'TOOLONG', '123']
+        assert result_lenient == ["AAPL", "TOOLONG", "123"]
 
     def test_empty_input_returns_empty_list(self):
         """Test graceful handling of empty/null inputs"""
@@ -57,8 +58,9 @@ class TestParseSymbols:
             result = parse_symbols("AAPL,123,MSFT", validate=True, log_label="TEST")
 
         # Returns only valid symbols
-        assert result == ['AAPL', 'MSFT']
+        assert result == ["AAPL", "MSFT"]
 
         # Logged the invalid symbol
-        assert any("Unexpected TEST entry format: 123" in record.message
-                   for record in caplog.records)
+        assert any(
+            "Unexpected TEST entry format: 123" in record.message for record in caplog.records
+        )

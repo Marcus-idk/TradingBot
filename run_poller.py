@@ -19,22 +19,22 @@ from dotenv import load_dotenv
 
 from config.providers.finnhub import FinnhubSettings
 from config.providers.polygon import PolygonSettings
-from workflows.poller import DataPoller
+from data import DataSourceError, NewsDataSource, PriceDataSource
 from data.providers.finnhub import (
     FinnhubMacroNewsProvider,
     FinnhubNewsProvider,
     FinnhubPriceProvider,
 )
 from data.providers.polygon import (
-    PolygonNewsProvider,
     PolygonMacroNewsProvider,
+    PolygonNewsProvider,
 )
-from data import DataSourceError, NewsDataSource, PriceDataSource
 from data.storage import init_database
 from utils.logging import setup_logging
-from utils.symbols import parse_symbols
-from utils.signals import register_graceful_shutdown
 from utils.retry import RetryableError
+from utils.signals import register_graceful_shutdown
+from utils.symbols import parse_symbols
+from workflows.poller import DataPoller
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class PollerConfig:
     """Configuration for the data poller."""
+
     db_path: str
     symbols: list[str]
     poll_interval: int
@@ -66,16 +67,22 @@ def build_config(with_viewer: bool) -> PollerConfig:
     # Get and validate symbols
     symbols_env = os.getenv("SYMBOLS")
     if not symbols_env:
-        raise ValueError("SYMBOLS environment variable not set. Please set SYMBOLS in .env (e.g., SYMBOLS=AAPL,MSFT,TSLA)")
+        raise ValueError(
+            "SYMBOLS environment variable not set. Please set SYMBOLS in .env (e.g., SYMBOLS=AAPL,MSFT,TSLA)"
+        )
 
     symbols = parse_symbols(symbols_env, validate=True, log_label="SYMBOLS")
     if not symbols:
-        raise ValueError("SYMBOLS environment variable is empty or invalid. Please provide comma-separated symbols (e.g., SYMBOLS=AAPL,MSFT,TSLA)")
+        raise ValueError(
+            "SYMBOLS environment variable is empty or invalid. Please provide comma-separated symbols (e.g., SYMBOLS=AAPL,MSFT,TSLA)"
+        )
 
     # Get and validate poll interval
     poll_interval_str = os.getenv("POLL_INTERVAL")
     if not poll_interval_str:
-        raise ValueError("POLL_INTERVAL environment variable not set. Please set POLL_INTERVAL in .env (e.g., POLL_INTERVAL=300)")
+        raise ValueError(
+            "POLL_INTERVAL environment variable not set. Please set POLL_INTERVAL in .env (e.g., POLL_INTERVAL=300)"
+        )
 
     try:
         poll_interval = int(poll_interval_str)
@@ -111,7 +118,7 @@ def build_config(with_viewer: bool) -> PollerConfig:
         poll_interval=poll_interval,
         ui_port=ui_port,
         finnhub_settings=finnhub_settings,
-        polygon_settings=polygon_settings
+        polygon_settings=polygon_settings,
     )
 
 
@@ -138,8 +145,17 @@ def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
             filter(None, [str(PROJECT_ROOT), env.get("PYTHONPATH")])
         )
         ui_process = subprocess.Popen(
-            [sys.executable, "-m", "streamlit", "run", str(PROJECT_ROOT / "ui/app_min.py"),
-             "--server.port", str(config.ui_port), "--server.headless", "true"],
+            [
+                sys.executable,
+                "-m",
+                "streamlit",
+                "run",
+                str(PROJECT_ROOT / "ui/app_min.py"),
+                "--server.port",
+                str(config.ui_port),
+                "--server.headless",
+                "true",
+            ],
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -156,7 +172,9 @@ def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
         return None
 
 
-async def create_and_validate_providers(config: PollerConfig) -> tuple[list[NewsDataSource], list[PriceDataSource]]:
+async def create_and_validate_providers(
+    config: PollerConfig,
+) -> tuple[list[NewsDataSource], list[PriceDataSource]]:
     """Create and validate news and price providers."""
     logger.info(f"Tracking symbols: {', '.join(config.symbols)}")
     logger.info(f"Poll interval: {config.poll_interval} seconds")
@@ -213,9 +231,7 @@ def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
             ui_process.wait(timeout=5)
             logger.info("Streamlit UI stopped")
         except subprocess.TimeoutExpired as exc:
-            logger.warning(
-                f"Streamlit UI did not stop gracefully; forcing termination: {exc}"
-            )
+            logger.warning(f"Streamlit UI did not stop gracefully; forcing termination: {exc}")
             ui_process.kill()
         except OSError as exc:
             logger.warning(f"Error while stopping Streamlit UI: {exc}")
@@ -259,7 +275,7 @@ async def main(with_viewer: bool = False) -> int:
             db_path=config.db_path,
             news_providers=news_providers,
             price_providers=price_providers,
-            poll_interval=config.poll_interval
+            poll_interval=config.poll_interval,
         )
 
         # Setup signal handlers for graceful shutdown
@@ -284,13 +300,13 @@ async def main(with_viewer: bool = False) -> int:
         logger.info("Keyboard interrupt received")
         return 0
     except (
+        TimeoutError,
         DataSourceError,
         RetryableError,
         RuntimeError,
         ValueError,
         TypeError,
         sqlite3.Error,
-        asyncio.TimeoutError,
         OSError,
     ) as exc:
         logger.exception(f"Unexpected error in poller: {exc}")
@@ -312,10 +328,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         action="store_true",
-        help="Launch Streamlit web UI (default port: 8501, configurable via STREAMLIT_PORT)"
+        help="Launch Streamlit web UI (default port: 8501, configurable via STREAMLIT_PORT)",
     )
     args = parser.parse_args()
-    
+
     # Run the async main function with parsed arguments
     exit_code = asyncio.run(main(with_viewer=args.v))
     sys.exit(exit_code)

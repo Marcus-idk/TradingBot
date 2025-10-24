@@ -2,17 +2,21 @@
 
 import logging
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import (  # noqa: F401 - used by tests via monkeypatch
+    UTC,
+    datetime,
+    timedelta,
+    timezone,
+)
 from typing import Any
 
 from config.providers.polygon import PolygonSettings
-from data import NewsDataSource, DataSourceError
+from data import DataSourceError, NewsDataSource
 from data.models import NewsItem
-from utils.symbols import parse_symbols
-from data.providers.polygon.polygon_client import PolygonClient, _NEWS_LIMIT, _NEWS_ORDER
+from data.providers.polygon.polygon_client import _NEWS_LIMIT, _NEWS_ORDER, PolygonClient
 from data.storage.storage_utils import _datetime_to_iso, _parse_rfc3339
 from utils.retry import RetryableError
-
+from utils.symbols import parse_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +48,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
         *,
         since: datetime | None = None,
     ) -> list[NewsItem]:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         # Calculate time filter
         if since is not None:
@@ -114,9 +118,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
                 TypeError,
                 KeyError,
             ) as exc:
-                logger.warning(
-                    f"Macro news pagination failed: {exc}"
-                )
+                logger.warning(f"Macro news pagination failed: {exc}")
                 raise
 
         return news_items
@@ -191,9 +193,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
                 )
                 news_items.append(news_item)
             except ValueError as exc:
-                logger.debug(
-                    f"NewsItem validation failed for {symbol} (url={article_url}): {exc}"
-                )
+                logger.debug(f"NewsItem validation failed for {symbol} (url={article_url}): {exc}")
                 continue
 
         return news_items

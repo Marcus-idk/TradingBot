@@ -28,11 +28,7 @@ def classify(news_items: list[NewsItem]) -> list[NewsLabel]:
 
     for item in news_items:
         # Stub implementation - always returns Company
-        label = NewsLabel(
-            symbol=item.symbol,
-            url=item.url,
-            label=NewsLabelType.COMPANY
-        )
+        label = NewsLabel(symbol=item.symbol, url=item.url, label=NewsLabelType.COMPANY)
         labels.append(label)
 
     if labels:

@@ -1,12 +1,14 @@
 """
 Centralized retry configuration for LLM and data providers
 """
+
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class LLMRetryConfig:
     """Retry configuration for LLM providers (OpenAI, Gemini, etc.)"""
+
     timeout_seconds: int = 360  # LLMs need longer timeouts
     max_retries: int = 3
     base: float = 0.25
@@ -17,6 +19,7 @@ class LLMRetryConfig:
 @dataclass(frozen=True)
 class DataRetryConfig:
     """Retry configuration for data providers (Finnhub, Polygon, etc.)"""
+
     timeout_seconds: int = 30  # Data APIs are faster
     max_retries: int = 3
     base: float = 0.25

@@ -1,16 +1,20 @@
 """Company news provider implementation."""
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import (  # noqa: F401 - used by tests via monkeypatch
+    UTC,
+    datetime,
+    timedelta,
+    timezone,
+)
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data import NewsDataSource, DataSourceError
-from utils.retry import RetryableError
+from data import DataSourceError, NewsDataSource
 from data.models import NewsItem
 from data.providers.finnhub.finnhub_client import FinnhubClient
 from data.storage.storage_utils import _datetime_to_iso
-
+from utils.retry import RetryableError
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +22,9 @@ logger = logging.getLogger(__name__)
 class FinnhubNewsProvider(NewsDataSource):
     """Fetches company news from Finnhub's /company-news endpoint."""
 
-    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub") -> None:
+    def __init__(
+        self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"
+    ) -> None:
         super().__init__(source_name)
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
@@ -34,7 +40,7 @@ class FinnhubNewsProvider(NewsDataSource):
         if not self.symbols:
             return []
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         if since is not None:
             buffer_time = since - timedelta(minutes=2)
@@ -63,20 +69,18 @@ class FinnhubNewsProvider(NewsDataSource):
 
                 for article in articles:
                     try:
-                        news_item = self._parse_article(article, symbol, buffer_time if since else None)
+                        news_item = self._parse_article(
+                            article, symbol, buffer_time if since else None
+                        )
                         if news_item:
                             news_items.append(news_item)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                        logger.debug(
-                            f"Failed to parse company news article for {symbol}: {exc}"
-                        )
+                        logger.debug(f"Failed to parse company news article for {symbol}: {exc}")
                         continue
             except DataSourceError:
                 raise
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
-                logger.warning(
-                    f"Company news fetch failed for {symbol}: {exc}"
-                )
+                logger.warning(f"Company news fetch failed for {symbol}: {exc}")
                 continue
 
         return news_items
@@ -95,7 +99,7 @@ class FinnhubNewsProvider(NewsDataSource):
             return None
 
         try:
-            published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
+            published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
         except (ValueError, OSError) as exc:  # pragma: no cover
             logger.debug(
                 f"Skipping company news article for {symbol} due to invalid epoch {datetime_epoch}: {exc}"
@@ -123,8 +127,5 @@ class FinnhubNewsProvider(NewsDataSource):
                 content=content,
             )
         except ValueError as exc:  # pragma: no cover
-            logger.debug(
-                f"NewsItem validation failed for {symbol} (url={url}): {exc}"
-            )
+            logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {exc}")
             return None
-

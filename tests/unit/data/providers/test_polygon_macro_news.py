@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from config.providers.polygon import PolygonSettings
 from data.providers.polygon import PolygonMacroNewsProvider
 from data.storage.storage_utils import _datetime_to_iso
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -21,7 +20,7 @@ class TestPolygonMacroNewsProvider:
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
-        fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod
@@ -72,7 +71,7 @@ class TestPolygonMacroNewsProvider:
             call_count["n"] += 1
             return responses[idx]
 
-        provider.client.get = mock_get  # type: ignore[attr-defined]
+        provider.client.get = mock_get
 
         result = await provider.fetch_incremental()
 
@@ -98,4 +97,3 @@ class TestPolygonMacroNewsProvider:
 
         cursor = provider._extract_cursor(next_url)
         assert cursor == expected
-

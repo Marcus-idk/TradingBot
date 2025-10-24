@@ -1,7 +1,8 @@
-from dataclasses import dataclass
 import os
-from typing import Mapping
-from config.retry import LLMRetryConfig, DEFAULT_LLM_RETRY
+from collections.abc import Mapping
+from dataclasses import dataclass
+
+from config.retry import DEFAULT_LLM_RETRY, LLMRetryConfig
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,7 @@ from typing import Any
 import httpx
 
 from data import DataSourceError
-from utils.retry import RetryableError, retry_and_call, parse_retry_after
+from utils.retry import RetryableError, parse_retry_after, retry_and_call
 
 
 async def get_json_with_retry(

@@ -1,4 +1,4 @@
-from config.llm.openai import OpenAISettings
 from config.llm.gemini import GeminiSettings
+from config.llm.openai import OpenAISettings
 
 __all__ = ["OpenAISettings", "GeminiSettings"]

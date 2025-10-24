@@ -3,7 +3,7 @@ Live integration tests for Polygon providers leveraging the real API.
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -27,7 +27,7 @@ async def test_live_news_fetch():
     provider = PolygonNewsProvider(settings, ["AAPL"])
     # Validate connection first
     assert await provider.validate_connection() is True, "connection should validate"
-    since = datetime.now(timezone.utc) - timedelta(days=2)
+    since = datetime.now(UTC) - timedelta(days=2)
     results = await provider.fetch_incremental(since=since)
 
     assert isinstance(results, list), "fetch_incremental should return a list"
@@ -38,7 +38,7 @@ async def test_live_news_fetch():
         assert article.symbol == "AAPL", "fetched symbol should match request"
         assert article.headline and len(article.headline) > 0, "headline should be non-empty"
         assert article.url and article.url.startswith("http"), "url should be http(s)"
-        assert article.published.tzinfo == timezone.utc, "timestamps must be UTC"
+        assert article.published.tzinfo == UTC, "timestamps must be UTC"
         assert article.source is not None, "source should be present"
     else:
         pass
@@ -59,7 +59,7 @@ async def test_live_multiple_symbols():
     # Validate connection first (mirror Finnhub style)
     assert await provider.validate_connection() is True, "connection should validate"
 
-    since = datetime.now(timezone.utc) - timedelta(days=2)
+    since = datetime.now(UTC) - timedelta(days=2)
     results = await provider.fetch_incremental(since=since)
 
     assert isinstance(results, list), "fetch_incremental should return a list"
@@ -83,7 +83,7 @@ async def test_live_error_handling():
         pytest.skip("POLYGON_API_KEY not configured properly")
 
     provider = PolygonNewsProvider(settings, ["INVALID_SYMBOL_XYZ123"])
-    results = await provider.fetch_incremental(since=datetime.now(timezone.utc) - timedelta(days=2))
-    assert (
-        len(results) == 0 or all(r.headline and r.url.startswith("http") for r in results)
-    ), "invalid symbol should yield no results or valid-shaped items"
+    results = await provider.fetch_incremental(since=datetime.now(UTC) - timedelta(days=2))
+    assert len(results) == 0 or all(r.headline and r.url.startswith("http") for r in results), (
+        "invalid symbol should yield no results or valid-shaped items"
+    )

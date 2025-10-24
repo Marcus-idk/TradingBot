@@ -1,9 +1,9 @@
 """Unit tests for news classification module."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from data.models import NewsItem, NewsLabelType
 from analysis.news_classifier import classify
+from data.models import NewsItem, NewsLabelType
 
 
 def test_classify_returns_company_for_all():
@@ -14,16 +14,16 @@ def test_classify_returns_company_for_all():
             symbol="AAPL",
             url="https://example.com/news1",
             headline="Apple announces new product",
-            published=datetime.now(timezone.utc),
-            source="TechNews"
+            published=datetime.now(UTC),
+            source="TechNews",
         ),
         NewsItem(
             symbol="MSFT",
             url="https://example.com/news2",
             headline="Microsoft earnings report",
-            published=datetime.now(timezone.utc),
-            source="Finance"
-        )
+            published=datetime.now(UTC),
+            source="Finance",
+        ),
     ]
 
     # Classify
@@ -42,4 +42,3 @@ def test_classify_empty_list():
     """Test classifier handles empty input."""
     labels = classify([])
     assert labels == []
-    

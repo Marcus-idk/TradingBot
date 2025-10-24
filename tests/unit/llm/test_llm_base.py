@@ -9,7 +9,7 @@ Tests:
 
 import pytest
 
-from llm.base import LLMProvider, LLMError
+from llm.base import LLMError, LLMProvider
 
 
 class TestLLMProviderInitialization:
@@ -17,6 +17,7 @@ class TestLLMProviderInitialization:
 
     def test_llmprovider_stores_config_kwargs(self):
         """Test that __init__ stores arbitrary kwargs in config"""
+
         class ConcreteLLM(LLMProvider):
             async def generate(self, prompt: str) -> str:
                 return "test"
@@ -40,21 +41,28 @@ class TestAbstractMethodEnforcement:
     def test_llmprovider_requires_generate(self):
         """Test that subclass without generate() cannot be instantiated"""
         with pytest.raises(TypeError, match="Can't instantiate abstract class.*generate"):
+
             class IncompleteProvider(LLMProvider):
                 async def validate_connection(self) -> bool:
                     return True
+
             IncompleteProvider()
 
     def test_llmprovider_requires_validate_connection(self):
         """Test that subclass without validate_connection() cannot be instantiated"""
-        with pytest.raises(TypeError, match="Can't instantiate abstract class.*validate_connection"):
+        with pytest.raises(
+            TypeError, match="Can't instantiate abstract class.*validate_connection"
+        ):
+
             class IncompleteProvider(LLMProvider):
                 async def generate(self, prompt: str) -> str:
                     return "test"
+
             IncompleteProvider()
 
     def test_concrete_implementation_works(self):
         """Test that complete implementation can be instantiated"""
+
         class CompleteLLM(LLMProvider):
             async def generate(self, prompt: str) -> str:
                 return f"Generated: {prompt}"

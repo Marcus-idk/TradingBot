@@ -12,17 +12,21 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TypedDict
 
-from data import DataSourceError
-from data.models import NewsItem, PriceData
-from data.storage import (
-    get_last_news_time, set_last_news_time,
-    get_last_macro_min_id, set_last_macro_min_id,
-    store_news_items, store_price_data, store_news_labels
-)
-from data.base import NewsDataSource, PriceDataSource
-from data.providers.finnhub import FinnhubMacroNewsProvider
 from analysis.news_classifier import classify
 from analysis.urgency_detector import detect_urgency
+from data import DataSourceError
+from data.base import NewsDataSource, PriceDataSource
+from data.models import NewsItem, PriceData
+from data.providers.finnhub import FinnhubMacroNewsProvider
+from data.storage import (
+    get_last_macro_min_id,
+    get_last_news_time,
+    set_last_macro_min_id,
+    set_last_news_time,
+    store_news_items,
+    store_news_labels,
+    store_price_data,
+)
 from llm.base import LLMError
 from utils.retry import RetryableError
 
@@ -31,13 +35,16 @@ logger = logging.getLogger(__name__)
 
 class DataBatch(TypedDict):
     """Data fetched from all providers in one cycle."""
+
     company_news: list[NewsItem]
     macro_news: list[NewsItem]
     prices: dict[str, dict[str, PriceData]]  # {provider_name: {symbol: PriceData}}
     errors: list[str]
 
+
 class PollStats(TypedDict):
     """Statistics from one polling cycle."""
+
     news: int
     prices: int
     errors: list[str]
@@ -56,7 +63,7 @@ class DataPoller:
         db_path: str,
         news_providers: list[NewsDataSource],
         price_providers: list[PriceDataSource],
-        poll_interval: int
+        poll_interval: int,
     ) -> None:
         """
         Initialize the data poller.
@@ -76,7 +83,8 @@ class DataPoller:
 
         # Identify macro providers once at init (avoid isinstance in hot path)
         self._macro_providers = {
-            provider for provider in news_providers
+            provider
+            for provider in news_providers
             if isinstance(provider, FinnhubMacroNewsProvider)
         }
 
@@ -117,7 +125,7 @@ class DataPoller:
         )
         price_coro = asyncio.gather(
             *(provider.fetch_incremental() for provider in self.price_providers),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Await both together to maintain full concurrency
@@ -228,9 +236,7 @@ class DataPoller:
         if not urgent_items:
             logger.debug("No urgent news items detected")
             return
-        logger.warning(
-            f"Found {len(urgent_items)} URGENT news items requiring attention"
-        )
+        logger.warning(f"Found {len(urgent_items)} URGENT news items requiring attention")
         for item in urgent_items[:10]:
             logger.warning(f"URGENT [{item.symbol}]: {item.headline} - {item.url}")
         if len(urgent_items) > 10:
@@ -252,11 +258,7 @@ class DataPoller:
             try:
                 labels = classify(company_news)
                 if labels:
-                    await asyncio.to_thread(
-                        store_news_labels,
-                        self.db_path,
-                        labels
-                    )
+                    await asyncio.to_thread(store_news_labels, self.db_path, labels)
                     logger.info(f"Classified {len(labels)} company news items")
             except (LLMError, ValueError, TypeError, RuntimeError) as exc:
                 logger.exception(f"News classification failed: {exc}")
@@ -280,9 +282,7 @@ class DataPoller:
         for provider in self._macro_providers:
             if provider.last_fetched_max_id:
                 await asyncio.to_thread(
-                    set_last_macro_min_id,
-                    self.db_path,
-                    provider.last_fetched_max_id
+                    set_last_macro_min_id, self.db_path, provider.last_fetched_max_id
                 )
                 logger.info(f"Updated macro news minId watermark to {provider.last_fetched_max_id}")
 
@@ -337,12 +337,12 @@ class DataPoller:
                 logger.info("No price data fetched")
 
         except (
+            TimeoutError,
             DataSourceError,
             RetryableError,
             ValueError,
             TypeError,
             RuntimeError,
-            asyncio.TimeoutError,
             OSError,
         ) as exc:
             logger.exception(f"Poll cycle failed with error: {exc}")
@@ -356,7 +356,7 @@ class DataPoller:
 
         Polls at specified interval until stop() is called.
         """
-        
+
         self._stop_event.clear()
         self.running = True
         logger.info(f"Starting data poller with {self.poll_interval}s interval")
@@ -393,14 +393,11 @@ class DataPoller:
                 logger.info(f"Next poll in {sleep_time:.1f} seconds...")
                 try:
                     # Wait for either the timeout or stop event
-                    await asyncio.wait_for(
-                        self._stop_event.wait(),
-                        timeout=sleep_time
-                    )
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=sleep_time)
                     # If we get here, stop was requested
                     logger.info("Stop event received during wait")
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.debug("Poll wait timeout; continuing to next cycle")
                     continue
                 except asyncio.CancelledError:

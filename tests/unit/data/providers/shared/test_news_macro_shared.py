@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -34,15 +34,13 @@ class TestNewsMacroShared:
 
     async def test_maps_related_symbols(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT", "TSLA"])
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(
             symbols="AAPL,MSFT,GOOG",
             epoch=now_epoch,
         )
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_macro.wrap_response([article])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 
         results = await provider.fetch_incremental()
 
@@ -50,12 +48,10 @@ class TestNewsMacroShared:
 
     async def test_falls_back_to_all_when_no_related(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT"])
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="", epoch=now_epoch)
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_macro.wrap_response([article])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 
         results = await provider.fetch_incremental()
 
@@ -68,7 +64,7 @@ class TestNewsMacroShared:
         class MockDatetime:
             @staticmethod
             def now(tz):
-                return datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+                return datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
             @staticmethod
             def fromtimestamp(ts, tz):
@@ -78,7 +74,7 @@ class TestNewsMacroShared:
         monkeypatch.setattr(f"{provider.__module__}.timezone", timezone)
         monkeypatch.setattr(f"{provider.__module__}.timedelta", timedelta)
 
-        buffer_epoch = int(datetime(2024, 1, 13, 10, 0, tzinfo=timezone.utc).timestamp())
+        buffer_epoch = int(datetime(2024, 1, 13, 10, 0, tzinfo=UTC).timestamp())
         inside_epoch = buffer_epoch + 60
         article_old = provider_spec_macro.article_factory(epoch=buffer_epoch)
         article_new = provider_spec_macro.article_factory(epoch=inside_epoch)
@@ -93,11 +89,11 @@ class TestNewsMacroShared:
             results = await provider.fetch_incremental(since=None)
 
         assert len(results) == 1
-        assert results[0].published == datetime.fromtimestamp(inside_epoch, tz=timezone.utc)
+        assert results[0].published == datetime.fromtimestamp(inside_epoch, tz=UTC)
 
     async def test_invalid_articles_are_skipped(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        now_epoch = int(datetime.now(UTC).timestamp())
         bad_headline = provider_spec_macro.article_factory(headline="", epoch=now_epoch)
         bad_url = provider_spec_macro.article_factory(url="", epoch=now_epoch)
         bad_timestamp = provider_spec_macro.article_factory(epoch=0)
@@ -129,12 +125,10 @@ class TestNewsMacroShared:
 
     async def test_empty_watchlist_falls_back_to_all(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=[])
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="GOOG", epoch=now_epoch)
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_macro.wrap_response([article])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 
         results = await provider.fetch_incremental()
 

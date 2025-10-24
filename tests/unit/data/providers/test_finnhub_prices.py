@@ -7,7 +7,6 @@ import pytest
 from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub import FinnhubPriceProvider
 
-
 pytestmark = pytest.mark.asyncio
 
 
@@ -28,4 +27,3 @@ class TestFinnhubPriceProviderSpecific:
         result = await price_provider.fetch_incremental()
 
         assert result == []
-

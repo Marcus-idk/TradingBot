@@ -1,13 +1,15 @@
 import asyncio
 import logging
 import random
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import Awaitable, Callable, TypeVar
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
 
 def parse_retry_after(value: str | float | int | None) -> float | None:
     """Parse Retry-After header value (numeric seconds or HTTP-date).
@@ -27,7 +29,7 @@ def parse_retry_after(value: str | float | int | None) -> float | None:
     try:
         # Try parsing as HTTP-date ("Thu, 01 Dec 2024 15:30:00 GMT")
         retry_time = parsedate_to_datetime(value)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         seconds = (retry_time - now).total_seconds()
         # Floor at 0.0 to handle past dates (don't wait negative time!)
         return max(0.0, seconds)
@@ -42,10 +44,11 @@ class RetryableError(Exception):
         super().__init__(message)
         self.retry_after = retry_after
 
+
 async def retry_and_call(
     op: Callable[[], Awaitable[T]],
     *,
-    attempts: int = 4,          # e.g., max_retries + 1
+    attempts: int = 4,  # e.g., max_retries + 1
     base: float = 0.25,
     mult: float = 2.0,
     jitter: float = 0.1,
@@ -63,8 +66,10 @@ async def retry_and_call(
             last_exc = e
             if attempt == attempts - 1:
                 raise
-            delay = e.retry_after if e.retry_after is not None else max(
-                0.1, base * (mult ** attempt) + random.uniform(-jitter, jitter)
+            delay = (
+                e.retry_after
+                if e.retry_after is not None
+                else max(0.1, base * (mult**attempt) + random.uniform(-jitter, jitter))
             )
             await asyncio.sleep(delay)
     # Should be unreachable;

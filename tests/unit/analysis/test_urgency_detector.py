@@ -1,9 +1,9 @@
 """Unit tests for urgency detection module."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from data.models import NewsItem
 from analysis.urgency_detector import detect_urgency
+from data.models import NewsItem
 
 
 def test_detect_urgency_returns_empty_list():
@@ -14,16 +14,16 @@ def test_detect_urgency_returns_empty_list():
             symbol="AAPL",
             url="https://example.com/news1",
             headline="Apple announces bankruptcy",
-            published=datetime.now(timezone.utc),
-            source="TechNews"
+            published=datetime.now(UTC),
+            source="TechNews",
         ),
         NewsItem(
             symbol="MSFT",
             url="https://example.com/news2",
             headline="SEC investigation announced",
-            published=datetime.now(timezone.utc),
-            source="Finance"
-        )
+            published=datetime.now(UTC),
+            source="Finance",
+        ),
     ]
 
     # Detect urgency
@@ -47,27 +47,27 @@ def test_detect_urgency_extracts_text_from_headline_and_content():
             symbol="AAPL",
             url="https://example.com/news1",
             headline="Breaking news",
-            published=datetime.now(timezone.utc),
-            source="TechNews"
+            published=datetime.now(UTC),
+            source="TechNews",
         ),
         # Item with headline and content
         NewsItem(
             symbol="MSFT",
             url="https://example.com/news2",
             headline="Microsoft update",
-            published=datetime.now(timezone.utc),
+            published=datetime.now(UTC),
             source="Finance",
-            content="Detailed content about the update and its implications."
+            content="Detailed content about the update and its implications.",
         ),
         # Item with content set to None explicitly
         NewsItem(
             symbol="TSLA",
             url="https://example.com/news3",
             headline="Tesla announcement",
-            published=datetime.now(timezone.utc),
+            published=datetime.now(UTC),
             source="AutoNews",
-            content=None
-        )
+            content=None,
+        ),
     ]
 
     # Should not crash when extracting text from items with/without content

@@ -2,21 +2,17 @@
 Phase 4: Base Class Validation Tests
 
 Tests for abstract base classes and their contracts:
-- DataSource abstract base class 
+- DataSource abstract base class
 - NewsDataSource and PriceDataSource subclasses
 - Exception hierarchy (DataSourceError)
 - Abstract method enforcement
 """
 
-import pytest
 from datetime import datetime
 
-from data.base import (
-    DataSource, 
-    NewsDataSource, 
-    PriceDataSource,
-    DataSourceError
-)
+import pytest
+
+from data.base import DataSource, DataSourceError, NewsDataSource, PriceDataSource
 from data.models import NewsItem, PriceData
 
 
@@ -25,6 +21,7 @@ class TestDataSourceContract:
 
     def test_source_name_none_raises(self):
         with pytest.raises(ValueError, match="source_name cannot be None"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -33,6 +30,7 @@ class TestDataSourceContract:
 
     def test_source_name_must_be_string(self):
         with pytest.raises(TypeError, match="source_name must be a string"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -40,6 +38,7 @@ class TestDataSourceContract:
             ConcreteSource(123)
 
         with pytest.raises(TypeError, match="source_name must be a string"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -48,6 +47,7 @@ class TestDataSourceContract:
 
     def test_source_name_cannot_be_empty(self):
         with pytest.raises(ValueError, match="source_name cannot be empty"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -55,6 +55,7 @@ class TestDataSourceContract:
             ConcreteSource("")
 
         with pytest.raises(ValueError, match="source_name cannot be empty"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -64,6 +65,7 @@ class TestDataSourceContract:
     def test_source_name_length_limit(self):
         long_name = "A" * 101
         with pytest.raises(ValueError, match="source_name too long.*101.*max 100"):
+
             class ConcreteSource(DataSource):
                 async def validate_connection(self):
                     return True
@@ -95,6 +97,7 @@ class TestNewsDataSourceContract:
 
     def test_requires_fetch_incremental(self):
         with pytest.raises(TypeError, match="Can't instantiate abstract class.*fetch_incremental"):
+
             class IncompleteNews(NewsDataSource):
                 async def validate_connection(self):
                     return True
@@ -125,6 +128,7 @@ class TestPriceDataSourceContract:
 
     def test_requires_fetch_incremental(self):
         with pytest.raises(TypeError, match="Can't instantiate abstract class.*fetch_incremental"):
+
             class IncompletePrice(PriceDataSource):
                 async def validate_connection(self):
                     return True
@@ -151,8 +155,7 @@ class TestPriceDataSourceContract:
 class TestDataSourceErrorContract:
     def test_exception_inheritance(self):
         assert issubclass(DataSourceError, Exception)
-        
+
         error = DataSourceError("Test error")
         assert isinstance(error, DataSourceError)
         assert isinstance(error, Exception)
-

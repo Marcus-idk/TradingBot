@@ -2,16 +2,20 @@
 
 import logging
 import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import (  # noqa: F401 - used by tests via monkeypatch
+    UTC,
+    datetime,
+    timedelta,
+    timezone,
+)
 from typing import Any
 
 from config.providers.polygon import PolygonSettings
-from data import NewsDataSource, DataSourceError
+from data import DataSourceError, NewsDataSource
 from data.models import NewsItem
-from data.providers.polygon.polygon_client import PolygonClient, _NEWS_LIMIT, _NEWS_ORDER
+from data.providers.polygon.polygon_client import _NEWS_LIMIT, _NEWS_ORDER, PolygonClient
 from data.storage.storage_utils import _datetime_to_iso, _parse_rfc3339
 from utils.retry import RetryableError
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +46,7 @@ class PolygonNewsProvider(NewsDataSource):
         if not self.symbols:
             return []
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         if since is not None:
             buffer_time = since - timedelta(minutes=2)
@@ -55,14 +59,10 @@ class PolygonNewsProvider(NewsDataSource):
 
         for symbol in self.symbols:
             try:
-                symbol_news = await self._fetch_symbol_news(
-                    symbol, published_gt, buffer_time
-                )
+                symbol_news = await self._fetch_symbol_news(symbol, published_gt, buffer_time)
                 news_items.extend(symbol_news)
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
-                logger.warning(
-                    f"Company news fetch failed for {symbol}: {exc}"
-                )
+                logger.warning(f"Company news fetch failed for {symbol}: {exc}")
                 continue
 
         return news_items
@@ -112,9 +112,7 @@ class PolygonNewsProvider(NewsDataSource):
                         if news_item:
                             news_items.append(news_item)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                        logger.debug(
-                            f"Failed to parse company news article for {symbol}: {exc}"
-                        )
+                        logger.debug(f"Failed to parse company news article for {symbol}: {exc}")
                         continue
 
                 # Check for next page
@@ -134,9 +132,7 @@ class PolygonNewsProvider(NewsDataSource):
                 TypeError,
                 KeyError,
             ) as exc:
-                logger.warning(
-                    f"Company news pagination failed for {symbol}: {exc}"
-                )
+                logger.warning(f"Company news pagination failed for {symbol}: {exc}")
                 raise
 
         return news_items
@@ -204,7 +200,5 @@ class PolygonNewsProvider(NewsDataSource):
                 content=content,
             )
         except ValueError as exc:
-            logger.debug(
-                f"NewsItem validation failed for {symbol} (url={article_url}): {exc}"
-            )
+            logger.debug(f"NewsItem validation failed for {symbol} (url={article_url}): {exc}")
             return None

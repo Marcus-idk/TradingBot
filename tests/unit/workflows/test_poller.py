@@ -6,24 +6,25 @@ error aggregation. Uses stub providers and the temp_db fixture.
 """
 
 import asyncio
-import pytest
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
+import pytest
+
 pytestmark = pytest.mark.asyncio
 
-from workflows.poller import DataPoller
 from data.base import NewsDataSource, PriceDataSource
 from data.models import NewsItem, PriceData, Session
 from data.storage import (
+    get_last_macro_min_id,
     get_last_news_time,
     get_news_since,
     get_price_data_since,
     set_last_macro_min_id,
-    get_last_macro_min_id,
 )
+from workflows.poller import DataPoller
 
 
 class StubNews(NewsDataSource):
@@ -93,8 +94,8 @@ class TestDataPoller:
 
     async def test_poll_once_stores_and_updates_watermark(self, temp_db):
         """Stores news/prices and sets watermark to max published."""
-        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
-        t2 = datetime(2024, 1, 15, 10, 5, tzinfo=timezone.utc)
+        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
+        t2 = datetime(2024, 1, 15, 10, 5, tzinfo=UTC)
 
         news = [
             NewsItem("AAPL", "https://example.com/n1", "h1", t1, "S"),
@@ -112,8 +113,8 @@ class TestDataPoller:
         assert stats["errors"] == []
 
         # DB assertions
-        assert len(get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))) == 2
-        assert len(get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))) == 1
+        assert len(get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))) == 2
+        assert len(get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))) == 1
         assert get_last_news_time(temp_db) == t2  # watermark = max published
 
     async def test_poll_once_collects_errors(self, temp_db):
@@ -135,7 +136,7 @@ class TestDataPoller:
                 raise RuntimeError("boom")
 
         ok_prices = [
-            PriceData("AAPL", datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc), Decimal("1.00")),
+            PriceData("AAPL", datetime(2024, 1, 15, 10, 0, tzinfo=UTC), Decimal("1.00")),
         ]
 
         poller = DataPoller(temp_db, [ErrNews()], [StubPrice(ok_prices)], poll_interval=300)
@@ -143,7 +144,9 @@ class TestDataPoller:
         stats = await poller.poll_once()
         assert stats["news"] == 0
         assert stats["prices"] == 1
-        assert stats["errors"] and any("ErrNews" in e for e in stats["errors"])  # provider name included
+        assert stats["errors"] and any(
+            "ErrNews" in e for e in stats["errors"]
+        )  # provider name included
 
     async def test_poll_once_no_data_no_watermark(self, temp_db):
         """No data returned → stats zero and watermark remains None."""
@@ -182,12 +185,7 @@ class TestDataPoller:
         """Verify poll interval is set correctly."""
         # Create poller with custom 60 second interval
         custom_interval = 60
-        poller = DataPoller(
-            temp_db,
-            [StubNews([])],
-            [StubPrice([])],
-            poll_interval=custom_interval
-        )
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=custom_interval)
 
         # Verify the interval was set correctly
         assert poller.poll_interval == custom_interval
@@ -198,7 +196,7 @@ class TestDataPoller:
 
     async def test_macro_provider_receives_min_id_and_results_routed(self, temp_db, monkeypatch):
         """Test provider dispatch logic: both providers receive min_id; results routed by type"""
-        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         # Set initial watermark
         set_last_macro_min_id(temp_db, 100)
@@ -218,10 +216,7 @@ class TestDataPoller:
 
         # Create poller with both providers
         poller = DataPoller(
-            temp_db,
-            [company_provider, macro_provider],
-            [StubPrice([])],
-            poll_interval=300
+            temp_db, [company_provider, macro_provider], [StubPrice([])], poll_interval=300
         )
 
         # Explicitly mark macro provider without patching builtins
@@ -236,16 +231,18 @@ class TestDataPoller:
 
         # Verify both sets of news were stored
         assert stats["news"] == 2
-        stored_news = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=timezone.utc))
+        stored_news = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))
         assert len(stored_news) == 2
 
         # Verify macro watermark was updated
         assert get_last_macro_min_id(temp_db) == 150
 
-    async def test_updates_news_since_iso_and_macro_min_id_independently(self, temp_db, monkeypatch):
+    async def test_updates_news_since_iso_and_macro_min_id_independently(
+        self, temp_db, monkeypatch
+    ):
         """Test dual watermark updates: datetime and integer advance independently"""
-        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
-        t2 = datetime(2024, 1, 15, 10, 5, tzinfo=timezone.utc)
+        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
+        t2 = datetime(2024, 1, 15, 10, 5, tzinfo=UTC)
 
         # Set initial watermarks
         set_last_macro_min_id(temp_db, 100)
@@ -266,10 +263,7 @@ class TestDataPoller:
 
         # Create poller
         poller = DataPoller(
-            temp_db,
-            [company_provider, macro_provider],
-            [StubPrice([])],
-            poll_interval=300
+            temp_db, [company_provider, macro_provider], [StubPrice([])], poll_interval=300
         )
 
         # Explicitly mark macro provider without patching builtins
@@ -285,7 +279,7 @@ class TestDataPoller:
 
     async def test_macro_news_skips_classification_company_only_called(self, temp_db, monkeypatch):
         """Test classification routing: company news classified, macro skipped"""
-        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         # Create distinct news items
         company_news = [
@@ -307,13 +301,10 @@ class TestDataPoller:
             return []  # Return empty labels
 
         # Patch classify function
-        with patch('workflows.poller.classify', side_effect=mock_classify):
+        with patch("workflows.poller.classify", side_effect=mock_classify):
             # Create poller
             poller = DataPoller(
-                temp_db,
-                [company_provider, macro_provider],
-                [StubPrice([])],
-                poll_interval=300
+                temp_db, [company_provider, macro_provider], [StubPrice([])], poll_interval=300
             )
 
             # Explicitly mark macro provider without patching builtins
@@ -323,8 +314,8 @@ class TestDataPoller:
 
         # Verify classify was called with ONLY company news
         assert len(classify_called_with) == 1
-        assert classify_called_with[0].symbol == 'AAPL'
-        assert classify_called_with[0].headline == 'Company news'
+        assert classify_called_with[0].symbol == "AAPL"
+        assert classify_called_with[0].headline == "Company news"
 
         # Verify macro news was NOT passed to classify
-        assert not any(item.symbol == 'ALL' for item in classify_called_with)
+        assert not any(item.symbol == "ALL" for item in classify_called_with)

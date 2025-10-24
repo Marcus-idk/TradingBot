@@ -2,7 +2,7 @@
 Tests for storage_utils parsing and row conversion helpers.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -24,19 +24,19 @@ class TestIsoParsingHelpers:
 
     def test_iso_to_datetime_parses_z_suffix(self):
         dt = _iso_to_datetime("2024-03-10T15:45:00Z")
-        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
+        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_iso_to_datetime_preserves_offset(self):
         dt = _iso_to_datetime("2024-03-10T15:45:00+00:00")
-        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
+        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_parse_rfc3339_handles_naive_as_utc(self):
         dt = _parse_rfc3339("2024-03-10T15:45:00")
-        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
+        assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_parse_rfc3339_raises_for_non_string(self):
         with pytest.raises(TypeError):
-            _parse_rfc3339(123)  # type: ignore[arg-type]
+            _parse_rfc3339(123)
 
     def test_parse_rfc3339_invalid_format_raises(self):
         with pytest.raises(ValueError):
@@ -61,7 +61,7 @@ class TestRowMappers:
         assert result.symbol == "AAPL"
         assert result.url == "https://example.com/news/1"
         assert result.headline == "Headline"
-        assert result.published == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
+        assert result.published == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
         assert result.source == "Source"
         assert result.content == "Body"
 
@@ -89,7 +89,7 @@ class TestRowMappers:
 
         result = _row_to_news_label(row)
 
-        assert result.created_at == datetime(2024, 3, 10, 16, 0, tzinfo=timezone.utc)
+        assert result.created_at == datetime(2024, 3, 10, 16, 0, tzinfo=UTC)
 
     def test_row_to_price_data_maps_decimal_and_session(self):
         row = {
@@ -125,8 +125,8 @@ class TestRowMappers:
         assert result.analysis_type == AnalysisType.NEWS_ANALYSIS
         assert result.stance == Stance.BULL
         assert result.confidence_score == pytest.approx(0.85)
-        assert result.last_updated == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
-        assert result.created_at == datetime(2024, 3, 10, 15, 50, tzinfo=timezone.utc)
+        assert result.last_updated == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
+        assert result.created_at == datetime(2024, 3, 10, 15, 50, tzinfo=UTC)
 
     def test_row_to_holdings_parses_decimals(self):
         row = {
@@ -146,5 +146,5 @@ class TestRowMappers:
         assert result.break_even_price == Decimal("120.00")
         assert result.total_cost == Decimal("1260.00")
         assert result.notes == "Long position"
-        assert result.created_at == datetime(2024, 3, 10, 15, 45, tzinfo=timezone.utc)
-        assert result.updated_at == datetime(2024, 3, 11, 9, 30, tzinfo=timezone.utc)
+        assert result.created_at == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
+        assert result.updated_at == datetime(2024, 3, 11, 9, 30, tzinfo=UTC)

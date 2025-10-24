@@ -6,8 +6,9 @@ based on Eastern Time trading hours and NYSE calendar, with automatic DST handli
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
+
 import pandas as pd
 
 try:
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Cache NYSE calendar
 _nyse_calendar = None
+
 
 def _get_nyse_calendar():
     """Get or create cached NYSE calendar instance."""
@@ -56,9 +58,9 @@ def classify_us_session(ts_utc: datetime) -> Session:
     """
     # Ensure timestamp is UTC-aware
     if ts_utc.tzinfo is None:
-        ts_utc = ts_utc.replace(tzinfo=timezone.utc)
+        ts_utc = ts_utc.replace(tzinfo=UTC)
     else:
-        ts_utc = ts_utc.astimezone(timezone.utc)
+        ts_utc = ts_utc.astimezone(UTC)
 
     # Convert to Eastern Time (handles DST automatically)
     et = ts_utc.astimezone(ZoneInfo("America/New_York"))
@@ -91,9 +93,9 @@ def classify_us_session(ts_utc: datetime) -> Session:
     minutes = et.hour * 60 + et.minute
 
     # Define session boundaries in minutes since midnight ET
-    PRE_START = 4 * 60           # 04:00 ET = 240 minutes
-    REG_START = 9 * 60 + 30      # 09:30 ET = 570 minutes
-    POST_END = 20 * 60           # 20:00 ET = 1200 minutes
+    PRE_START = 4 * 60  # 04:00 ET = 240 minutes
+    REG_START = 9 * 60 + 30  # 09:30 ET = 570 minutes
+    POST_END = 20 * 60  # 20:00 ET = 1200 minutes
 
     # Classify based on ET time
     if PRE_START <= minutes < REG_START:

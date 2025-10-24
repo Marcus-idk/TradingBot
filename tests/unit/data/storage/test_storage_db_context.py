@@ -4,8 +4,9 @@ Tests for _cursor_context() internal database context manager.
 Tests commit/rollback behavior, cleanup, and row_factory configuration.
 """
 
-import pytest
 import sqlite3
+
+import pytest
 
 from data.storage.db_context import _cursor_context
 
@@ -17,8 +18,10 @@ class TestCursorContext:
         """Test that commit=True (default) commits on successful operations"""
         # Insert data with commit=True (default)
         with _cursor_context(temp_db) as cursor:
-            cursor.execute("INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
-                          ("AAPL", "https://test.com/1", "Test", "2024-01-01T00:00:00Z", "Test"))
+            cursor.execute(
+                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                ("AAPL", "https://test.com/1", "Test", "2024-01-01T00:00:00Z", "Test"),
+            )
 
         # Verify data was committed by reading in a new connection
         with _cursor_context(temp_db, commit=False) as cursor:
@@ -31,8 +34,10 @@ class TestCursorContext:
         """Test that commit=False does not commit changes"""
         # Try to insert with commit=False
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
-                          ("TSLA", "https://test.com/2", "Test", "2024-01-01T00:00:00Z", "Test"))
+            cursor.execute(
+                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                ("TSLA", "https://test.com/2", "Test", "2024-01-01T00:00:00Z", "Test"),
+            )
 
         # Verify data was NOT committed (should rollback on exit)
         with _cursor_context(temp_db, commit=False) as cursor:
@@ -45,8 +50,10 @@ class TestCursorContext:
         # Insert should be rolled back due to exception
         with pytest.raises(ValueError):
             with _cursor_context(temp_db) as cursor:
-                cursor.execute("INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
-                              ("MSFT", "https://test.com/3", "Test", "2024-01-01T00:00:00Z", "Test"))
+                cursor.execute(
+                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                    ("MSFT", "https://test.com/3", "Test", "2024-01-01T00:00:00Z", "Test"),
+                )
                 raise ValueError("Intentional error")
 
         # Verify rollback happened - no data should exist
@@ -60,8 +67,10 @@ class TestCursorContext:
         # BaseException should also trigger rollback
         with pytest.raises(SystemExit):
             with _cursor_context(temp_db) as cursor:
-                cursor.execute("INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
-                              ("GOOGL", "https://test.com/4", "Test", "2024-01-01T00:00:00Z", "Test"))
+                cursor.execute(
+                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                    ("GOOGL", "https://test.com/4", "Test", "2024-01-01T00:00:00Z", "Test"),
+                )
                 raise SystemExit("Simulated system exit")
 
         # Verify rollback happened
@@ -74,12 +83,17 @@ class TestCursorContext:
         """Test that sqlite3.Row factory is set for dict-like access"""
         # Insert a row
         with _cursor_context(temp_db) as cursor:
-            cursor.execute("INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
-                          ("AMZN", "https://test.com/5", "Test Headline", "2024-01-01T00:00:00Z", "Reuters"))
+            cursor.execute(
+                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                ("AMZN", "https://test.com/5", "Test Headline", "2024-01-01T00:00:00Z", "Reuters"),
+            )
 
         # Verify row_factory enables dict-like access
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT symbol, headline, source FROM news_items WHERE url = ?", ("https://test.com/5",))
+            cursor.execute(
+                "SELECT symbol, headline, source FROM news_items WHERE url = ?",
+                ("https://test.com/5",),
+            )
             row = cursor.fetchone()
 
             # Test dict-like access

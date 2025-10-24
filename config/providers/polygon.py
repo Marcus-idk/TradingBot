@@ -1,8 +1,8 @@
 """Polygon.io provider configuration."""
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from config.retry import DEFAULT_DATA_RETRY, DataRetryConfig
 

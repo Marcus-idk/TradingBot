@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,7 +23,9 @@ pytestmark = pytest.mark.asyncio
 class TestFinnhubMacroProviderSpecific:
     """Tests for Finnhub-only behaviors not covered by macro contracts."""
 
-    async def test_fetch_incremental_includes_min_id_param(self, macro_provider: FinnhubMacroNewsProvider):
+    async def test_fetch_incremental_includes_min_id_param(
+        self, macro_provider: FinnhubMacroNewsProvider
+    ):
         captured: dict[str, dict[str, str | int]] = {}
 
         async def mock_get(path: str, params: dict[str, str | int]):
@@ -43,7 +45,7 @@ class TestFinnhubMacroProviderSpecific:
         macro_provider: FinnhubMacroNewsProvider,
         monkeypatch,
     ):
-        fixed_now = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod
@@ -59,11 +61,29 @@ class TestFinnhubMacroProviderSpecific:
 
         now_epoch = int(fixed_now.timestamp())
         articles_new = [
-            {"id": 200, "headline": "A", "url": "https://example.com/a", "datetime": now_epoch, "related": "AAPL"},
-            {"id": 201, "headline": "B", "url": "https://example.com/b", "datetime": now_epoch, "related": "MSFT"},
+            {
+                "id": 200,
+                "headline": "A",
+                "url": "https://example.com/a",
+                "datetime": now_epoch,
+                "related": "AAPL",
+            },
+            {
+                "id": 201,
+                "headline": "B",
+                "url": "https://example.com/b",
+                "datetime": now_epoch,
+                "related": "MSFT",
+            },
         ]
         articles_old = [
-            {"id": 50, "headline": "Old", "url": "https://example.com/old", "datetime": now_epoch, "related": "AAPL"},
+            {
+                "id": 50,
+                "headline": "Old",
+                "url": "https://example.com/old",
+                "datetime": now_epoch,
+                "related": "AAPL",
+            },
         ]
 
         macro_provider.client.get = AsyncMock(return_value=articles_new)

@@ -8,7 +8,6 @@ from data import DataSourceError
 from utils.http import get_json_with_retry
 from utils.retry import RetryableError
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -3,10 +3,10 @@ Database lifecycle and connection management for trading bot data.
 Handles database initialization, connections, and finalization.
 """
 
-import sqlite3
-import os
-from importlib.resources import files
 import logging
+import os
+import sqlite3
+from importlib.resources import files
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def init_database(db_path: str) -> None:
             )
 
     # Read schema file using importlib.resources (works in packages)
-    schema_sql = files('data').joinpath('schema.sql').read_text()
+    schema_sql = files("data").joinpath("schema.sql").read_text()
 
     # Execute schema
     with connect(db_path) as conn:

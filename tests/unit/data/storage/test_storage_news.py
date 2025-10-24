@@ -2,17 +2,17 @@
 Tests news item storage operations and deduplication.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from data.storage import store_news_items, store_news_labels, get_news_labels
+from data.models import NewsItem, NewsLabel, NewsLabelType
+from data.storage import get_news_labels, store_news_items, store_news_labels
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import _normalize_url
 
-from data.models import NewsItem, NewsLabel, NewsLabelType
 
 class TestNewsItemStorage:
     """Test news item storage operations"""
-    
+
     def test_store_news_deduplication_insert_or_ignore(self, temp_db):
         """Test news storage with URL normalization and deduplication"""
         # Create test news items with different URLs that normalize to same
@@ -22,20 +22,20 @@ class TestNewsItemStorage:
                 url="https://example.com/news/1?utm_source=google",
                 headline="Apple News",
                 source="Reuters",
-                published=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+                published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
             ),
             NewsItem(
-                symbol="AAPL", 
+                symbol="AAPL",
                 url="https://example.com/news/1?ref=twitter",  # Same normalized URL
                 headline="Apple News Updated",  # Different headline
                 source="Reuters",
-                published=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
-            )
+                published=datetime(2024, 1, 15, 10, 30, tzinfo=UTC),
+            ),
         ]
-        
+
         # Store news items - second item should be ignored due to URL normalization
         store_news_items(temp_db, items)
-        
+
         # Verify deduplication worked - only first item should remain
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute("""
@@ -43,15 +43,15 @@ class TestNewsItemStorage:
                 WHERE symbol = 'AAPL'
             """)
             count, headline, stored_url = cursor.fetchone()
-            
+
             assert count == 1, f"Expected 1 record, got {count}"
             assert headline == "Apple News", "First record should be kept"
             assert stored_url == "https://example.com/news/1", "URL should be normalized"
-    
+
     def test_store_news_empty_list_no_error(self, temp_db):
         """Test storing empty news list doesn't cause errors"""
         store_news_items(temp_db, [])  # Should not raise error
-        
+
         # Verify no records stored
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute("SELECT COUNT(*) FROM news_items")
@@ -68,7 +68,7 @@ class TestNewsLabelStorage:
             url=url,
             headline=f"Headline for {symbol}",
             source="Test",
-            published=datetime(2024, 1, 15, 12, 0, tzinfo=timezone.utc)
+            published=datetime(2024, 1, 15, 12, 0, tzinfo=UTC),
         )
         store_news_items(temp_db, [news])
         return news
@@ -76,8 +76,10 @@ class TestNewsLabelStorage:
     def test_store_and_get_news_labels(self, temp_db):
         """Storing labels persists them and get_news_labels returns NewsLabel models."""
         news = self._seed_news(temp_db, "AAPL", "https://example.com/news/primary")
-        labeled_at = datetime(2024, 1, 15, 12, 5, tzinfo=timezone.utc)
-        label = NewsLabel(symbol=news.symbol, url=news.url, label=NewsLabelType.COMPANY, created_at=labeled_at)
+        labeled_at = datetime(2024, 1, 15, 12, 5, tzinfo=UTC)
+        label = NewsLabel(
+            symbol=news.symbol, url=news.url, label=NewsLabelType.COMPANY, created_at=labeled_at
+        )
 
         store_news_labels(temp_db, [label])
         labels = get_news_labels(temp_db)
@@ -92,11 +94,18 @@ class TestNewsLabelStorage:
     def test_store_news_labels_upsert_updates_existing_label(self, temp_db):
         """Re-storing the same symbol/url updates the label value and timestamp."""
         news = self._seed_news(temp_db, "TSLA", "https://example.com/news/label")
-        first_time = datetime(2024, 1, 15, 13, 0, tzinfo=timezone.utc)
-        second_time = datetime(2024, 1, 15, 14, 30, tzinfo=timezone.utc)
+        first_time = datetime(2024, 1, 15, 13, 0, tzinfo=UTC)
+        second_time = datetime(2024, 1, 15, 14, 30, tzinfo=UTC)
 
-        first_label = NewsLabel(symbol=news.symbol, url=news.url, label=NewsLabelType.MARKET_WITH_MENTION, created_at=first_time)
-        second_label = NewsLabel(symbol=news.symbol, url=news.url, label=NewsLabelType.PEOPLE, created_at=second_time)
+        first_label = NewsLabel(
+            symbol=news.symbol,
+            url=news.url,
+            label=NewsLabelType.MARKET_WITH_MENTION,
+            created_at=first_time,
+        )
+        second_label = NewsLabel(
+            symbol=news.symbol, url=news.url, label=NewsLabelType.PEOPLE, created_at=second_time
+        )
 
         store_news_labels(temp_db, [first_label])
         store_news_labels(temp_db, [second_label])
@@ -116,7 +125,7 @@ class TestNewsLabelStorage:
         # Add labels for both
         labels = [
             NewsLabel(symbol=news1.symbol, url=news1.url, label=NewsLabelType.COMPANY),
-            NewsLabel(symbol=news2.symbol, url=news2.url, label=NewsLabelType.PEOPLE)
+            NewsLabel(symbol=news2.symbol, url=news2.url, label=NewsLabelType.PEOPLE),
         ]
         store_news_labels(temp_db, labels)
 
@@ -127,7 +136,9 @@ class TestNewsLabelStorage:
         # Delete first news item (parent)
         normalized_url = _normalize_url(news1.url)
         with _cursor_context(temp_db) as cursor:
-            cursor.execute("DELETE FROM news_items WHERE symbol = ? AND url = ?", ("MSFT", normalized_url))
+            cursor.execute(
+                "DELETE FROM news_items WHERE symbol = ? AND url = ?", ("MSFT", normalized_url)
+            )
 
         # Verify only the label for deleted news is gone (CASCADE worked)
         remaining = get_news_labels(temp_db, symbol="MSFT")
@@ -142,7 +153,7 @@ class TestNewsLabelStorage:
 
         labels = [
             NewsLabel(symbol="AAPL", url="https://example.com/news/a", label=NewsLabelType.COMPANY),
-            NewsLabel(symbol="TSLA", url="https://example.com/news/b", label=NewsLabelType.PEOPLE)
+            NewsLabel(symbol="TSLA", url="https://example.com/news/b", label=NewsLabelType.PEOPLE),
         ]
         store_news_labels(temp_db, labels)
 

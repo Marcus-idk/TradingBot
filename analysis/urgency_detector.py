@@ -11,6 +11,7 @@ from data.models import NewsItem
 
 logger = logging.getLogger(__name__)
 
+
 def detect_urgency(news_items: list[NewsItem]) -> list[NewsItem]:
     """
     Detect urgent news items that require immediate attention.

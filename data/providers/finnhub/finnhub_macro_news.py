@@ -1,16 +1,20 @@
 """Macro news provider implementation."""
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import (  # noqa: F401 - used by tests via monkeypatch
+    UTC,
+    datetime,
+    timedelta,
+    timezone,
+)
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data import NewsDataSource, DataSourceError
+from data import DataSourceError, NewsDataSource
 from data.models import NewsItem
-from utils.symbols import parse_symbols
 from data.providers.finnhub.finnhub_client import FinnhubClient
 from data.storage.storage_utils import _datetime_to_iso
-
+from utils.symbols import parse_symbols
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +47,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         *,
         min_id: int | None = None,
     ) -> list[NewsItem]:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         if min_id is None:
             buffer_time = now_utc - timedelta(days=2)
@@ -59,9 +63,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         articles = await self.client.get("/news", params)
 
         if not isinstance(articles, list):
-            raise DataSourceError(
-                f"Finnhub API returned {type(articles).__name__} instead of list"
-            )
+            raise DataSourceError(f"Finnhub API returned {type(articles).__name__} instead of list")
 
         if min_id is not None:
             filtered_articles = [
@@ -107,7 +109,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             return []
 
         try:
-            published = datetime.fromtimestamp(datetime_epoch, tz=timezone.utc)
+            published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
         except (ValueError, OSError) as exc:  # pragma: no cover
             logger.debug(
                 f"Skipping macro news article due to invalid epoch {datetime_epoch}: {exc}"
@@ -140,9 +142,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
                 )
                 news_items.append(news_item)
             except ValueError as exc:
-                logger.debug(
-                    f"NewsItem validation failed for {symbol} (url={url}): {exc}"
-                )
+                logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {exc}")
                 continue
 
         return news_items
@@ -162,4 +162,3 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             return ["ALL"]
 
         return symbols
-

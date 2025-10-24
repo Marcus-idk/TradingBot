@@ -19,6 +19,8 @@ class LLMProvider(ABC):
         """Test if the LLM provider is reachable and credentials work."""
         raise NotImplementedError("validate_connection() must be implemented")
 
+
 class LLMError(Exception):
     """Non-retryable LLM provider error (auth failures, invalid requests, etc.)"""
+
     pass

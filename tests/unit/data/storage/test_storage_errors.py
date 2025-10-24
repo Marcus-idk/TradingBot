@@ -2,41 +2,50 @@
 Tests error handling and edge cases in storage operations.
 """
 
-import pytest
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from data.storage import store_news_items, get_news_since, get_price_data_since, get_all_holdings, get_analysis_results, get_news_before, get_prices_before
+import pytest
 
 from data.models import NewsItem
+from data.storage import (
+    get_all_holdings,
+    get_analysis_results,
+    get_news_before,
+    get_news_since,
+    get_price_data_since,
+    get_prices_before,
+    store_news_items,
+)
+
 
 class TestErrorHandling:
     """Test comprehensive error handling and edge cases"""
-    
+
     def test_database_operations_with_nonexistent_db(self):
         """Test operations fail gracefully with non-existent database"""
         nonexistent_path = "/nonexistent/path/database.db"
-        
+
         # Create test data to force actual database connection attempt
         test_item = NewsItem(
             symbol="AAPL",
             url="https://example.com/test",
             headline="Test News",
             source="Test",
-            published=datetime.now(timezone.utc)
+            published=datetime.now(UTC),
         )
-        
+
         # Operations should raise appropriate database errors
         with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
             store_news_items(nonexistent_path, [test_item])  # Forces DB connection
-            
+
         with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
-            get_news_since(nonexistent_path, datetime.now(timezone.utc))
-    
+            get_news_since(nonexistent_path, datetime.now(UTC))
+
     def test_query_operations_with_empty_database(self, temp_db):
         """Test query operations return empty results with empty database"""
         # All query operations should return empty lists
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert get_news_since(temp_db, now) == []
         assert get_price_data_since(temp_db, now) == []
         assert get_news_before(temp_db, now) == []

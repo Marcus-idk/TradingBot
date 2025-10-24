@@ -7,9 +7,13 @@ import logging
 from datetime import datetime
 
 from data.models import NewsItem, PriceData
-from data.storage.storage_utils import _datetime_to_iso, _iso_to_datetime, _row_to_news_item, _row_to_price_data
 from data.storage.db_context import _cursor_context
-
+from data.storage.storage_utils import (
+    _datetime_to_iso,
+    _iso_to_datetime,
+    _row_to_news_item,
+    _row_to_price_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +45,7 @@ def set_last_seen(db_path: str, key: str, value: str) -> None:
         value: The value to store
     """
     with _cursor_context(db_path) as cursor:
-        cursor.execute(
-            "INSERT OR REPLACE INTO last_seen (key, value) VALUES (?, ?)",
-            (key, value)
-        )
+        cursor.execute("INSERT OR REPLACE INTO last_seen (key, value) VALUES (?, ?)", (key, value))
 
 
 def get_last_news_time(db_path: str) -> datetime | None:
@@ -54,7 +55,7 @@ def get_last_news_time(db_path: str) -> datetime | None:
     Returns:
         datetime object in UTC or None if not set
     """
-    value = get_last_seen(db_path, 'news_since_iso')
+    value = get_last_seen(db_path, "news_since_iso")
     if value:
         # Parse ISO string to datetime
         return _iso_to_datetime(value)
@@ -69,7 +70,7 @@ def set_last_news_time(db_path: str, timestamp: datetime) -> None:
         timestamp: The timestamp to store (will be converted to UTC)
     """
     iso_str = _datetime_to_iso(timestamp)
-    set_last_seen(db_path, 'news_since_iso', iso_str)
+    set_last_seen(db_path, "news_since_iso", iso_str)
 
 
 def get_last_macro_min_id(db_path: str) -> int | None:
@@ -79,7 +80,7 @@ def get_last_macro_min_id(db_path: str) -> int | None:
     Returns:
         Integer ID or None if not set (first run)
     """
-    value = get_last_seen(db_path, 'macro_news_min_id')
+    value = get_last_seen(db_path, "macro_news_min_id")
     if value:
         try:
             return int(value)
@@ -98,7 +99,7 @@ def set_last_macro_min_id(db_path: str, min_id: int) -> None:
     Args:
         min_id: The max article ID from this fetch (becomes next minId)
     """
-    set_last_seen(db_path, 'macro_news_min_id', str(min_id))
+    set_last_seen(db_path, "macro_news_min_id", str(min_id))
 
 
 def get_news_before(db_path: str, cutoff: datetime) -> list[NewsItem]:
@@ -113,12 +114,15 @@ def get_news_before(db_path: str, cutoff: datetime) -> list[NewsItem]:
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path, commit=False) as cursor:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT symbol, url, headline, content, published_iso, source, created_at_iso
             FROM news_items
             WHERE created_at_iso <= ?
             ORDER BY created_at_iso ASC, symbol ASC
-        """, (iso_cutoff,))
+        """,
+            (iso_cutoff,),
+        )
 
         return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
 
@@ -135,12 +139,15 @@ def get_prices_before(db_path: str, cutoff: datetime) -> list[PriceData]:
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path, commit=False) as cursor:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT symbol, timestamp_iso, price, volume, session, created_at_iso
             FROM price_data
             WHERE created_at_iso <= ?
             ORDER BY created_at_iso ASC, symbol ASC
-        """, (iso_cutoff,))
+        """,
+            (iso_cutoff,),
+        )
 
         return [_row_to_price_data(dict(row)) for row in cursor.fetchall()]
 
@@ -165,11 +172,12 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
         # 1) Persist the cutoff watermark
         cursor.execute(
             "INSERT OR REPLACE INTO last_seen (key, value) VALUES ('llm_last_run_iso', ?)",
-            (iso_cutoff,)
+            (iso_cutoff,),
         )
 
         # 2) Prune items processed in this batch
-        cursor.execute("""
+        cursor.execute(
+            """
             DELETE FROM news_labels
             WHERE EXISTS (
                 SELECT 1
@@ -178,19 +186,19 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
                   AND ni.url = news_labels.url
                   AND ni.created_at_iso <= ?
             )
-        """, (iso_cutoff,))
+        """,
+            (iso_cutoff,),
+        )
         labels_deleted = cursor.rowcount
 
-        cursor.execute(
-            "DELETE FROM news_items WHERE created_at_iso <= ?",
-            (iso_cutoff,)
-        )
+        cursor.execute("DELETE FROM news_items WHERE created_at_iso <= ?", (iso_cutoff,))
         news_deleted = cursor.rowcount
 
-        cursor.execute(
-            "DELETE FROM price_data WHERE created_at_iso <= ?",
-            (iso_cutoff,)
-        )
+        cursor.execute("DELETE FROM price_data WHERE created_at_iso <= ?", (iso_cutoff,))
         prices_deleted = cursor.rowcount
 
-    return {"labels_deleted": labels_deleted, "news_deleted": news_deleted, "prices_deleted": prices_deleted}
+    return {
+        "labels_deleted": labels_deleted,
+        "news_deleted": news_deleted,
+        "prices_deleted": prices_deleted,
+    }

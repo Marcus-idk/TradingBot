@@ -19,15 +19,17 @@ class TestClientShared:
         captured: dict[str, Any] = {}
 
         async def fake_get_json(url: str, **kwargs: Any) -> dict[str, str]:
-            captured.update({
-                "url": url,
-                "params": kwargs.get("params"),
-                "timeout": kwargs.get("timeout"),
-                "max_retries": kwargs.get("max_retries"),
-                "base": kwargs.get("base"),
-                "mult": kwargs.get("mult"),
-                "jitter": kwargs.get("jitter"),
-            })
+            captured.update(
+                {
+                    "url": url,
+                    "params": kwargs.get("params"),
+                    "timeout": kwargs.get("timeout"),
+                    "max_retries": kwargs.get("max_retries"),
+                    "base": kwargs.get("base"),
+                    "mult": kwargs.get("mult"),
+                    "jitter": kwargs.get("jitter"),
+                }
+            )
             return {"status": "ok"}
 
         monkeypatch.setattr(

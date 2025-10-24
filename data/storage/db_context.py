@@ -1,16 +1,14 @@
 """Internal database context manager utilities for reducing boilerplate."""
 
-from contextlib import contextmanager
-from typing import Iterator
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from data.storage.storage_core import connect
 
+
 @contextmanager
-def _cursor_context(
-    db_path: str,
-    *,
-    commit: bool = True
-) -> Iterator[sqlite3.Cursor]:
+def _cursor_context(db_path: str, *, commit: bool = True) -> Iterator[sqlite3.Cursor]:
     """
     Internal context manager for database operations with automatic cleanup.
 
@@ -39,7 +37,7 @@ def _cursor_context(
         if commit:
             conn.commit()
     except BaseException:
-        conn.rollback()    # Rollback on ANY exception including Ctrl+C
+        conn.rollback()  # Rollback on ANY exception including Ctrl+C
         raise
     finally:
         conn.close()

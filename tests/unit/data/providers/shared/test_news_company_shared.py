@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -35,7 +35,7 @@ class TestNewsCompanyShared:
 
     async def test_parses_valid_article(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
-        now_epoch = int(datetime.now(timezone.utc).timestamp())
+        now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_company.article_factory(
             headline="Tesla soars",
             url="https://example.com/tesla",
@@ -44,9 +44,15 @@ class TestNewsCompanyShared:
             summary="Detailed content",
         )
 
-        async def mock_get(path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]] | dict[str, Any]:
+        async def mock_get(
+            path: str, params: dict[str, Any] | None = None
+        ) -> list[dict[str, Any]] | dict[str, Any]:
             assert path == provider_spec_company.endpoint
-            assert params and params[provider_spec_company.symbol_param_name] in provider_spec_company.default_symbols
+            assert (
+                params
+                and params[provider_spec_company.symbol_param_name]
+                in provider_spec_company.default_symbols
+            )
             return provider_spec_company.wrap_response([article])
 
         provider.client.get = mock_get
@@ -60,15 +66,15 @@ class TestNewsCompanyShared:
         assert item.headline == "Tesla soars"
         assert item.content == "Detailed content"
         assert item.source == "Reuters"
-        assert item.published == datetime.fromtimestamp(now_epoch, tz=timezone.utc)
+        assert item.published == datetime.fromtimestamp(now_epoch, tz=UTC)
 
     async def test_skips_missing_headline(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
-        data = provider_spec_company.article_factory(headline="", url="https://example.com", epoch=1_705_320_000)
-
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([data])
+        data = provider_spec_company.article_factory(
+            headline="", url="https://example.com", epoch=1_705_320_000
         )
+
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([data]))
 
         results = await provider.fetch_incremental()
 
@@ -76,11 +82,11 @@ class TestNewsCompanyShared:
 
     async def test_skips_missing_url(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
-        data = provider_spec_company.article_factory(headline="Headline", url="", epoch=1_705_320_000)
-
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([data])
+        data = provider_spec_company.article_factory(
+            headline="Headline", url="", epoch=1_705_320_000
         )
+
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([data]))
 
         results = await provider.fetch_incremental()
 
@@ -90,9 +96,7 @@ class TestNewsCompanyShared:
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(epoch=0)
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([data])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([data]))
 
         results = await provider.fetch_incremental()
 
@@ -104,7 +108,7 @@ class TestNewsCompanyShared:
         class MockDatetime:
             @staticmethod
             def now(tz):
-                return datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+                return datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
             @staticmethod
             def fromtimestamp(ts, tz):
@@ -114,27 +118,29 @@ class TestNewsCompanyShared:
         monkeypatch.setattr(f"{provider.__module__}.timezone", timezone)
         monkeypatch.setattr(f"{provider.__module__}.timedelta", timedelta)
 
-        buffer_epoch = int(datetime(2024, 1, 15, 9, 58, tzinfo=timezone.utc).timestamp())
+        buffer_epoch = int(datetime(2024, 1, 15, 9, 58, tzinfo=UTC).timestamp())
         at_buffer = provider_spec_company.article_factory(epoch=buffer_epoch)
         inside_buffer = provider_spec_company.article_factory(epoch=buffer_epoch + 30)
         new_article = provider_spec_company.article_factory(epoch=buffer_epoch + 600)
 
         provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([at_buffer, inside_buffer, new_article])
+            return_value=provider_spec_company.wrap_response(
+                [at_buffer, inside_buffer, new_article]
+            )
         )
 
-        since = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        since = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
         results = await provider.fetch_incremental(since=since)
 
         assert [item.published for item in results] == [
-            datetime.fromtimestamp(buffer_epoch + 30, tz=timezone.utc),
-            datetime.fromtimestamp(buffer_epoch + 600, tz=timezone.utc),
+            datetime.fromtimestamp(buffer_epoch + 30, tz=UTC),
+            datetime.fromtimestamp(buffer_epoch + 600, tz=UTC),
         ]
 
     async def test_date_window_params_with_since(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
-        fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod
@@ -156,7 +162,7 @@ class TestNewsCompanyShared:
 
         provider.client.get = fake_get
 
-        since = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
+        since = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
         await provider.fetch_incremental(since=since)
 
         assert captured
@@ -176,7 +182,7 @@ class TestNewsCompanyShared:
     async def test_date_window_params_without_since(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
-        fixed_now = datetime(2024, 2, 1, 12, 0, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 2, 1, 12, 0, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod
@@ -217,9 +223,7 @@ class TestNewsCompanyShared:
     async def test_symbol_normalization_uppercases(self, provider_spec_company):
         provider = provider_spec_company.make_provider(symbols=["aapl", " tsla ", ""])
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([]))
 
         await provider.fetch_incremental()
 
@@ -229,9 +233,7 @@ class TestNewsCompanyShared:
         provider = provider_spec_company.make_provider()
         article = provider_spec_company.article_factory(summary="Earnings beat expectations")
 
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([article])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([article]))
 
         results = await provider.fetch_incremental()
 
@@ -267,11 +269,8 @@ class TestNewsCompanyShared:
 
     async def test_empty_response_returns_empty_list(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
-        provider.client.get = AsyncMock(
-            return_value=provider_spec_company.wrap_response([])
-        )
+        provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([]))
 
         results = await provider.fetch_incremental()
 
         assert results == []
-

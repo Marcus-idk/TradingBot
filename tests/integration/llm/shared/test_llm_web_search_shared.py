@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -16,7 +16,7 @@ pytestmark = [pytest.mark.network, pytest.mark.asyncio]
 
 async def test_web_search_enabled_returns_expected_title(provider_spec):
     provider = provider_spec.make_provider_for_search(enabled=True)
-    yesterday_utc = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    yesterday_utc = (datetime.now(UTC) - timedelta(days=1)).date()
     expected_title = await fetch_featured_wiki(yesterday_utc)
     normalized_expected = normalize_title(expected_title)
     prompt = (
@@ -32,7 +32,7 @@ async def test_web_search_enabled_returns_expected_title(provider_spec):
 
 async def test_web_search_disabled_does_not_find_title(provider_spec):
     provider = provider_spec.make_provider_for_search(enabled=False)
-    yesterday_utc = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    yesterday_utc = (datetime.now(UTC) - timedelta(days=1)).date()
     expected_title = await fetch_featured_wiki(yesterday_utc)
     normalized_expected = normalize_title(expected_title)
     prompt = (

@@ -3,11 +3,12 @@ Helper functions for LLM integration tests.
 Focused on testing code execution capabilities of LLM providers.
 """
 
-from datetime import date
-import os
 import base64
 import hashlib
+import os
 import re
+from datetime import date
+
 import pytest
 
 from config.retry import DEFAULT_DATA_RETRY
@@ -15,15 +16,16 @@ from utils.http import get_json_with_retry
 
 _WIKI_URL = "https://en.wikipedia.org/api/rest_v1/feed/featured/{y}/{m:02d}/{d:02d}"
 
+
 def make_base64_blob(n_bytes: int = 64) -> tuple[str, str]:
     """Generate a random base64 blob and its expected SHA-256 hash.
-    
+
     Used to test LLM code execution tools by having them decode and hash data.
     This validates that the provider can execute code correctly and return results.
-    
+
     Args:
         n_bytes: Number of random bytes to generate (default 64)
-        
+
     Returns:
         Tuple of (base64_string, expected_sha256_hex)
     """
@@ -35,13 +37,13 @@ def make_base64_blob(n_bytes: int = 64) -> tuple[str, str]:
 
 def extract_hex64(s: str) -> str:
     """Extract a 64-character hexadecimal string from LLM response.
-    
+
     LLMs may return the hash embedded in explanatory text. This extracts
     just the hash value for comparison, handling various formatting.
-    
+
     Args:
         s: String potentially containing a SHA-256 hash
-        
+
     Returns:
         Lowercase hex string if found, empty string otherwise
     """
@@ -51,14 +53,12 @@ def extract_hex64(s: str) -> str:
 
 async def fetch_featured_wiki(date_utc: date) -> str:
     """Return the title of the English Wikipedia featured article for a given date.
-    
+
     May skip test if Wikipedia payload is incomplete.
     """
     url = _WIKI_URL.format(y=date_utc.year, m=date_utc.month, d=date_utc.day)
-    
-    headers = {
-        "User-Agent": "Information (marcusgohkz@gmail.com)"
-    }
+
+    headers = {"User-Agent": "Information (marcusgohkz@gmail.com)"}
 
     data = await get_json_with_retry(
         url,
@@ -77,12 +77,12 @@ async def fetch_featured_wiki(date_utc: date) -> str:
     # Try multiple fallback paths for title
     titles = tfa.get("titles", {})
     title = (
-        titles.get("normalized") or
-        titles.get("display") or
-        tfa.get("normalizedtitle") or
-        tfa.get("title")
+        titles.get("normalized")
+        or titles.get("display")
+        or tfa.get("normalizedtitle")
+        or tfa.get("title")
     )
-    
+
     if not title:
         pytest.skip("Wikipedia payload missing title")
 

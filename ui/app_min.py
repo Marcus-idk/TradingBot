@@ -1,14 +1,18 @@
 import os
 import re
+
 import pandas as pd
 import streamlit as st
+
 from data.storage.db_context import _cursor_context
+
 
 def _friendly_table_name(raw_name: str) -> str:
     """Convert raw table names like `price_data` into `Price Data`."""
     cleaned = re.sub(r"[^0-9A-Za-z]+", " ", raw_name)
     cleaned = " ".join(cleaned.split())
     return cleaned.title() if cleaned else raw_name
+
 
 def fetch_table_names(db_path: str) -> list[str]:
     with _cursor_context(db_path, commit=False) as cursor:
@@ -25,11 +29,8 @@ def build_display_map(names: list[str]) -> dict[str, str]:
         display_to_table[label] = raw
     return display_to_table
 
-st.set_page_config(
-    page_title="TradingBot DB",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
+st.set_page_config(page_title="TradingBot DB", layout="wide", initial_sidebar_state="expanded")
 
 DB_PATH = os.getenv("DATABASE_PATH", "data/trading_bot.db")
 table_names = fetch_table_names(DB_PATH)

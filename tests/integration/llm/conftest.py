@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from config.llm import GeminiSettings, OpenAISettings
 from llm import GeminiProvider, OpenAIProvider
 
 load_dotenv(override=True)
+
 
 @dataclass(slots=True)
 class ProviderSpec:
@@ -58,9 +60,7 @@ class ProviderSpec:
 
     def make_provider_for_search(self, *, enabled: bool):
         tools = self.search_tools_factory() if enabled else None
-        tool_choice = (
-            self.search_tool_choice_on if enabled else self.search_tool_choice_off
-        )
+        tool_choice = self.search_tool_choice_on if enabled else self.search_tool_choice_off
         return self.make_provider(tools=tools, tool_choice=tool_choice)
 
 
@@ -70,9 +70,7 @@ _PROVIDER_SPECS: tuple[ProviderSpec, ...] = (
         provider_cls=OpenAIProvider,
         settings_factory=OpenAISettings.from_env,
         model_name="gpt-5",
-        code_tools_factory=lambda: [
-            {"type": "code_interpreter", "container": {"type": "auto"}}
-        ],
+        code_tools_factory=lambda: [{"type": "code_interpreter", "container": {"type": "auto"}}],
         code_tool_choice_on="auto",
         code_tool_choice_off="none",
         search_tools_factory=lambda: [{"type": "web_search"}],

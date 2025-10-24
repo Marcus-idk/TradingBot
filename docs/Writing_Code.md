@@ -104,6 +104,30 @@ from typing import Dict  # Never used
 # Remove unused code entirely—if it is not defensive or functional, delete it.
 ```
 
+### LINTER_SUPPRESSION
+Use `# noqa` comments sparingly and only when the linter is wrong. Always specify the rule code.
+```python
+# ✅ GOOD: Intentional unused import with reason
+from datetime import timezone  # noqa: F401 - used by tests via monkeypatch
+
+# ✅ GOOD: Long line that can't be broken
+URL = "https://example.com/very/long/path/that/cannot/be/split"  # noqa: E501
+
+# ❌ BAD: Suppressing without reason
+from json import loads  # noqa
+
+# ❌ BAD: Suppressing all rules
+result = complex_function()  # noqa
+
+# Default: Fix the code instead of suppressing warnings
+```
+
+Common `noqa` codes:
+- `F401` - Unused import
+- `E501` - Line too long
+- `B008` - Mutable default argument
+- Use `# noqa: <code>` for specific rule, avoid blanket `# noqa`
+
 Defensive checks for external contracts must log a warning or raise when triggered; otherwise remove them.
 
 ```python

@@ -7,7 +7,6 @@ import pytest
 from config.providers.finnhub import FinnhubSettings
 from data.providers.finnhub import FinnhubNewsProvider
 
-
 pytestmark = pytest.mark.asyncio
 
 

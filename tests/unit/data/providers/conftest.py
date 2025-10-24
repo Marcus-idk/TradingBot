@@ -1,9 +1,10 @@
 """Common fixtures for data provider contract tests."""
 
-from datetime import datetime, timezone
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 
@@ -11,7 +12,6 @@ from config.providers.finnhub import FinnhubSettings
 from config.providers.polygon import PolygonSettings
 from config.retry import DataRetryConfig
 from data import NewsDataSource, PriceDataSource
-from data.storage.storage_utils import _datetime_to_iso
 from data.providers.finnhub import (
     FinnhubMacroNewsProvider,
     FinnhubNewsProvider,
@@ -23,6 +23,7 @@ from data.providers.polygon import (
     PolygonNewsProvider,
 )
 from data.providers.polygon.polygon_client import PolygonClient
+from data.storage.storage_utils import _datetime_to_iso
 
 
 @dataclass(slots=True)
@@ -108,7 +109,7 @@ class PriceProviderSpec:
         if timestamp is not None:
             data["t"] = timestamp
         else:
-            data["t"] = int(datetime.now(timezone.utc).timestamp())
+            data["t"] = int(datetime.now(UTC).timestamp())
         if extras:
             data.update(extras)
         return data
@@ -151,11 +152,12 @@ def _polygon_settings() -> PolygonSettings:
 @pytest.fixture(params=["finnhub", "polygon"])
 def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec:
     if request.param == "finnhub":
+
         def finnhub_company_article_factory(**kwargs) -> dict[str, Any]:
             article: dict[str, Any] = {
                 "headline": kwargs.get("headline", "Market rally"),
                 "url": kwargs.get("url", "https://example.com/news"),
-                "datetime": kwargs.get("epoch", int(datetime.now(timezone.utc).timestamp())),
+                "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
             }
             if "source" in kwargs and kwargs["source"] is not None:
                 article["source"] = kwargs["source"]
@@ -176,9 +178,10 @@ def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec
             article_factory=finnhub_company_article_factory,
         )
     else:
+
         def polygon_company_article_factory(**kwargs) -> dict[str, Any]:
-            epoch = kwargs.get("epoch", int(datetime.now(timezone.utc).timestamp()))
-            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=timezone.utc))
+            epoch = kwargs.get("epoch", int(datetime.now(UTC).timestamp()))
+            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=UTC))
             article: dict[str, Any] = {
                 "title": kwargs.get("headline", "Market rally"),
                 "article_url": kwargs.get("url", "https://example.com/news"),
@@ -201,13 +204,14 @@ def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec
 @pytest.fixture(params=["finnhub", "polygon"])
 def provider_spec_macro(request: pytest.FixtureRequest) -> MacroProviderSpec:
     if request.param == "finnhub":
+
         def finnhub_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
             related_str = symbols if isinstance(symbols, str) else ",".join(symbols)
             article: dict[str, Any] = {
                 "id": kwargs.get("article_id", 101),
                 "headline": kwargs.get("headline", "Macro update"),
                 "url": kwargs.get("url", "https://example.com/macro"),
-                "datetime": kwargs.get("epoch", int(datetime.now(timezone.utc).timestamp())),
+                "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
                 "related": related_str,
             }
             if "source" in kwargs and kwargs["source"] is not None:
@@ -228,12 +232,13 @@ def provider_spec_macro(request: pytest.FixtureRequest) -> MacroProviderSpec:
             article_factory=finnhub_article_factory,
         )
     else:
+
         def polygon_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
             tickers_list = symbols.split(",") if isinstance(symbols, str) else list(symbols)
             if tickers_list == [""]:
                 tickers_list = []
-            epoch = kwargs.get("epoch", int(datetime.now(timezone.utc).timestamp()))
-            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=timezone.utc))
+            epoch = kwargs.get("epoch", int(datetime.now(UTC).timestamp()))
+            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=UTC))
             article: dict[str, Any] = {
                 "id": kwargs.get("article_id", 101),
                 "title": kwargs.get("headline", "Macro update"),

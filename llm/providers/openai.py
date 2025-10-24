@@ -1,29 +1,28 @@
 import logging
 from typing import Any
 
-from openai import AsyncOpenAI
 from openai import (
-    RateLimitError,
-    APIConnectionError, 
-    APITimeoutError,
+    APIConnectionError,
     APIStatusError,
+    APITimeoutError,
+    AsyncOpenAI,
     AuthenticationError,
-    PermissionDeniedError,
     BadRequestError,
+    ConflictError,
     NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
     UnprocessableEntityError,
-    ConflictError
 )
-from llm.base import LLMProvider, LLMError
-from config.llm import OpenAISettings
-from utils.retry import RetryableError, retry_and_call, parse_retry_after
 
+from config.llm import OpenAISettings
+from llm.base import LLMError, LLMProvider
+from utils.retry import RetryableError, parse_retry_after, retry_and_call
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(LLMProvider):
-    
     def __init__(
         self,
         settings: OpenAISettings,
@@ -33,7 +32,7 @@ class OpenAIProvider(LLMProvider):
         reasoning: dict[str, Any] | None = None,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, Any] | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.settings = settings
@@ -43,9 +42,7 @@ class OpenAIProvider(LLMProvider):
         self.tools = tools
         self.tool_choice = tool_choice
         self.client = AsyncOpenAI(
-            api_key=settings.api_key,
-            max_retries=0, 
-            timeout=settings.retry_config.timeout_seconds
+            api_key=settings.api_key, max_retries=0, timeout=settings.retry_config.timeout_seconds
         )
 
     async def generate(self, prompt: str) -> str:
@@ -85,14 +82,14 @@ class OpenAIProvider(LLMProvider):
                 RuntimeError,
             ) as exc:
                 raise self._classify_openai_exception(exc) from exc
-        
+
         # Use retry wrapper with provider's settings
         return await retry_and_call(
             _attempt,
             attempts=self.settings.retry_config.max_retries + 1,
             base=self.settings.retry_config.base,
             mult=self.settings.retry_config.mult,
-            jitter=self.settings.retry_config.jitter
+            jitter=self.settings.retry_config.jitter,
         )
 
     def _classify_openai_exception(self, e: Exception) -> Exception:
@@ -101,44 +98,44 @@ class OpenAIProvider(LLMProvider):
         if isinstance(e, RateLimitError):
             # Extract and parse retry-after if available from headers
             retry_after = None
-            if hasattr(e, 'response') and hasattr(e.response, 'headers'):
-                retry_after_header = e.response.headers.get('retry-after')
+            if hasattr(e, "response") and hasattr(e.response, "headers"):
+                retry_after_header = e.response.headers.get("retry-after")
                 retry_after = parse_retry_after(retry_after_header)
             return RetryableError(f"Rate limited: {str(e)}", retry_after=retry_after)
-        
+
         elif isinstance(e, APITimeoutError):
             return RetryableError(f"Request timeout: {str(e)}")
-        
+
         elif isinstance(e, APIConnectionError):
             return RetryableError(f"Connection failed: {str(e)}")
-        
+
         elif isinstance(e, ConflictError):
             # 409 Conflict - SDK retries this by default, we should too
             return RetryableError(f"Conflict error: {str(e)}")
-        
+
         elif isinstance(e, APIStatusError):
             # Check for 5xx server errors
-            if hasattr(e, 'status_code') and e.status_code >= 500:
+            if hasattr(e, "status_code") and e.status_code >= 500:
                 return RetryableError(f"Server error ({e.status_code}): {str(e)}")
             # Other status errors are not retryable
             return LLMError(f"API error ({e.status_code}): {str(e)}")
-        
+
         # Non-retryable errors: auth failures, bad requests, etc.
         elif isinstance(e, AuthenticationError):
             return LLMError(f"Authentication failed: {str(e)}")
-        
+
         elif isinstance(e, PermissionDeniedError):
             return LLMError(f"Permission denied: {str(e)}")
-        
+
         elif isinstance(e, BadRequestError):
             return LLMError(f"Invalid request: {str(e)}")
-        
+
         elif isinstance(e, NotFoundError):
             return LLMError(f"Resource not found: {str(e)}")
-        
+
         elif isinstance(e, UnprocessableEntityError):
             return LLMError(f"Unprocessable entity: {str(e)}")
-        
+
         else:
             # Unknown error - don't retry
             return LLMError(f"Unexpected error: {str(e)}")

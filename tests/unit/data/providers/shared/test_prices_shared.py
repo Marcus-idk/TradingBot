@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock
@@ -12,6 +12,7 @@ import pytest
 from data import DataSourceError, PriceData
 
 pytestmark = pytest.mark.asyncio
+
 
 class TestPricesShared:
     """Shared behavior tests for price providers."""
@@ -46,7 +47,7 @@ class TestPricesShared:
 
     async def test_classifies_session(self, provider_spec_prices):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
-        ts = datetime(2024, 1, 17, 15, 0, tzinfo=timezone.utc)
+        ts = datetime(2024, 1, 17, 15, 0, tzinfo=UTC)
         quote = provider_spec_prices.quote(price=150.0, timestamp=int(ts.timestamp()))
         provider.client.get = AsyncMock(return_value=quote)
 
@@ -96,7 +97,7 @@ class TestPricesShared:
 
     async def test_timestamp_fallback_when_missing(self, provider_spec_prices, monkeypatch):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
-        fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod
@@ -119,7 +120,7 @@ class TestPricesShared:
 
     async def test_timestamp_fallback_when_invalid(self, provider_spec_prices, monkeypatch):
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
-        fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+        fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
         class MockDatetime:
             @staticmethod

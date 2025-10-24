@@ -1,17 +1,16 @@
 """Price provider implementation."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone  # noqa: F401 - used by tests via monkeypatch
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
-from data import PriceDataSource, DataSourceError
+from data import DataSourceError, PriceDataSource
 from data.models import PriceData
+from data.providers.finnhub.finnhub_client import FinnhubClient
 from utils.market_sessions import classify_us_session
 from utils.retry import RetryableError
-from data.providers.finnhub.finnhub_client import FinnhubClient
-
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,9 @@ logger = logging.getLogger(__name__)
 class FinnhubPriceProvider(PriceDataSource):
     """Fetches real-time quotes from Finnhub's /quote endpoint."""
 
-    def __init__(self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub") -> None:
+    def __init__(
+        self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"
+    ) -> None:
         super().__init__(source_name)
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
@@ -63,9 +64,7 @@ class FinnhubPriceProvider(PriceDataSource):
         try:
             price = Decimal(str(raw_price))
         except (ValueError, TypeError, InvalidOperation) as exc:
-            logger.debug(
-                f"Invalid quote price for {symbol}: {raw_price!r} ({exc}) - skipping"
-            )
+            logger.debug(f"Invalid quote price for {symbol}: {raw_price!r} ({exc}) - skipping")
             return None
 
         if price <= 0:
@@ -74,14 +73,14 @@ class FinnhubPriceProvider(PriceDataSource):
         quote_timestamp = quote.get("t", 0)
         if quote_timestamp > 0:
             try:
-                timestamp = datetime.fromtimestamp(quote_timestamp, tz=timezone.utc)
+                timestamp = datetime.fromtimestamp(quote_timestamp, tz=UTC)
             except (ValueError, OSError) as exc:
                 logger.debug(
                     f"Invalid quote timestamp for {symbol}: {quote_timestamp!r} ({exc}) - using now()"
                 )
-                timestamp = datetime.now(timezone.utc)
+                timestamp = datetime.now(UTC)
         else:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         try:
             return PriceData(
@@ -92,8 +91,5 @@ class FinnhubPriceProvider(PriceDataSource):
                 session=classify_us_session(timestamp),
             )
         except ValueError as exc:  # pragma: no cover
-            logger.debug(
-                f"PriceData validation failed for {symbol} (price={price}): {exc}"
-            )
+            logger.debug(f"PriceData validation failed for {symbol} (price={price}): {exc}")
             return None
-
