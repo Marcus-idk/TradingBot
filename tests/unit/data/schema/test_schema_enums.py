@@ -107,19 +107,43 @@ class TestEnumConstraints:
                 cursor.execute(
                     """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES (?, 'news_analysis', 'gpt-4', ?, 0.75, '2024-01-01T10:00:00Z', '{}')
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        ?, 'news_analysis', 'gpt-4', ?, 0.75,
+                        '2024-01-01T10:00:00Z', '{}'
+                    )
                 """,
                     (f"TEST_{stance}", stance),
                 )
 
             # Invalid: lowercase
             with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES ('TEST', 'sentiment_analysis', 'gpt-4', 'bull', 0.75, '2024-01-01T10:00:00Z', '{}')
-                """)
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        'TEST', 'sentiment_analysis', 'gpt-4', 'bull', 0.75,
+                        '2024-01-01T10:00:00Z', '{}'
+                    )
+                """
+                )
 
     def test_analysis_type_enum_values(self, temp_db):
         """Test analysis_type enum constraint."""
@@ -130,19 +154,43 @@ class TestEnumConstraints:
                 cursor.execute(
                     """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES (?, ?, 'gpt-4', 'BULL', 0.75, '2024-01-01T10:00:00Z', '{}')
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        ?, ?, 'gpt-4', 'BULL', 0.75,
+                        '2024-01-01T10:00:00Z', '{}'
+                    )
                 """,
                     (f"TEST{i}", atype),
                 )
 
             # Invalid: uppercase
             with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES ('INVALID', 'NEWS_ANALYSIS', 'gpt-4', 'BULL', 0.75, '2024-01-01T10:00:00Z', '{}')
-                """)
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        'INVALID', 'NEWS_ANALYSIS', 'gpt-4', 'BULL', 0.75,
+                        '2024-01-01T10:00:00Z', '{}'
+                    )
+                """
+                )
 
     def test_news_label_enum_values(self, temp_db):
         """Test news_labels label constraint values."""
@@ -151,7 +199,10 @@ class TestEnumConstraints:
                 cursor.execute(
                     """
                     INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                    VALUES ('AAPL', 'http://example.com/enum-' || ?, 'Enum Value', '2024-01-01T10:00:00Z', 'test')
+                    VALUES (
+                        'AAPL', 'http://example.com/enum-' || ?, 'Enum Value',
+                        '2024-01-01T10:00:00Z', 'test'
+                    )
                 """,
                     (suffix,),
                 )

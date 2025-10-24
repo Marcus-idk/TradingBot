@@ -58,7 +58,8 @@ class TestWALSqlite:
 
     def test_concurrent_operations_with_wal(self, temp_db):
         """
-        Test that WAL mode allows concurrent read/write operations without "database locked" errors.
+        Test that WAL mode allows concurrent read/write operations
+        without "database locked" errors.
 
         This test validates realistic trading bot scenarios:
         1. Multiple data source polling (concurrent writes)
@@ -123,7 +124,9 @@ class TestWALSqlite:
                         symbol=symbol,
                         url=f"https://newsapi.com/{symbol.lower()}-news-{thread_id}-{i}",
                         headline=f"{symbol} Market Update from Source {thread_id}",
-                        content=f"Latest {symbol} financial news from concurrent source {thread_id}",
+                        content=(
+                            f"Latest {symbol} financial news from concurrent source {thread_id}"
+                        ),
                         source=f"NewsAPI-{thread_id}",
                         published=base_time,
                     )
@@ -163,7 +166,10 @@ class TestWALSqlite:
                     stance=Stance.BULL if (thread_id + i) % 2 == 0 else Stance.BEAR,
                     confidence_score=0.5 + (thread_id * 0.1) + (i * 0.05),
                     last_updated=base_time,
-                    result_json=f'{{"thread": {thread_id}, "symbol": "{symbol}", "analysis": "concurrent_test"}}',
+                    result_json=(
+                        f'{{"thread": {thread_id}, "symbol": "{symbol}", '
+                        f'"analysis": "concurrent_test"}}'
+                    ),
                 )
 
                 upsert_analysis_result(temp_db, analysis)
@@ -178,7 +184,9 @@ class TestWALSqlite:
                 if query_type == "news":
                     results = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))
                     track_result(
-                        "read", success=True, data=f"news_read_{thread_id}_{i}_count_{len(results)}"
+                        "read",
+                        success=True,
+                        data=(f"news_read_{thread_id}_{i}_count_{len(results)}"),
                     )
                 elif query_type == "price":
                     results = get_price_data_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))

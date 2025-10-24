@@ -73,7 +73,8 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             ]
             if len(filtered_articles) < len(articles):
                 logger.debug(
-                    f"Filtered {len(articles) - len(filtered_articles)} articles with id <= {min_id}"
+                    f"Filtered {len(articles) - len(filtered_articles)} articles "
+                    f"with id <= {min_id}"
                 )
             articles = filtered_articles
 

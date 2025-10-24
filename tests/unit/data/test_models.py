@@ -8,7 +8,15 @@ from decimal import Decimal
 
 import pytest
 
-from data.models import AnalysisResult, AnalysisType, Holdings, NewsItem, PriceData, Session, Stance
+from data.models import (
+    AnalysisResult,
+    AnalysisType,
+    Holdings,
+    NewsItem,
+    PriceData,
+    Session,
+    Stance,
+)
 
 
 class TestNewsItem:

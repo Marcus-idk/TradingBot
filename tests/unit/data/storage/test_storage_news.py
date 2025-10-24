@@ -78,7 +78,10 @@ class TestNewsLabelStorage:
         news = self._seed_news(temp_db, "AAPL", "https://example.com/news/primary")
         labeled_at = datetime(2024, 1, 15, 12, 5, tzinfo=UTC)
         label = NewsLabel(
-            symbol=news.symbol, url=news.url, label=NewsLabelType.COMPANY, created_at=labeled_at
+            symbol=news.symbol,
+            url=news.url,
+            label=NewsLabelType.COMPANY,
+            created_at=labeled_at,
         )
 
         store_news_labels(temp_db, [label])
@@ -152,8 +155,16 @@ class TestNewsLabelStorage:
         self._seed_news(temp_db, "TSLA", "https://example.com/news/b")
 
         labels = [
-            NewsLabel(symbol="AAPL", url="https://example.com/news/a", label=NewsLabelType.COMPANY),
-            NewsLabel(symbol="TSLA", url="https://example.com/news/b", label=NewsLabelType.PEOPLE),
+            NewsLabel(
+                symbol="AAPL",
+                url="https://example.com/news/a",
+                label=NewsLabelType.COMPANY,
+            ),
+            NewsLabel(
+                symbol="TSLA",
+                url="https://example.com/news/b",
+                label=NewsLabelType.PEOPLE,
+            ),
         ]
         store_news_labels(temp_db, labels)
 

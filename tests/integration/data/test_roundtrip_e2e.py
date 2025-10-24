@@ -7,7 +7,15 @@ validating field preservation, timezone handling, and cross-model consistency.
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from data.models import AnalysisResult, AnalysisType, Holdings, NewsItem, PriceData, Session, Stance
+from data.models import (
+    AnalysisResult,
+    AnalysisType,
+    Holdings,
+    NewsItem,
+    PriceData,
+    Session,
+    Stance,
+)
 from data.storage import (
     get_all_holdings,
     get_analysis_results,
@@ -97,7 +105,9 @@ class TestDataRoundtrip:
                 stance=Stance.BULL,
                 confidence_score=0.8500,  # Test specific precision
                 last_updated=test_timestamp,
-                result_json='{"sentiment": "positive", "key_factors": ["strong earnings", "guidance beat"]}',
+                result_json=(
+                    '{"sentiment": "positive", "key_factors": ["strong earnings", "guidance beat"]}'
+                ),
                 created_at=naive_timestamp,  # Test timezone conversion
             ),
             AnalysisResult(
@@ -462,7 +472,8 @@ class TestDataRoundtrip:
         # 2. Update the AnalysisResult (same symbol+analysis_type, different values)
         updated_analysis = AnalysisResult(
             symbol="TEST",  # Same symbol
-            analysis_type=AnalysisType.NEWS_ANALYSIS,  # Same analysis_type - triggers upsert update
+            # Same analysis_type - triggers upsert update
+            analysis_type=AnalysisType.NEWS_ANALYSIS,
             model_name="updated-model",  # Changed
             stance=Stance.BEAR,  # Changed
             confidence_score=0.6,  # Changed

@@ -95,7 +95,10 @@ class TestClientShared:
         assert result is False
 
     async def test_get_respects_custom_base_url_override(self, client_spec, monkeypatch):
-        """Ensures clients honor a non-default base_url from settings without provider branching."""
+        """
+        Ensure clients honor a non-default base_url from settings
+        without provider branching.
+        """
         from dataclasses import replace
 
         captured_url: dict[str, str] = {}

@@ -5,7 +5,15 @@ Tests data retrieval queries and filtering logic.
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from data.models import AnalysisResult, AnalysisType, Holdings, NewsItem, PriceData, Session, Stance
+from data.models import (
+    AnalysisResult,
+    AnalysisType,
+    Holdings,
+    NewsItem,
+    PriceData,
+    Session,
+    Stance,
+)
 from data.storage import (
     get_all_holdings,
     get_analysis_results,

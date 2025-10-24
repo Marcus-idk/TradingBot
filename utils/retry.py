@@ -4,11 +4,8 @@ import random
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from typing import TypeVar
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
 
 
 def parse_retry_after(value: str | float | int | None) -> float | None:
@@ -45,7 +42,7 @@ class RetryableError(Exception):
         self.retry_after = retry_after
 
 
-async def retry_and_call(
+async def retry_and_call[T](
     op: Callable[[], Awaitable[T]],
     *,
     attempts: int = 4,  # e.g., max_retries + 1

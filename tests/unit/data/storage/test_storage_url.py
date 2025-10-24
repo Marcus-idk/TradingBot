@@ -14,7 +14,10 @@ class TestURLNormalization:
             # UTM parameters
             ("https://example.com?utm_source=google&utm_medium=cpc", "https://example.com"),
             ("https://example.com?utm_campaign=test&utm_term=keyword", "https://example.com"),
-            ("https://example.com?utm_content=banner&other=keep", "https://example.com?other=keep"),
+            (
+                "https://example.com?utm_content=banner&other=keep",
+                "https://example.com?other=keep",
+            ),
             # Other tracking parameters
             ("https://example.com?ref=twitter&fbclid=abc123", "https://example.com"),
             ("https://example.com?gclid=xyz789&msclkid=def456", "https://example.com"),
@@ -23,7 +26,10 @@ class TestURLNormalization:
                 "https://example.com?source=newsletter",
             ),
             # Case insensitive removal
-            ("https://example.com?UTM_Source=google&CAMPAIGN=test", "https://example.com"),
+            (
+                "https://example.com?UTM_Source=google&CAMPAIGN=test",
+                "https://example.com",
+            ),
             ("https://example.com?REF=twitter&Source=email", "https://example.com?Source=email"),
         ]
 

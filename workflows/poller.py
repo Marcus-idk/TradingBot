@@ -132,7 +132,7 @@ class DataPoller:
         news_results, price_results = await asyncio.gather(news_coro, price_coro)
 
         # Process news results - zip keeps provider and result matched
-        for provider, result in zip(self.news_providers, news_results):
+        for provider, result in zip(self.news_providers, news_results, strict=True):
             if isinstance(result, Exception):
                 provider_name = provider.__class__.__name__
                 logger.error(f"{provider_name} news fetch failed: {result}")
@@ -144,7 +144,7 @@ class DataPoller:
                     company_news.extend(result)
 
         # Process price results - keep providers separate
-        for provider, result in zip(self.price_providers, price_results):
+        for provider, result in zip(self.price_providers, price_results, strict=True):
             provider_name = provider.__class__.__name__
             if isinstance(result, Exception):
                 logger.error(f"{provider_name} price fetch failed: {result}")

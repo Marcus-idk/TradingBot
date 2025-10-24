@@ -13,8 +13,6 @@ from unittest.mock import patch
 
 import pytest
 
-pytestmark = pytest.mark.asyncio
-
 from data.base import NewsDataSource, PriceDataSource
 from data.models import NewsItem, PriceData, Session
 from data.storage import (
@@ -25,6 +23,8 @@ from data.storage import (
     set_last_macro_min_id,
 )
 from workflows.poller import DataPoller
+
+pytestmark = pytest.mark.asyncio
 
 
 class StubNews(NewsDataSource):
@@ -185,7 +185,12 @@ class TestDataPoller:
         """Verify poll interval is set correctly."""
         # Create poller with custom 60 second interval
         custom_interval = 60
-        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=custom_interval)
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [StubPrice([])],
+            poll_interval=custom_interval,
+        )
 
         # Verify the interval was set correctly
         assert poller.poll_interval == custom_interval
@@ -227,7 +232,8 @@ class TestDataPoller:
         # Verify both providers were called
         assert company_provider.last_called_with_since is None  # First run, no watermark
 
-        assert macro_provider.last_called_with_min_id == 100  # Macro provider gets min_id watermark
+        # Macro provider gets min_id watermark
+        assert macro_provider.last_called_with_min_id == 100
 
         # Verify both sets of news were stored
         assert stats["news"] == 2

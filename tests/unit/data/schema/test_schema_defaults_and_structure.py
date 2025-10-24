@@ -28,10 +28,15 @@ class TestDefaultValues:
         """Test created_at_iso defaults to current timestamp."""
         with _cursor_context(temp_db) as cursor:
             # Insert without specifying created_at_iso
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/test', 'Test News', '2024-01-01T10:00:00Z', 'test')
-            """)
+                VALUES (
+                    'AAPL', 'http://example.com/test', 'Test News',
+                    '2024-01-01T10:00:00Z', 'test'
+                )
+                """
+            )
 
             # Verify timestamp was set
             result = cursor.execute("""
@@ -47,10 +52,15 @@ class TestDefaultValues:
     def test_news_labels_timestamp_default(self, temp_db):
         """Test created_at_iso default for news_labels table."""
         with _cursor_context(temp_db) as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/label-default', 'Label Default', '2024-01-01T10:00:00Z', 'test')
-            """)
+                VALUES (
+                    'AAPL', 'http://example.com/label-default', 'Label Default',
+                    '2024-01-01T10:00:00Z', 'test'
+                )
+                """
+            )
             cursor.execute("""
                 INSERT INTO news_labels (symbol, url, label)
                 VALUES ('AAPL', 'http://example.com/label-default', 'Company')

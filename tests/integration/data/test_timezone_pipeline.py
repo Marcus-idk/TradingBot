@@ -96,7 +96,8 @@ class TestTimezonePipeline:
         # Verify the actual UTC time is correct for timezone-aware inputs
         expected_eastern_utc = eastern_dt.astimezone(UTC)
         assert news_eastern.published == expected_eastern_utc, (
-            f"Eastern time conversion incorrect: expected {expected_eastern_utc}, got {news_eastern.published}"
+            "Eastern time conversion incorrect: expected "
+            f"{expected_eastern_utc}, got {news_eastern.published}"
         )
 
         # Test PriceData normalization
@@ -230,7 +231,8 @@ class TestTimezonePipeline:
         with _cursor_context(temp_db, commit=False) as cursor:
             # Check news_items table
             cursor.execute(
-                "SELECT symbol, published_iso FROM news_items WHERE symbol LIKE 'TZ%' ORDER BY symbol"
+                "SELECT symbol, published_iso FROM news_items "
+                "WHERE symbol LIKE 'TZ%' ORDER BY symbol"
             )
             news_rows = cursor.fetchall()
             for symbol, published_iso in news_rows:
@@ -243,7 +245,8 @@ class TestTimezonePipeline:
 
             # Check price_data table
             cursor.execute(
-                "SELECT symbol, timestamp_iso FROM price_data WHERE symbol LIKE 'TZ%' ORDER BY symbol"
+                "SELECT symbol, timestamp_iso FROM price_data "
+                "WHERE symbol LIKE 'TZ%' ORDER BY symbol"
             )
             price_rows = cursor.fetchall()
             for symbol, timestamp_iso in price_rows:
@@ -256,7 +259,8 @@ class TestTimezonePipeline:
 
             # Check analysis_results table
             cursor.execute(
-                "SELECT symbol, last_updated_iso, created_at_iso FROM analysis_results WHERE symbol LIKE 'TZ%' ORDER BY symbol"
+                "SELECT symbol, last_updated_iso, created_at_iso FROM analysis_results "
+                "WHERE symbol LIKE 'TZ%' ORDER BY symbol"
             )
             analysis_rows = cursor.fetchall()
             for symbol, last_updated_iso, created_at_iso in analysis_rows:
@@ -269,7 +273,8 @@ class TestTimezonePipeline:
 
             # Check holdings table
             cursor.execute(
-                "SELECT symbol, created_at_iso, updated_at_iso FROM holdings WHERE symbol LIKE 'TZ%' ORDER BY symbol"
+                "SELECT symbol, created_at_iso, updated_at_iso FROM holdings "
+                "WHERE symbol LIKE 'TZ%' ORDER BY symbol"
             )
             holdings_rows = cursor.fetchall()
             for symbol, created_at_iso, updated_at_iso in holdings_rows:

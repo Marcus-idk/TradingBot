@@ -19,7 +19,10 @@ class TestCursorContext:
         # Insert data with commit=True (default)
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
-                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                (
+                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                    "VALUES (?, ?, ?, ?, ?)"
+                ),
                 ("AAPL", "https://test.com/1", "Test", "2024-01-01T00:00:00Z", "Test"),
             )
 
@@ -35,7 +38,10 @@ class TestCursorContext:
         # Try to insert with commit=False
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute(
-                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                (
+                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                    "VALUES (?, ?, ?, ?, ?)"
+                ),
                 ("TSLA", "https://test.com/2", "Test", "2024-01-01T00:00:00Z", "Test"),
             )
 
@@ -51,7 +57,10 @@ class TestCursorContext:
         with pytest.raises(ValueError):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                        "VALUES (?, ?, ?, ?, ?)"
+                    ),
                     ("MSFT", "https://test.com/3", "Test", "2024-01-01T00:00:00Z", "Test"),
                 )
                 raise ValueError("Intentional error")
@@ -68,7 +77,10 @@ class TestCursorContext:
         with pytest.raises(SystemExit):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                        "VALUES (?, ?, ?, ?, ?)"
+                    ),
                     ("GOOGL", "https://test.com/4", "Test", "2024-01-01T00:00:00Z", "Test"),
                 )
                 raise SystemExit("Simulated system exit")
@@ -84,7 +96,10 @@ class TestCursorContext:
         # Insert a row
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
-                "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                (
+                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                    "VALUES (?, ?, ?, ?, ?)"
+                ),
                 ("AMZN", "https://test.com/5", "Test Headline", "2024-01-01T00:00:00Z", "Reuters"),
             )
 
@@ -130,7 +145,10 @@ class TestCursorContext:
         with pytest.raises(RuntimeError):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
+                        "VALUES (?, ?, ?, ?, ?)"
+                    ),
                     ("FB", "https://test.com/6", "Test", "2024-01-01T00:00:00Z", "Test"),
                 )
                 raise RuntimeError("Test error")

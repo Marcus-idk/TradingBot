@@ -94,13 +94,15 @@ class PolygonNewsProvider(NewsDataSource):
 
                 if not isinstance(response, dict):
                     raise DataSourceError(
-                        f"Polygon company news expected dict response, got {type(response).__name__}"
+                        "Polygon company news expected dict response, got "
+                        f"{type(response).__name__}"
                     )
 
                 articles = response.get("results", [])
                 if not isinstance(articles, list):
                     raise DataSourceError(
-                        f"Polygon company news 'results' field is {type(articles).__name__}, expected list"
+                        "Polygon company news 'results' field is "
+                        f"{type(articles).__name__}, expected list"
                     )
                 if not articles:
                     break
@@ -167,15 +169,18 @@ class PolygonNewsProvider(NewsDataSource):
             published = _parse_rfc3339(published_utc)
         except (ValueError, TypeError) as exc:  # pragma: no cover
             logger.debug(
-                f"Skipping company news article for {symbol} due to invalid timestamp {published_utc}: {exc}"
+                f"Skipping company news article for {symbol} due to invalid timestamp "
+                f"{published_utc}: {exc}"
             )
             return None
 
         # Apply buffer filter (defensive check - API should already filter via published_utc.gt)
         if buffer_time and published <= buffer_time:
             logger.warning(
-                f"Polygon API returned article with published={published.isoformat()} "
-                f"despite published_utc.gt={_datetime_to_iso(buffer_time)} filter - possible API contract violation"
+                f"Polygon API returned article with published="
+                f"{published.isoformat()} "
+                f"despite published_utc.gt={_datetime_to_iso(buffer_time)} filter - "
+                f"possible API contract violation"
             )
             return None
 

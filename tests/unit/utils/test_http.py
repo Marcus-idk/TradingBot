@@ -241,7 +241,7 @@ class TestGetJsonWithRetry:
 
         mock_http_client(mock_get)
 
-        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             with pytest.raises(RetryableError) as exc_info:
                 await get_json_with_retry(
                     "https://example.com/api",

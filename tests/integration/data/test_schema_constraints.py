@@ -27,7 +27,8 @@ class TestSchemaConstraints:
 
     def test_transaction_rollback_on_constraint_violation(self, temp_db):
         """
-        Test that database constraint violations cause transaction rollback without corrupting the database.
+        Test that database constraint violations cause transaction rollback
+        without corrupting the database.
 
         This test validates:
         1. Valid data is stored successfully (baseline)
@@ -159,7 +160,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -182,7 +191,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -205,7 +222,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -228,7 +253,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -251,7 +284,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -274,7 +315,15 @@ class TestSchemaConstraints:
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO analysis_results (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
+                    INSERT INTO analysis_results (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
@@ -289,7 +338,8 @@ class TestSchemaConstraints:
                 )
 
         assert "CHECK constraint failed" in str(exc_info.value), (
-            f"Expected CHECK constraint failure for JSON array instead of object, got: {exc_info.value}"
+            "Expected CHECK constraint failure for JSON array instead of object, got: "
+            f"{exc_info.value}"
         )
 
         # ========================================

@@ -31,9 +31,15 @@ class TestNewsDeduplication:
         # Source 1: Finnhub with UTM parameters
         finnhub_article = NewsItem(
             symbol=symbol,
-            url=f"{base_url}?utm_source=finnhub&utm_campaign=api&utm_medium=financial&utm_term=earnings",
+            url=(
+                f"{base_url}?utm_source=finnhub&utm_campaign=api&utm_medium=financial&"
+                "utm_term=earnings"
+            ),
             headline="Apple Reports Strong Q4 Earnings Beat Expectations",
-            content="Apple Inc. exceeded analyst expectations with quarterly earnings showing robust iPhone sales and services growth.",
+            content=(
+                "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                "showing robust iPhone sales and services growth."
+            ),
             source="Finnhub API",
             published=test_timestamp,
         )
@@ -41,9 +47,15 @@ class TestNewsDeduplication:
         # Source 2: Polygon with mixed tracking parameters (case-insensitive test)
         polygon_article = NewsItem(
             symbol=symbol,
-            url=f"{base_url}?UTM_SOURCE=polygon&ref=feed&fbclid=IwAR1234567890&campaign=newsletter&utm_content=finance",
+            url=(
+                f"{base_url}?UTM_SOURCE=polygon&ref=feed&fbclid=IwAR1234567890&"
+                "campaign=newsletter&utm_content=finance"
+            ),
             headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
-            content="Apple Inc. exceeded analyst expectations with quarterly earnings showing robust iPhone sales and services growth.",  # Same content
+            content=(
+                "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                "showing robust iPhone sales and services growth."
+            ),  # Same content
             source="Polygon",
             published=test_timestamp,
         )
@@ -51,9 +63,15 @@ class TestNewsDeduplication:
         # Source 3: Google Analytics with additional tracking parameters
         google_article = NewsItem(
             symbol=symbol,
-            url=f"{base_url}?gclid=Cj0KCQjw-uH1BRCm&UTM_CAMPAIGN=finance&utm_medium=cpc&fbclid=different123",
+            url=(
+                f"{base_url}?gclid=Cj0KCQjw-uH1BRCm&UTM_CAMPAIGN=finance&"
+                "utm_medium=cpc&fbclid=different123"
+            ),
             headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
-            content="Apple Inc. exceeded analyst expectations with quarterly earnings showing robust iPhone sales and services growth.",  # Same content
+            content=(
+                "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                "showing robust iPhone sales and services growth."
+            ),  # Same content
             source="Google News",
             published=test_timestamp,
         )
@@ -88,7 +106,8 @@ class TestNewsDeduplication:
 
         # CRITICAL ASSERTION: Only ONE record should exist despite storing three articles
         assert len(final_results) == 1, (
-            f"Expected exactly 1 deduplicated article, got {len(final_results)} articles. Deduplication failed!"
+            "Expected exactly 1 deduplicated article, got "
+            f"{len(final_results)} articles. Deduplication failed!"
         )
 
         final_article = final_results[0]
@@ -102,7 +121,8 @@ class TestNewsDeduplication:
 
         # Verify the URL has ALL tracking parameters removed (case-insensitive)
         assert final_article.url == expected_normalized_url, (
-            f"Final stored URL should be normalized: '{expected_normalized_url}', got '{final_article.url}'"
+            "Final stored URL should be normalized: "
+            f"'{expected_normalized_url}', got '{final_article.url}'"
         )
 
         # Verify published timestamp is preserved correctly
@@ -112,7 +132,8 @@ class TestNewsDeduplication:
         different_symbol = "TSLA"
         tesla_article = NewsItem(
             symbol=different_symbol,
-            url=f"{base_url}?utm_source=tesla_news&gclid=different_tracking",  # Same base URL, different symbol
+            # Same base URL, different symbol
+            url=(f"{base_url}?utm_source=tesla_news&gclid=different_tracking"),
             headline="Tesla News Using Same Base URL",
             content="This should be stored separately due to different symbol.",
             source="Tesla Source",
@@ -132,5 +153,6 @@ class TestNewsDeduplication:
         # Verify TSLA article has normalized URL
         tesla_result = next(article for article in all_results if article.symbol == "TSLA")
         assert tesla_result.url == expected_normalized_url, (
-            f"TSLA article should also have normalized URL: '{expected_normalized_url}', got '{tesla_result.url}'"
+            "TSLA article should also have normalized URL: "
+            f"'{expected_normalized_url}', got '{tesla_result.url}'"
         )

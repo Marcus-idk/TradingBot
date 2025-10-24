@@ -102,7 +102,8 @@ class FinnhubNewsProvider(NewsDataSource):
             published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
         except (ValueError, OSError) as exc:  # pragma: no cover
             logger.debug(
-                f"Skipping company news article for {symbol} due to invalid epoch {datetime_epoch}: {exc}"
+                f"Skipping company news article for {symbol} due to invalid epoch "
+                f"{datetime_epoch}: {exc}"
             )
             return None
 

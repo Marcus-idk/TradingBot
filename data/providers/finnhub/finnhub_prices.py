@@ -76,7 +76,8 @@ class FinnhubPriceProvider(PriceDataSource):
                 timestamp = datetime.fromtimestamp(quote_timestamp, tz=UTC)
             except (ValueError, OSError) as exc:
                 logger.debug(
-                    f"Invalid quote timestamp for {symbol}: {quote_timestamp!r} ({exc}) - using now()"
+                    f"Invalid quote timestamp for {symbol}: {quote_timestamp!r} "
+                    f"({exc}) - using now()"
                 )
                 timestamp = datetime.now(UTC)
         else:

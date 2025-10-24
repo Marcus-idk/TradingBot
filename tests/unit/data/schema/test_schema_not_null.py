@@ -40,18 +40,33 @@ class TestNotNullConstraints:
         """Test NOT NULL constraints on news_labels table."""
         with _cursor_context(temp_db) as cursor:
             # Prepare backing news rows for FK
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/labels-symbol', 'Label Test', '2024-01-01T10:00:00Z', 'test')
-            """)
-            cursor.execute("""
+                VALUES (
+                    'AAPL', 'http://example.com/labels-symbol', 'Label Test',
+                    '2024-01-01T10:00:00Z', 'test'
+                )
+                """
+            )
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/labels-url', 'Label Test', '2024-01-01T10:05:00Z', 'test')
-            """)
-            cursor.execute("""
+                VALUES (
+                    'AAPL', 'http://example.com/labels-url', 'Label Test',
+                    '2024-01-01T10:05:00Z', 'test'
+                )
+                """
+            )
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/labels-type', 'Label Test', '2024-01-01T10:10:00Z', 'test')
-            """)
+                VALUES (
+                    'AAPL', 'http://example.com/labels-type', 'Label Test',
+                    '2024-01-01T10:10:00Z', 'test'
+                )
+                """
+            )
 
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
                 cursor.execute("""
@@ -100,19 +115,45 @@ class TestNotNullConstraints:
         with _cursor_context(temp_db) as cursor:
             # Test model_name NOT NULL
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES ('AAPL', 'news_analysis', NULL, 'BULL', 0.85, '2024-01-01T10:00:00Z', '{}')
-                """)
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        'AAPL', 'news_analysis', NULL, 'BULL', 0.85,
+                        '2024-01-01T10:00:00Z', '{}'
+                    )
+                    """
+                )
 
             # Test result_json NOT NULL
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES ('AAPL', 'news_analysis', 'gpt-4', 'BULL', 0.85, '2024-01-01T10:00:00Z', NULL)
-                """)
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        'AAPL', 'news_analysis', 'gpt-4', 'BULL', 0.85,
+                        '2024-01-01T10:00:00Z', NULL
+                    )
+                    """
+                )
 
     def test_holdings_required_fields(self, temp_db):
         """Test NOT NULL constraints on holdings table."""

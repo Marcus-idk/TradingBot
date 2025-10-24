@@ -165,7 +165,8 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
         cutoff: The snapshot cutoff used for the LLM batch
 
     Returns:
-        Dict with counts of deleted rows: {"labels_deleted": int, "news_deleted": int, "prices_deleted": int}
+        Dict with counts of deleted rows:
+        {"labels_deleted": int, "news_deleted": int, "prices_deleted": int}
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path) as cursor:

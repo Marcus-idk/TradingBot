@@ -23,29 +23,49 @@ class TestPrimaryKeyConstraints:
 
             # Duplicate key fails
             with pytest.raises(sqlite3.IntegrityError, match="UNIQUE constraint failed"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                    VALUES ('AAPL', 'http://example.com/1', 'Different News', '2024-01-01T11:00:00Z', 'test2')
-                """)
+                    VALUES (
+                        'AAPL', 'http://example.com/1', 'Different News',
+                        '2024-01-01T11:00:00Z', 'test2'
+                    )
+                    """
+                )
 
             # Different symbol with same URL succeeds
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('TSLA', 'http://example.com/1', 'Tesla News', '2024-01-01T10:00:00Z', 'test')
-            """)
+                VALUES (
+                    'TSLA', 'http://example.com/1', 'Tesla News',
+                    '2024-01-01T10:00:00Z', 'test'
+                )
+                """
+            )
 
     def test_news_labels_composite_key(self, temp_db):
         """Test (symbol, url) composite primary key on news_labels."""
         with _cursor_context(temp_db) as cursor:
             # Backing news rows required for foreign key reference
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('AAPL', 'http://example.com/label', 'Label News', '2024-01-01T10:00:00Z', 'test')
-            """)
-            cursor.execute("""
+                VALUES (
+                    'AAPL', 'http://example.com/label', 'Label News',
+                    '2024-01-01T10:00:00Z', 'test'
+                )
+                """
+            )
+            cursor.execute(
+                """
                 INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                VALUES ('TSLA', 'http://example.com/label', 'TSLA Label News', '2024-01-01T10:05:00Z', 'test')
-            """)
+                VALUES (
+                    'TSLA', 'http://example.com/label', 'TSLA Label News',
+                    '2024-01-01T10:05:00Z', 'test'
+                )
+                """
+            )
 
             # First label succeeds
             cursor.execute("""
@@ -92,19 +112,45 @@ class TestPrimaryKeyConstraints:
         """Test (symbol, analysis_type) composite primary key on analysis_results."""
         with _cursor_context(temp_db) as cursor:
             # First insert succeeds
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO analysis_results 
-                (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                VALUES ('AAPL', 'news_analysis', 'gpt-4', 'BULL', 0.85, '2024-01-01T10:00:00Z', '{}')
-            """)
+                (
+                    symbol,
+                    analysis_type,
+                    model_name,
+                    stance,
+                    confidence_score,
+                    last_updated_iso,
+                    result_json
+                )
+                VALUES (
+                    'AAPL', 'news_analysis', 'gpt-4', 'BULL', 0.85,
+                    '2024-01-01T10:00:00Z', '{}'
+                )
+            """
+            )
 
             # Duplicate key fails
             with pytest.raises(sqlite3.IntegrityError, match="UNIQUE constraint failed"):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO analysis_results 
-                    (symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json)
-                    VALUES ('AAPL', 'news_analysis', 'claude', 'BEAR', 0.60, '2024-01-01T11:00:00Z', '{}')
-                """)
+                    (
+                        symbol,
+                        analysis_type,
+                        model_name,
+                        stance,
+                        confidence_score,
+                        last_updated_iso,
+                        result_json
+                    )
+                    VALUES (
+                        'AAPL', 'news_analysis', 'claude', 'BEAR', 0.60,
+                        '2024-01-01T11:00:00Z', '{}'
+                    )
+                """
+                )
 
     def test_holdings_single_key(self, temp_db):
         """Test symbol primary key on holdings."""

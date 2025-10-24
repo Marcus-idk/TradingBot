@@ -49,7 +49,11 @@ class GeminiProvider(LLMProvider):
             cfg["tools"] = self.tools
 
         if self.tool_choice:
-            mode = {"none": "NONE", "auto": "AUTO", "any": "ANY"}.get(str(self.tool_choice).lower())
+            mode = {
+                "none": "NONE",
+                "auto": "AUTO",
+                "any": "ANY",
+            }.get(str(self.tool_choice).lower())
             if mode:
                 # Guard: "any" mode requires tools to be provided
                 if mode == "ANY" and not self.tools:
@@ -75,7 +79,8 @@ class GeminiProvider(LLMProvider):
                     if hasattr(resp, "prompt_feedback") and resp.prompt_feedback:
                         safety_msg = f" - feedback: {resp.prompt_feedback}"
                     raise LLMError(
-                        f"No candidates in response - possible content filtering or API issue{safety_msg}"
+                        "No candidates in response - possible content filtering "
+                        f"or API issue{safety_msg}"
                     )
 
                 # Extract both text and tool outputs

@@ -97,7 +97,8 @@ class PolygonMacroNewsProvider(NewsDataSource):
                         news_items.extend(items)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
                         logger.debug(
-                            f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
+                            f"Failed to parse macro news article "
+                            f"{article.get('id', 'unknown')}: {exc}"
                         )
                         continue
 
@@ -159,8 +160,10 @@ class PolygonMacroNewsProvider(NewsDataSource):
         # Apply buffer filter (defensive check - API should already filter via published_utc.gt)
         if buffer_time and published <= buffer_time:
             logger.warning(
-                f"Polygon API returned article with published={published.isoformat()} "
-                f"despite published_utc.gt={_datetime_to_iso(buffer_time)} filter - possible API contract violation"
+                f"Polygon API returned article with published="
+                f"{published.isoformat()} "
+                f"despite published_utc.gt={_datetime_to_iso(buffer_time)} filter - "
+                f"possible API contract violation"
             )
             return []
 

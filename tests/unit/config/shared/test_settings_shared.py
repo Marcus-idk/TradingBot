@@ -124,8 +124,8 @@ class TestSettingsShared:
             settings_spec["settings_cls"].from_env()
 
         assert (
-            f"{settings_spec['env_var_name']} environment variable {settings_spec['whitespace_err']}"
-            in str(exc_info.value)
+            f"{settings_spec['env_var_name']} environment variable "
+            f"{settings_spec['whitespace_err']}" in str(exc_info.value)
         )
 
     def test_from_env_strips_whitespace(self, settings_spec, monkeypatch):

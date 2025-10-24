@@ -68,27 +68,31 @@ def build_config(with_viewer: bool) -> PollerConfig:
     symbols_env = os.getenv("SYMBOLS")
     if not symbols_env:
         raise ValueError(
-            "SYMBOLS environment variable not set. Please set SYMBOLS in .env (e.g., SYMBOLS=AAPL,MSFT,TSLA)"
+            "SYMBOLS environment variable not set. Please set SYMBOLS in .env "
+            "(e.g., SYMBOLS=AAPL,MSFT,TSLA)"
         )
 
     symbols = parse_symbols(symbols_env, validate=True, log_label="SYMBOLS")
     if not symbols:
         raise ValueError(
-            "SYMBOLS environment variable is empty or invalid. Please provide comma-separated symbols (e.g., SYMBOLS=AAPL,MSFT,TSLA)"
+            "SYMBOLS environment variable is empty or invalid. Please provide "
+            "comma-separated symbols (e.g., SYMBOLS=AAPL,MSFT,TSLA)"
         )
 
     # Get and validate poll interval
     poll_interval_str = os.getenv("POLL_INTERVAL")
     if not poll_interval_str:
         raise ValueError(
-            "POLL_INTERVAL environment variable not set. Please set POLL_INTERVAL in .env (e.g., POLL_INTERVAL=300)"
+            "POLL_INTERVAL environment variable not set. Please set POLL_INTERVAL "
+            "in .env (e.g., POLL_INTERVAL=300)"
         )
 
     try:
         poll_interval = int(poll_interval_str)
     except ValueError as exc:
         raise ValueError(
-            f"Invalid POLL_INTERVAL '{poll_interval_str}', must be an integer. Please provide a valid integer value (e.g., POLL_INTERVAL=300)"
+            f"Invalid POLL_INTERVAL '{poll_interval_str}', must be an integer. "
+            "Please provide a valid integer value (e.g., POLL_INTERVAL=300)"
         ) from exc
 
     # Get UI port if viewer enabled
@@ -101,7 +105,8 @@ def build_config(with_viewer: bool) -> PollerConfig:
         finnhub_settings = FinnhubSettings.from_env()
     except ValueError as exc:
         raise ValueError(
-            f"Failed to load Finnhub settings: {exc}. Please set FINNHUB_API_KEY environment variable"
+            f"Failed to load Finnhub settings: {exc}. "
+            "Please set FINNHUB_API_KEY environment variable"
         ) from exc
 
     # Load Polygon settings
@@ -109,7 +114,8 @@ def build_config(with_viewer: bool) -> PollerConfig:
         polygon_settings = PolygonSettings.from_env()
     except ValueError as exc:
         raise ValueError(
-            f"Failed to load Polygon settings: {exc}. Please set POLYGON_API_KEY environment variable"
+            f"Failed to load Polygon settings: {exc}. "
+            "Please set POLYGON_API_KEY environment variable"
         ) from exc
 
     return PollerConfig(
@@ -210,7 +216,7 @@ async def create_and_validate_providers(
 
         results = await asyncio.gather(*[p.validate_connection() for p, _ in providers_to_validate])
 
-        for (_, name), valid in zip(providers_to_validate, results):
+        for (_, name), valid in zip(providers_to_validate, results, strict=True):
             if not valid:
                 logger.error(f"Failed to validate {name} API connection")
                 raise ValueError(f"{name} API connection validation failed")
