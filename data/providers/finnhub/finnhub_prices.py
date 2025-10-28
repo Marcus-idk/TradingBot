@@ -91,6 +91,6 @@ class FinnhubPriceProvider(PriceDataSource):
                 volume=None,
                 session=classify_us_session(timestamp),
             )
-        except ValueError as exc:  # pragma: no cover
+        except ValueError as exc:
             logger.debug(f"PriceData validation failed for {symbol} (price={price}): {exc}")
             return None

@@ -2,26 +2,25 @@
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 
--- Raw data: News (normalized URLs for dedup; UTC ISO timestamps)
 CREATE TABLE IF NOT EXISTS news_items (
-    symbol TEXT NOT NULL,
     url TEXT NOT NULL,                  -- normalized (tracking params stripped)
     headline TEXT NOT NULL,
     content TEXT,
     published_iso TEXT NOT NULL,        -- UTC ISO "YYYY-MM-DDTHH:MM:SSZ"
     source TEXT NOT NULL,               -- finnhub, polygon, etc.
+    news_type TEXT NOT NULL CHECK(news_type IN ('macro', 'company_specific', 'social_sentiment')),
     created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-    PRIMARY KEY (symbol, url)
+    PRIMARY KEY (url)
 ) WITHOUT ROWID;
 
--- Classification: LLM-filtered labels for news focus
-CREATE TABLE IF NOT EXISTS news_labels (
-    symbol TEXT NOT NULL,
+-- Symbol links: per-symbol routing and importance flags
+CREATE TABLE IF NOT EXISTS news_symbols (
     url TEXT NOT NULL,
-    label TEXT NOT NULL CHECK(label IN ('Company', 'People', 'MarketWithMention')),
+    symbol TEXT NOT NULL,
+    is_important INTEGER CHECK(is_important IN (0, 1)),
     created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
-    PRIMARY KEY (symbol, url),
-    FOREIGN KEY (symbol, url) REFERENCES news_items(symbol, url) ON DELETE CASCADE
+    PRIMARY KEY (url, symbol),
+    FOREIGN KEY (url) REFERENCES news_items(url) ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 -- Raw data: Prices (Decimal as TEXT; UTC ISO timestamps; session enum)

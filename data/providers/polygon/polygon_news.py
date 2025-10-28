@@ -12,7 +12,7 @@ from typing import Any
 
 from config.providers.polygon import PolygonSettings
 from data import DataSourceError, NewsDataSource
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.providers.polygon.polygon_client import _NEWS_LIMIT, _NEWS_ORDER, PolygonClient
 from data.storage.storage_utils import _datetime_to_iso, _parse_rfc3339
 from utils.retry import RetryableError
@@ -42,7 +42,7 @@ class PolygonNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         if not self.symbols:
             return []
 
@@ -55,26 +55,26 @@ class PolygonNewsProvider(NewsDataSource):
 
         published_gt = _datetime_to_iso(buffer_time)
 
-        news_items: list[NewsItem] = []
+        news_entries: list[NewsEntry] = []
 
         for symbol in self.symbols:
             try:
                 symbol_news = await self._fetch_symbol_news(symbol, published_gt, buffer_time)
-                news_items.extend(symbol_news)
+                news_entries.extend(symbol_news)
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.warning(f"Company news fetch failed for {symbol}: {exc}")
                 continue
 
-        return news_items
+        return news_entries
 
     async def _fetch_symbol_news(
         self,
         symbol: str,
         published_gt: str,
         buffer_time: datetime | None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         """Fetch all news for a symbol, following pagination until complete."""
-        news_items: list[NewsItem] = []
+        news_entries: list[NewsEntry] = []
         cursor: str | None = None
 
         while True:
@@ -110,9 +110,9 @@ class PolygonNewsProvider(NewsDataSource):
                 # Parse articles
                 for article in articles:
                     try:
-                        news_item = self._parse_article(article, symbol, buffer_time)
-                        if news_item:
-                            news_items.append(news_item)
+                        entry = self._parse_article(article, symbol, buffer_time)
+                        if entry:
+                            news_entries.append(entry)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
                         logger.debug(f"Failed to parse company news article for {symbol}: {exc}")
                         continue
@@ -137,7 +137,7 @@ class PolygonNewsProvider(NewsDataSource):
                 logger.warning(f"Company news pagination failed for {symbol}: {exc}")
                 raise
 
-        return news_items
+        return news_entries
 
     def _extract_cursor(self, next_url: str) -> str | None:
         """Extract cursor parameter from Polygon next_url."""
@@ -155,8 +155,8 @@ class PolygonNewsProvider(NewsDataSource):
         article: dict[str, Any],
         symbol: str,
         buffer_time: datetime | None,
-    ) -> NewsItem | None:
-        """Parse Polygon news article into NewsItem."""
+    ) -> NewsEntry | None:
+        """Parse Polygon news article into a NewsEntry."""
         title = article.get("title", "").strip()
         article_url = article.get("article_url", "").strip()
         published_utc = article.get("published_utc", "").strip()
@@ -167,7 +167,7 @@ class PolygonNewsProvider(NewsDataSource):
         # Parse RFC3339 timestamp
         try:
             published = _parse_rfc3339(published_utc)
-        except (ValueError, TypeError) as exc:  # pragma: no cover
+        except (ValueError, TypeError) as exc:
             logger.debug(
                 f"Skipping company news article for {symbol} due to invalid timestamp "
                 f"{published_utc}: {exc}"
@@ -196,14 +196,15 @@ class PolygonNewsProvider(NewsDataSource):
         content = description if description else None
 
         try:
-            return NewsItem(
-                symbol=symbol,
+            article_model = NewsItem(
                 url=article_url,
                 headline=title,
                 published=published,
                 source=source,
+                news_type=NewsType.COMPANY_SPECIFIC,
                 content=content,
             )
+            return NewsEntry(article=article_model, symbol=symbol, is_important=True)
         except ValueError as exc:
             logger.debug(f"NewsItem validation failed for {symbol} (url={article_url}): {exc}")
             return None

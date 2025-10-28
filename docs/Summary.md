@@ -96,7 +96,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `DataSource` - Base class for all data sources
   - `DataSourceError` - Exception for data source failures
   - `NewsDataSource` - Abstract class for news providers
-    - `fetch_incremental(*, since: datetime | None = None, min_id: int | None = None)` — unified cursor interface
+    - `fetch_incremental(*, since: datetime | None = None, min_id: int | None = None) -> list[NewsEntry]` — unified cursor interface
       - Date-based providers use `since` (ignore `min_id`)
       - ID-based providers use `min_id` (ignore `since`)
   - `PriceDataSource` - Abstract class for price providers
@@ -105,7 +105,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `data/models.py` - Core dataclasses and enums
   **Enums**:
   - `AnalysisType` - Types: `news_analysis`, `sentiment_analysis`, `sec_filings`, `head_trader`
-  - `NewsLabelType` - News focus tags: Company, People, MarketWithMention
+  - `NewsType` - News kinds: `macro`, `company_specific`, `social_sentiment`
   - `Session` - Trading sessions: REG, PRE, POST, CLOSED
   - `Stance` - Analysis stances: BULL, BEAR, NEUTRAL
   - `Urgency` - News urgency levels: URGENT, NOT_URGENT
@@ -113,8 +113,9 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   **Dataclasses**:
   - `AnalysisResult` - `symbol`, `analysis_type` (AnalysisType), `model_name`, `stance` (Stance), `confidence_score` (0–1), `last_updated` (UTC), `result_json` (JSON string), `created_at` (UTC, optional)
   - `Holdings` - `symbol`, `quantity` (Decimal), `break_even_price` (Decimal), `total_cost` (Decimal), `notes` (optional), `created_at`/`updated_at` (UTC, optional)
-  - `NewsItem` - `symbol`, `url`, `headline`, `published` (UTC), `source`, `content` (optional)
-  - `NewsLabel` - `symbol`, `url`, `label` (NewsLabelType), `created_at` (UTC, optional)
+  - `NewsItem` - Article-level: `url`, `headline`, `published` (UTC), `source`, `news_type` (NewsType), `content` (optional)
+  - `NewsSymbol` - Join row: `url`, `symbol`, `is_important` (bool | None)
+  - `NewsEntry` - Domain model: `article` (NewsItem), `symbol`, `is_important`
   - `PriceData` - `symbol`, `timestamp` (UTC), `price` (Decimal), `volume` (optional), `session` (Session)
 
   **Functions**:
@@ -134,19 +135,19 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `init_database()` - Create tables (WAL via schema PRAGMA)
     - `_check_json1_support()` - Verify SQLite JSON1 extension
 
-  - `storage_crud.py` - CRUD operations for all data types (10 functions)
-    - **Store**: `store_news_items()`, `store_news_labels()`, `store_price_data()`
-    - **Query**: `get_news_since()`, `get_news_labels()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
+  - `storage_crud.py` - CRUD operations for all data types
+    - **Store**: `store_news_items()` (accepts list[NewsEntry], splits to tables), `store_price_data()`
+    - **Query**: `get_news_since()` (returns list[NewsEntry]), `get_news_symbols()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
     - **Upsert**: `upsert_analysis_result()`, `upsert_holdings()`
 
-  - `storage_batch.py` - Batch operations and watermarks (9 functions)
+  - `storage_batch.py` - Batch operations and watermarks
     - **Batch queries**: `get_news_before()`, `get_prices_before()` (for LLM processing)
-    - **Batch operations**: `commit_llm_batch()` - Set `llm_last_run_iso` and prune processed rows across news/news_labels/price_data
+    - **Batch operations**: `commit_llm_batch()` - Set `llm_last_run_iso` and prune processed rows across news_symbols/news_items/price_data
     - **Watermarks**: `get_last_seen()`, `set_last_seen()`, `get_last_news_time()`, `set_last_news_time()`, `get_last_macro_min_id()`, `set_last_macro_min_id()`
 
-  - `storage_utils.py` - Utilities and type converters (10 functions)
+  - `storage_utils.py` - Utilities and type converters
     - **Helpers**: `_datetime_to_iso()`, `_decimal_to_text()`, `_iso_to_datetime()`, `_normalize_url()`, `_parse_rfc3339()`
-    - **Row converters**: `_row_to_analysis_result()`, `_row_to_holdings()`, `_row_to_news_item()`, `_row_to_news_label()`, `_row_to_price_data()`
+    - **Row converters**: `_row_to_analysis_result()`, `_row_to_holdings()`, `_row_to_news_item()` (article-level), `_row_to_news_symbol()`, `_row_to_news_entry()`, `_row_to_price_data()`
 
 **Subdirectories**:
 - `data/providers/` - Data source implementations
@@ -159,14 +160,14 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `FinnhubNewsProvider` - Company news fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(*, since=...)` - Date-based; applies 2‑min buffer
-      - `_parse_article()` - Convert API response to NewsItem
+      - `fetch_incremental(*, since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer
+      - `_parse_article()` - Convert API response to NewsEntry (article `news_type=company_specific`, `is_important=True` stub)
     - `FinnhubMacroNewsProvider` - Market-wide macro news fetching implementation
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(*, min_id=...)` - ID-based; uses Finnhub `minId`; tracks `last_fetched_max_id`
-      - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
-      - `_extract_symbols_from_related()` - Filter `related` field against watchlist; if nothing survives, fallback to ['ALL'] for market-wide coverage
+      - `fetch_incremental(*, min_id=...) -> list[NewsEntry]` - ID-based; uses Finnhub `minId`; tracks `last_fetched_max_id`
+      - `_parse_article()` - Convert API response to NewsEntry list per watchlist symbol; fall back to 'MARKET' when none match
+      - `_extract_symbols_from_related()` - Filter `related` field against watchlist; if nothing survives, fallback to ['MARKET'] for market-wide coverage
       - `last_fetched_max_id` - Stores latest article ID for watermark updates
     - `FinnhubPriceProvider` - Price quote fetching implementation
       - `__init__()` - Initialize with settings and symbols
@@ -181,17 +182,17 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `PolygonNewsProvider` - Company news fetching implementation
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=...)` - Date-based; applies 2‑min buffer
+      - `fetch_incremental(since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer
       - `_fetch_symbol_news()` - Fetch news for single symbol with pagination until complete
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
-      - `_parse_article()` - Convert API response to NewsItem; parses RFC3339 timestamps
+      - `_parse_article()` - Convert API response to NewsEntry; parses RFC3339 timestamps; article `news_type=company_specific`, `is_important=True` stub
     - `PolygonMacroNewsProvider` - Market-wide macro news fetching implementation
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=...)` - Date-based; applies 2‑min buffer; handles pagination
+      - `fetch_incremental(since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer; handles pagination
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
-      - `_parse_article()` - Convert API response to NewsItem list per watchlist symbol, defaulting to 'ALL' when none match
-      - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['ALL'] for market-wide coverage
+      - `_parse_article()` - Convert API response to NewsEntry list per watchlist symbol; default to 'MARKET' when none match
+      - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['MARKET'] for market-wide coverage
 
 ### `llm/` — LLM provider abstractions
 **Purpose**: Base classes and provider implementations for LLM interactions
@@ -250,7 +251,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `classify_us_session(ts_utc)` - Determine if timestamp is PRE/REG/POST/CLOSED based on ET trading hours and NYSE calendar (holidays, early closes)
 
 - `utils/symbols.py` - Symbol parsing and validation helpers
-  - `parse_symbols(raw, *, filter_to=None, validate=True, log_label="SYMBOLS")` - Parse comma-separated tickers, normalize to upper-case, optionally filter to a watchlist while deduplicating and validating format. Used by `run_poller.py` and Finnhub macro news provider.
+  - `parse_symbols(raw, *, filter_to=None, validate=True, log_label="SYMBOLS")` - Parse comma-separated tickers, normalize to upper-case, optionally filter to a watchlist while deduplicating and validating format. Used by `run_poller.py`, Finnhub macro, and Polygon macro news providers.
 
 ### `workflows/` — Orchestration layer
 **Purpose**: Coordinate data collection, processing, and analysis workflows
@@ -258,11 +259,11 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 **Files**:
 - `workflows/__init__.py` - Public facade (exports DataPoller)
 - `workflows/poller.py` - Data collection orchestrator
-  - `DataPoller` - Orchestrates multiple providers concurrently with news classification and urgency detection
+  - `DataPoller` - Orchestrates multiple providers concurrently with urgency detection
     - `__init__(db_path, news_providers, price_providers, poll_interval)` - Initialize poller
     - `_fetch_all_data()` - Concurrently fetch news and prices; return company/macro news and per‑provider prices with errors
     - `_log_urgent_items()` - Log urgent news items to console
-    - `_process_news()` - Store news, classify company items, detect urgency, update watermarks
+    - `_process_news()` - Store news (NewsEntry split to tables), detect urgency, update watermarks
     - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only (framework complete; currently single provider: Finnhub)
     - `_read_watermarks()` - Read last_news_time and last_macro_min_id from database
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
@@ -272,14 +273,14 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `PollStats` (TypedDict) - Per-cycle stats with `news`, `prices`, `errors`
 
 ### `analysis/` — Business logic and classification
-**Purpose**: News classification and urgency detection (stubs for now; full LLM analysis in v0.5)
+**Purpose**: Stubs for news labeling and urgency analysis (LLM-backed flow planned for v0.5)
 
 **Files**:
 - `analysis/__init__.py` - Public facade (re-exports news_classifier, urgency_detector submodules)
-- `analysis/news_classifier.py` - News classification module
-  - `classify(news_items)` - Classify news into Company/People/MarketWithMention (currently stub returning 'Company' for all)
+- `analysis/news_classifier.py` - News classification stub
+  - `classify(news_entries)` - Accepts list[NewsEntry] and returns [] while logging a debug hint; importance flags now come from persisted `news_symbols`
 - `analysis/urgency_detector.py` - Urgency detection module
-  - `detect_urgency(news_items)` - Detect urgent news requiring immediate attention (currently stub that logs cycle stats and returns empty list; LLM-based detection in v0.5)
+  - `detect_urgency(news_entries)` - Detect urgent news requiring immediate attention (currently stub that logs cycle stats and returns empty list; LLM-based detection in v0.5)
 
 ### `ui/` — Web UI
 **Purpose**: Lightweight Streamlit interface for local DB inspection
@@ -304,8 +305,8 @@ See `docs/Test_Catalog.md` for the complete test inventory. This summary focuses
 
 ## Database Schema
 Tables (WITHOUT ROWID):
-- `news_items(symbol, url, headline, content, published_iso, source, created_at_iso)` — PK: (symbol, url)
-- `news_labels(symbol, url, label, created_at_iso)` — PK: (symbol, url); FK → news_items(symbol, url)
+- `news_items(url, headline, content, published_iso, source, news_type, created_at_iso)` — PK: url
+- `news_symbols(url, symbol, is_important, created_at_iso)` — PK: (url, symbol); FK → news_items(url) ON DELETE CASCADE
 - `price_data(symbol, timestamp_iso, price TEXT, volume, session, created_at_iso)` — PK: (symbol, timestamp_iso)
 - `analysis_results(symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json, created_at_iso)` — PK: (symbol, analysis_type)
 - `holdings(symbol, quantity TEXT, break_even_price TEXT, total_cost TEXT, notes, created_at_iso, updated_at_iso)` — PK: symbol

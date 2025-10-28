@@ -11,7 +11,7 @@ from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
 from data import DataSourceError, NewsDataSource
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.providers.finnhub.finnhub_client import FinnhubClient
 from data.storage.storage_utils import _datetime_to_iso
 from utils.retry import RetryableError
@@ -36,7 +36,7 @@ class FinnhubNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         if not self.symbols:
             return []
 
@@ -50,7 +50,7 @@ class FinnhubNewsProvider(NewsDataSource):
             buffer_time = None
 
         to_date = now_utc.date()
-        news_items: list[NewsItem] = []
+        news_entries: list[NewsEntry] = []
 
         for symbol in self.symbols:
             try:
@@ -69,11 +69,9 @@ class FinnhubNewsProvider(NewsDataSource):
 
                 for article in articles:
                     try:
-                        news_item = self._parse_article(
-                            article, symbol, buffer_time if since else None
-                        )
-                        if news_item:
-                            news_items.append(news_item)
+                        entry = self._parse_article(article, symbol, buffer_time if since else None)
+                        if entry:
+                            news_entries.append(entry)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
                         logger.debug(f"Failed to parse company news article for {symbol}: {exc}")
                         continue
@@ -83,14 +81,14 @@ class FinnhubNewsProvider(NewsDataSource):
                 logger.warning(f"Company news fetch failed for {symbol}: {exc}")
                 continue
 
-        return news_items
+        return news_entries
 
     def _parse_article(
         self,
         article: dict[str, Any],
         symbol: str,
         buffer_time: datetime | None,
-    ) -> NewsItem | None:
+    ) -> NewsEntry | None:
         headline = article.get("headline", "").strip()
         url = article.get("url", "").strip()
         datetime_epoch = article.get("datetime", 0)
@@ -100,7 +98,7 @@ class FinnhubNewsProvider(NewsDataSource):
 
         try:
             published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
-        except (ValueError, OSError) as exc:  # pragma: no cover
+        except (ValueError, OSError) as exc:
             logger.debug(
                 f"Skipping company news article for {symbol} due to invalid epoch "
                 f"{datetime_epoch}: {exc}"
@@ -119,14 +117,15 @@ class FinnhubNewsProvider(NewsDataSource):
         content = summary if summary else None
 
         try:
-            return NewsItem(
-                symbol=symbol,
+            article_model = NewsItem(
                 url=url,
                 headline=headline,
                 published=published,
                 source=source,
+                news_type=NewsType.COMPANY_SPECIFIC,
                 content=content,
             )
-        except ValueError as exc:  # pragma: no cover
+            return NewsEntry(article=article_model, symbol=symbol, is_important=True)
+        except ValueError as exc:
             logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {exc}")
             return None

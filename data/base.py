@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from data.models import NewsItem, PriceData
+from data.models import NewsEntry, PriceData
 
 
 class DataSource(ABC):
@@ -42,7 +42,7 @@ class NewsDataSource(DataSource):
         *,
         since: datetime | None = None,
         min_id: int | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         """
         Fetch new news items using incremental cursors.
 
@@ -51,7 +51,7 @@ class NewsDataSource(DataSource):
             min_id: Fetch items with ID greater than this value (ID-based providers).
 
         Returns:
-            List of :class:`NewsItem` instances.
+            List of :class:`NewsEntry` instances.
 
         Implementations may declare only the cursor(s) they actually support.
         Orchestrators must pass only relevant cursors to each provider.

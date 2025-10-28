@@ -12,11 +12,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TypedDict
 
-from analysis.news_classifier import classify
 from analysis.urgency_detector import detect_urgency
-from data import DataSourceError
-from data.base import NewsDataSource, PriceDataSource
-from data.models import NewsItem, PriceData
+from data import DataSourceError, NewsDataSource, PriceDataSource
+from data.models import NewsEntry, PriceData
 from data.providers.finnhub import FinnhubMacroNewsProvider
 from data.storage import (
     get_last_macro_min_id,
@@ -24,7 +22,6 @@ from data.storage import (
     set_last_macro_min_id,
     set_last_news_time,
     store_news_items,
-    store_news_labels,
     store_price_data,
 )
 from llm.base import LLMError
@@ -36,8 +33,8 @@ logger = logging.getLogger(__name__)
 class DataBatch(TypedDict):
     """Data fetched from all providers in one cycle."""
 
-    company_news: list[NewsItem]
-    macro_news: list[NewsItem]
+    company_news: list[NewsEntry]
+    macro_news: list[NewsEntry]
     prices: dict[str, dict[str, PriceData]]  # {provider_name: {symbol: PriceData}}
     errors: list[str]
 
@@ -106,8 +103,8 @@ class DataPoller:
             DataBatch with company_news, macro_news, prices, and errors
         """
         # Separate results by provider type
-        company_news = []
-        macro_news = []
+        company_news: list[NewsEntry] = []
+        macro_news: list[NewsEntry] = []
         prices_by_provider: dict[str, dict[str, PriceData]] = {}
         errors = []
 
@@ -231,7 +228,7 @@ class DataPoller:
         logger.info(f"Stored {len(deduplicated_prices)} price updates")
         return len(deduplicated_prices)
 
-    def _log_urgent_items(self, urgent_items: list[NewsItem]) -> None:
+    def _log_urgent_items(self, urgent_items: list[NewsEntry]) -> None:
         """Summarize urgency detection results with bounded detail."""
         if not urgent_items:
             logger.debug("No urgent news items detected")
@@ -242,7 +239,9 @@ class DataPoller:
         if len(urgent_items) > 10:
             logger.warning(f"... {len(urgent_items) - 10} more")
 
-    async def _process_news(self, company_news: list[NewsItem], macro_news: list[NewsItem]) -> int:
+    async def _process_news(
+        self, company_news: list[NewsEntry], macro_news: list[NewsEntry]
+    ) -> int:
         """Store news, classify company news, detect urgency, and update watermarks."""
         all_news = company_news + macro_news
 
@@ -252,16 +251,6 @@ class DataPoller:
             self.db_path,
             all_news,
         )
-
-        # Classify ONLY company news (skip macro news)
-        if company_news:
-            try:
-                labels = classify(company_news)
-                if labels:
-                    await asyncio.to_thread(store_news_labels, self.db_path, labels)
-                    logger.info(f"Classified {len(labels)} company news items")
-            except (LLMError, ValueError, TypeError, RuntimeError) as exc:
-                logger.exception(f"News classification failed: {exc}")
 
         # Detect urgent items from all news
         if all_news:

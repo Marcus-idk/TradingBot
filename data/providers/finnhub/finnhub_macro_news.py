@@ -11,7 +11,7 @@ from typing import Any
 
 from config.providers.finnhub import FinnhubSettings
 from data import DataSourceError, NewsDataSource
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.providers.finnhub.finnhub_client import FinnhubClient
 from data.storage.storage_utils import _datetime_to_iso
 from utils.symbols import parse_symbols
@@ -23,7 +23,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
     """Fetches market-wide macro news from Finnhub's /news endpoint.
 
     Fetches general market news using ID-based pagination and maps articles to watchlist
-    symbols based on the related field in each article. Falls back to 'ALL' for
+    symbols based on the related field in each article. Falls back to 'MARKET' for
     articles that don't match any watchlist symbols.
 
     Rate Limits:
@@ -46,7 +46,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         self,
         *,
         min_id: int | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         now_utc = datetime.now(UTC)
 
         if min_id is None:
@@ -54,7 +54,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         else:
             buffer_time = None
 
-        news_items: list[NewsItem] = []
+        news_entries: list[NewsEntry] = []
         params: dict[str, Any] = {"category": "general"}
 
         if min_id is not None:
@@ -81,7 +81,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         for article in articles:
             try:
                 items = self._parse_article(article, buffer_time)
-                news_items.extend(items)
+                news_entries.extend(items)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.debug(
                     f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
@@ -95,13 +95,13 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         ]
         self.last_fetched_max_id = max(ids) if ids else None
 
-        return news_items
+        return news_entries
 
     def _parse_article(
         self,
         article: dict[str, Any],
         buffer_time: datetime | None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         headline = article.get("headline", "").strip()
         url = article.get("url", "").strip()
         datetime_epoch = article.get("datetime", 0)
@@ -111,7 +111,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
 
         try:
             published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
-        except (ValueError, OSError) as exc:  # pragma: no cover
+        except (ValueError, OSError) as exc:
             logger.debug(
                 f"Skipping macro news article due to invalid epoch {datetime_epoch}: {exc}"
             )
@@ -130,27 +130,31 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         summary = article.get("summary", "").strip()
         content = summary if summary else None
 
-        news_items: list[NewsItem] = []
+        entries: list[NewsEntry] = []
+        try:
+            article_model = NewsItem(
+                url=url,
+                headline=headline,
+                published=published,
+                source=source,
+                news_type=NewsType.MACRO,
+                content=content,
+            )
+        except ValueError as exc:
+            logger.debug(f"NewsItem validation failed (url={url}): {exc}")
+            return []
         for symbol in symbols:
             try:
-                news_item = NewsItem(
-                    symbol=symbol,
-                    url=url,
-                    headline=headline,
-                    published=published,
-                    source=source,
-                    content=content,
-                )
-                news_items.append(news_item)
+                entries.append(NewsEntry(article=article_model, symbol=symbol, is_important=None))
             except ValueError as exc:
-                logger.debug(f"NewsItem validation failed for {symbol} (url={url}): {exc}")
+                logger.debug(f"NewsEntry validation failed for {symbol} (url={url}): {exc}")
                 continue
 
-        return news_items
+        return entries
 
     def _extract_symbols_from_related(self, related: str | None) -> list[str]:
         if not related or not related.strip():
-            return ["ALL"]
+            return ["MARKET"]
 
         symbols = parse_symbols(
             related,
@@ -160,6 +164,6 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         )
 
         if not symbols:
-            return ["ALL"]
+            return ["MARKET"]
 
         return symbols

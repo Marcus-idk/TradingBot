@@ -12,9 +12,9 @@ from data.models import (
     AnalysisResult,
     AnalysisType,
     Holdings,
+    NewsEntry,
     NewsItem,
-    NewsLabel,
-    NewsLabelType,
+    NewsSymbol,
     PriceData,
     Session,
     Stance,
@@ -109,26 +109,41 @@ def _decimal_to_text(decimal_val: Decimal) -> str:
 def _row_to_news_item(row: dict[str, Any]) -> NewsItem:
     """Convert database row to NewsItem model."""
     return NewsItem(
-        symbol=row["symbol"],
         url=row["url"],
         headline=row["headline"],
+        content=row.get("content"),
         published=_iso_to_datetime(row["published_iso"]),
         source=row["source"],
-        content=row.get("content"),
+        news_type=row["news_type"],
     )
 
 
-def _row_to_news_label(row: dict[str, Any]) -> NewsLabel:
-    """Convert database row to NewsLabel model."""
-    created_at = None
-    if row.get("created_at_iso"):
-        created_at = _iso_to_datetime(row["created_at_iso"])
-    return NewsLabel(
-        symbol=row["symbol"],
+def _row_to_news_symbol(row: dict[str, Any]) -> NewsSymbol:
+    """Convert database row to NewsSymbol model."""
+    is_important_value = row.get("is_important")
+    is_important = None if is_important_value is None else bool(is_important_value)
+    return NewsSymbol(
         url=row["url"],
-        label=NewsLabelType(row["label"]),
-        created_at=created_at,
+        symbol=row["symbol"],
+        is_important=is_important,
     )
+
+
+def _row_to_news_entry(row: dict[str, Any]) -> NewsEntry:
+    """Convert joined row to NewsEntry domain model."""
+    article = _row_to_news_item(
+        {
+            "url": row["url"],
+            "headline": row["headline"],
+            "content": row.get("content"),
+            "published_iso": row["published_iso"],
+            "source": row["source"],
+            "news_type": row["news_type"],
+        }
+    )
+    is_important_value = row.get("is_important")
+    is_important = None if is_important_value is None else bool(is_important_value)
+    return NewsEntry(article=article, symbol=row["symbol"], is_important=is_important)
 
 
 def _row_to_price_data(row: dict[str, Any]) -> PriceData:

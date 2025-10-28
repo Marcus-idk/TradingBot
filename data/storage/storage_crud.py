@@ -5,13 +5,7 @@ Handles storing, querying, and updating news, prices, analysis, and holdings.
 
 from datetime import UTC, datetime
 
-from data.models import (
-    AnalysisResult,
-    Holdings,
-    NewsItem,
-    NewsLabel,
-    PriceData,
-)
+from data.models import AnalysisResult, Holdings, NewsEntry, NewsSymbol, PriceData
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import (
     _datetime_to_iso,
@@ -19,66 +13,55 @@ from data.storage.storage_utils import (
     _normalize_url,
     _row_to_analysis_result,
     _row_to_holdings,
-    _row_to_news_item,
-    _row_to_news_label,
+    _row_to_news_entry,
+    _row_to_news_symbol,
     _row_to_price_data,
 )
 
 
-def store_news_items(db_path: str, items: list[NewsItem]) -> None:
+def store_news_items(db_path: str, items: list[NewsEntry]) -> None:
     """
-    Store news items in the database with URL normalization.
-    Uses INSERT OR IGNORE to handle duplicates gracefully.
+    Store news entries using normalized URLs and many-to-many symbol links.
+    Splits each NewsEntry into a NewsItem + NewsSymbol pair.
     """
     if not items:
         return
 
     with _cursor_context(db_path) as cursor:
         for item in items:
-            # Normalize URL for deduplication
-            normalized_url = _normalize_url(item.url)
+            article = item.article
+            normalized_url = _normalize_url(article.url)
 
             cursor.execute(
                 """
                 INSERT OR IGNORE INTO news_items
-                (symbol, url, headline, content, published_iso, source)
+                (url, headline, content, published_iso, source, news_type)
                 VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
-                    item.symbol,
                     normalized_url,
-                    item.headline,
-                    item.content,
-                    _datetime_to_iso(item.published),
-                    item.source,
+                    article.headline,
+                    article.content,
+                    _datetime_to_iso(article.published),
+                    article.source,
+                    article.news_type.value,
                 ),
             )
 
-
-def store_news_labels(db_path: str, labels: list[NewsLabel]) -> None:
-    """
-    Insert or update news classification labels for stored news items.
-    """
-    if not labels:
-        return
-
-    with _cursor_context(db_path) as cursor:
-        for label in labels:
-            normalized_url = _normalize_url(label.url)
-            created_at_iso = (
-                _datetime_to_iso(label.created_at)
-                if label.created_at
-                else _datetime_to_iso(datetime.now(UTC))
-            )
+            importance = None if item.is_important is None else int(item.is_important)
             cursor.execute(
                 """
-                INSERT INTO news_labels (symbol, url, label, created_at_iso)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(symbol, url) DO UPDATE SET
-                    label = excluded.label,
-                    created_at_iso = excluded.created_at_iso
+                INSERT INTO news_symbols
+                (url, symbol, is_important)
+                VALUES (?, ?, ?)
+                ON CONFLICT(url, symbol) DO UPDATE SET
+                    is_important = excluded.is_important
             """,
-                (label.symbol, normalized_url, label.label.value, created_at_iso),
+                (
+                    normalized_url,
+                    item.symbol,
+                    importance,
+                ),
             )
 
 
@@ -108,47 +91,58 @@ def store_price_data(db_path: str, items: list[PriceData]) -> None:
             )
 
 
-def get_news_since(db_path: str, timestamp: datetime) -> list[NewsItem]:
+def get_news_since(db_path: str, timestamp: datetime) -> list[NewsEntry]:
     """
-    Retrieve news items since the given timestamp.
-    Returns NewsItem model objects with datetime fields in UTC.
+    Retrieve news entries since the given timestamp.
+    Returns NewsEntry domain objects with datetime fields in UTC.
     """
     with _cursor_context(db_path, commit=False) as cursor:
         cursor.execute(
             """
-            SELECT symbol, url, headline, content, published_iso, source, created_at_iso
-            FROM news_items
-            WHERE published_iso >= ?
-            ORDER BY published_iso ASC
+            SELECT
+                ni.url,
+                ni.headline,
+                ni.content,
+                ni.published_iso,
+                ni.source,
+                ni.news_type,
+                ns.symbol,
+                ns.is_important
+            FROM news_items AS ni
+            JOIN news_symbols AS ns ON ns.url = ni.url
+            WHERE ni.published_iso >= ?
+            ORDER BY ni.published_iso ASC, ns.symbol ASC
         """,
             (_datetime_to_iso(timestamp),),
         )
 
-        return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
+        return [_row_to_news_entry(dict(row)) for row in cursor.fetchall()]
 
 
-def get_news_labels(db_path: str, symbol: str | None = None) -> list[NewsLabel]:
-    """Retrieve stored news labels, optionally filtered by symbol."""
+def get_news_symbols(db_path: str, symbol: str | None = None) -> list[NewsSymbol]:
+    """Retrieve stored news symbol links, optionally filtered by symbol."""
     with _cursor_context(db_path, commit=False) as cursor:
         if symbol:
             symbol_key = symbol.strip().upper()
             cursor.execute(
                 """
-                SELECT symbol, url, label, created_at_iso
-                FROM news_labels
+                SELECT url, symbol, is_important
+                FROM news_symbols
                 WHERE symbol = ?
-                ORDER BY created_at_iso ASC, url ASC
+                ORDER BY url ASC
             """,
                 (symbol_key,),
             )
         else:
-            cursor.execute("""
-                SELECT symbol, url, label, created_at_iso
-                FROM news_labels
-                ORDER BY symbol ASC, created_at_iso ASC, url ASC
-            """)
+            cursor.execute(
+                """
+                SELECT url, symbol, is_important
+                FROM news_symbols
+                ORDER BY symbol ASC, url ASC
+            """
+            )
 
-        return [_row_to_news_label(dict(row)) for row in cursor.fetchall()]
+        return [_row_to_news_symbol(dict(row)) for row in cursor.fetchall()]
 
 
 def get_price_data_since(db_path: str, timestamp: datetime) -> list[PriceData]:

@@ -26,15 +26,15 @@ class AnalysisType(Enum):
     HEAD_TRADER = "head_trader"  # Head Trader LLM
 
 
-class NewsLabelType(Enum):
-    COMPANY = "Company"
-    PEOPLE = "People"
-    MARKET_WITH_MENTION = "MarketWithMention"
-
-
 class Urgency(Enum):
     URGENT = "URGENT"
     NOT_URGENT = "NOT_URGENT"
+
+
+class NewsType(Enum):
+    MACRO = "macro"
+    COMPANY_SPECIFIC = "company_specific"
+    SOCIAL_SENTIMENT = "social_sentiment"
 
 
 def _valid_http_url(u: str) -> bool:
@@ -57,52 +57,83 @@ def _normalize_to_utc(dt: datetime) -> datetime:
 
 @dataclass
 class NewsItem:
-    symbol: str
     url: str
     headline: str
     published: datetime
     source: str
+    news_type: NewsType | str
     content: str | None = None
 
     def __post_init__(self) -> None:
-        self.symbol = self.symbol.strip().upper()
         self.url = self.url.strip()
         self.headline = self.headline.strip()
         self.source = self.source.strip()
-        if not self.symbol:
-            raise ValueError("symbol cannot be empty")
         if not self.headline:
             raise ValueError("headline cannot be empty")
         if not self.source:
             raise ValueError("source cannot be empty")
         if not _valid_http_url(self.url):
             raise ValueError("url must be http(s)")
+        if isinstance(self.news_type, str):
+            self.news_type = NewsType(self.news_type)
+        if not isinstance(self.news_type, NewsType):
+            raise ValueError("news_type must be a NewsType enum value")
         self.published = _normalize_to_utc(self.published)
 
 
 @dataclass
-class NewsLabel:
-    symbol: str
+class NewsSymbol:
     url: str
-    label: NewsLabelType
-    created_at: datetime | None = None
+    symbol: str
+    is_important: bool | None = None
 
     def __post_init__(self) -> None:
-        self.symbol = self.symbol.strip().upper()
         self.url = self.url.strip()
-        if isinstance(self.label, str):
-            try:
-                self.label = NewsLabelType(self.label)
-            except ValueError as exc:
-                raise ValueError(f"label must be a NewsLabelType value: {self.label}") from exc
-        if not isinstance(self.label, NewsLabelType):
-            raise ValueError("label must be a NewsLabelType enum value")
+        self.symbol = self.symbol.strip().upper()
         if not self.symbol:
             raise ValueError("symbol cannot be empty")
         if not _valid_http_url(self.url):
             raise ValueError("url must be http(s)")
-        if self.created_at is not None:
-            self.created_at = _normalize_to_utc(self.created_at)
+        if self.is_important is not None and not isinstance(self.is_important, bool):
+            raise ValueError("is_important must be True, False, or None")
+
+
+@dataclass
+class NewsEntry:
+    article: NewsItem
+    symbol: str
+    is_important: bool | None = None
+
+    def __post_init__(self) -> None:
+        self.symbol = self.symbol.strip().upper()
+        if not self.symbol:
+            raise ValueError("symbol cannot be empty")
+        if self.is_important is not None and not isinstance(self.is_important, bool):
+            raise ValueError("is_important must be True, False, or None")
+
+    @property
+    def url(self) -> str:
+        return self.article.url
+
+    @property
+    def headline(self) -> str:
+        return self.article.headline
+
+    @property
+    def published(self) -> datetime:
+        return self.article.published
+
+    @property
+    def source(self) -> str:
+        return self.article.source
+
+    @property
+    def content(self) -> str | None:
+        return self.article.content
+
+    @property
+    def news_type(self) -> NewsType:
+        return self.article.news_type
 
 
 @dataclass

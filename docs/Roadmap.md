@@ -92,14 +92,12 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
   - One global `news_since_iso` acceptable (per‑provider later)
  
 
-### v0.3.2 — Database UI + News Classifier✅
-**Goal**: Browse the SQLite database locally and prepare news classification structure
+### v0.3.2 — Database UI ✅
+**Goal**: Browse the SQLite database locally and prepare analysis extension points
 
 **Achieves**:
 - Run a minimal Streamlit UI for quick local inspection
-- News classifier stub that returns 'Company' for all items (intentional placeholder until v0.5 LLM layer)
-- `news_labels` table structure ready for future LLM-powered classification
-- Classification pipeline integrated into poller workflow
+- Classification extension point stub kept for future LLM use (no label storage)
 
 **Notes**:
 - Dev UX: `pip install streamlit` (or `pip install -r requirements-dev.txt`)
@@ -212,7 +210,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Flat file support where necessary (CSV exports, bulk historical data)
 - Provider abstraction over multiple transport types
 
-## Runtime Flow Snapshot (v0.3.3)
+## Runtime Flow Snapshot
 - Startup
   - Loads `.env` and logging; parses `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, `DATABASE_PATH` (default `data/trading_bot.db`). If `-v`, also uses `STREAMLIT_PORT`. Initializes SQLite (JSON1 required).
   - Launches optional Streamlit viewer if requested (`-v`) before provider validation.
@@ -227,7 +225,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
     - Else: pass `minId = macro_news_min_id`; keep only articles with id > minId. Track `last_fetched_max_id`.
   - Fetch prices (`/quote` per symbol) and classify session (REG/PRE/POST/CLOSED) from ET.
   - Store results
-    - `store_news_items` with URL dedup; classify company news and `store_news_labels` (stub classifier).
+    - `store_news_items` writes articles once by URL (`news_items`) and per-symbol links (`news_symbols`), preserving per-symbol `is_important` flags.
     - Run urgency detector (stub; returns none; no urgent headlines logged).
     - Advance `news_since_iso` to the max published timestamp across all news fetched.
     - If present, advance `macro_news_min_id` to provider `last_fetched_max_id`.

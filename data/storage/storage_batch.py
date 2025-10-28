@@ -6,12 +6,12 @@ Handles LLM processing batches and state tracking.
 import logging
 from datetime import datetime
 
-from data.models import NewsItem, PriceData
+from data.models import NewsEntry, PriceData
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import (
     _datetime_to_iso,
     _iso_to_datetime,
-    _row_to_news_item,
+    _row_to_news_entry,
     _row_to_price_data,
 )
 
@@ -102,29 +102,38 @@ def set_last_macro_min_id(db_path: str, min_id: int) -> None:
     set_last_seen(db_path, "macro_news_min_id", str(min_id))
 
 
-def get_news_before(db_path: str, cutoff: datetime) -> list[NewsItem]:
+def get_news_before(db_path: str, cutoff: datetime) -> list[NewsEntry]:
     """
-    Get news items created at or before the cutoff for LLM processing.
+    Get news entries created at or before the cutoff for LLM processing.
 
     Args:
         cutoff: Include items with created_at_iso <= this timestamp
 
     Returns:
-        List of NewsItem model objects with datetime fields in UTC
+        List of NewsEntry domain objects with datetime fields in UTC
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path, commit=False) as cursor:
         cursor.execute(
             """
-            SELECT symbol, url, headline, content, published_iso, source, created_at_iso
-            FROM news_items
-            WHERE created_at_iso <= ?
-            ORDER BY created_at_iso ASC, symbol ASC
+            SELECT
+                ni.url,
+                ni.headline,
+                ni.content,
+                ni.published_iso,
+                ni.source,
+                ni.news_type,
+                ns.symbol,
+                ns.is_important
+            FROM news_items AS ni
+            JOIN news_symbols AS ns ON ns.url = ni.url
+            WHERE ni.created_at_iso <= ?
+            ORDER BY ni.created_at_iso ASC, ni.url ASC, ns.symbol ASC
         """,
             (iso_cutoff,),
         )
 
-        return [_row_to_news_item(dict(row)) for row in cursor.fetchall()]
+        return [_row_to_news_entry(dict(row)) for row in cursor.fetchall()]
 
 
 def get_prices_before(db_path: str, cutoff: datetime) -> list[PriceData]:
@@ -158,7 +167,7 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
 
     This performs, in a single transaction:
       1) Set `last_seen['llm_last_run_iso'] = cutoff`
-      2) DELETE from `news_labels`, `news_items`, and `price_data` where `created_at_iso <= cutoff`
+      2) DELETE from `news_symbols`, `news_items`, and `price_data` where `created_at_iso <= cutoff`
 
     Args:
         db_path: Path to the SQLite database
@@ -166,7 +175,7 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
 
     Returns:
         Dict with counts of deleted rows:
-        {"labels_deleted": int, "news_deleted": int, "prices_deleted": int}
+        {"symbols_deleted": int, "news_deleted": int, "prices_deleted": int}
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path) as cursor:
@@ -177,20 +186,20 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
         )
 
         # 2) Prune items processed in this batch
+        # Note: ON DELETE CASCADE should auto-delete news_symbols when news_items are deleted,
+        # but we explicitly delete here for clarity and to track the count.
         cursor.execute(
             """
-            DELETE FROM news_labels
-            WHERE EXISTS (
-                SELECT 1
-                FROM news_items AS ni
-                WHERE ni.symbol = news_labels.symbol
-                  AND ni.url = news_labels.url
-                  AND ni.created_at_iso <= ?
+            DELETE FROM news_symbols
+            WHERE url IN (
+                SELECT url
+                FROM news_items
+                WHERE created_at_iso <= ?
             )
         """,
             (iso_cutoff,),
         )
-        labels_deleted = cursor.rowcount
+        symbols_deleted = cursor.rowcount
 
         cursor.execute("DELETE FROM news_items WHERE created_at_iso <= ?", (iso_cutoff,))
         news_deleted = cursor.rowcount
@@ -199,7 +208,7 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
         prices_deleted = cursor.rowcount
 
     return {
-        "labels_deleted": labels_deleted,
+        "symbols_deleted": symbols_deleted,
         "news_deleted": news_deleted,
         "prices_deleted": prices_deleted,
     }

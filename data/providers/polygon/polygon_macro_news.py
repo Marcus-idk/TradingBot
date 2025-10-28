@@ -12,7 +12,7 @@ from typing import Any
 
 from config.providers.polygon import PolygonSettings
 from data import DataSourceError, NewsDataSource
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.providers.polygon.polygon_client import _NEWS_LIMIT, _NEWS_ORDER, PolygonClient
 from data.storage.storage_utils import _datetime_to_iso, _parse_rfc3339
 from utils.retry import RetryableError
@@ -25,7 +25,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
     """Fetches market-wide macro news from Polygon.io's /v2/reference/news endpoint.
 
     Fetches general market news (no ticker filter) and maps articles to watchlist
-    symbols based on the tickers array in each article. Falls back to 'ALL' for
+    symbols based on the tickers array in each article. Falls back to 'MARKET' for
     articles that don't match any watchlist symbols.
 
     Rate Limits:
@@ -47,7 +47,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         now_utc = datetime.now(UTC)
 
         # Calculate time filter
@@ -58,7 +58,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
 
         published_gt = _datetime_to_iso(buffer_time)
 
-        news_items: list[NewsItem] = []
+        news_entries: list[NewsEntry] = []
         cursor: str | None = None
 
         while True:
@@ -94,7 +94,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
                 for article in articles:
                     try:
                         items = self._parse_article(article, buffer_time)
-                        news_items.extend(items)
+                        news_entries.extend(items)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
                         logger.debug(
                             f"Failed to parse macro news article "
@@ -122,7 +122,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
                 logger.warning(f"Macro news pagination failed: {exc}")
                 raise
 
-        return news_items
+        return news_entries
 
     def _extract_cursor(self, next_url: str) -> str | None:
         """Extract cursor parameter from Polygon next_url."""
@@ -139,7 +139,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
         self,
         article: dict[str, Any],
         buffer_time: datetime | None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         """Parse Polygon news article into multiple NewsItems (one per matching symbol)."""
         title = article.get("title", "").strip()
         article_url = article.get("article_url", "").strip()
@@ -151,7 +151,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
         # Parse RFC3339 timestamp
         try:
             published = _parse_rfc3339(published_utc)
-        except (ValueError, TypeError) as exc:  # pragma: no cover
+        except (ValueError, TypeError) as exc:
             logger.debug(
                 f"Skipping macro news article due to invalid timestamp {published_utc}: {exc}"
             )
@@ -182,29 +182,33 @@ class PolygonMacroNewsProvider(NewsDataSource):
         description = article.get("description", "").strip()
         content = description if description else None
 
-        # Create NewsItem for each symbol
-        news_items: list[NewsItem] = []
+        try:
+            article_model = NewsItem(
+                url=article_url,
+                headline=title,
+                published=published,
+                source=source,
+                news_type=NewsType.MACRO,
+                content=content,
+            )
+        except ValueError as exc:
+            logger.debug(f"NewsItem validation failed (url={article_url}): {exc}")
+            return []
+
+        entries: list[NewsEntry] = []
         for symbol in symbols:
             try:
-                news_item = NewsItem(
-                    symbol=symbol,
-                    url=article_url,
-                    headline=title,
-                    published=published,
-                    source=source,
-                    content=content,
-                )
-                news_items.append(news_item)
+                entries.append(NewsEntry(article=article_model, symbol=symbol, is_important=None))
             except ValueError as exc:
-                logger.debug(f"NewsItem validation failed for {symbol} (url={article_url}): {exc}")
+                logger.debug(f"NewsEntry validation failed for {symbol} (url={article_url}): {exc}")
                 continue
 
-        return news_items
+        return entries
 
     def _extract_symbols_from_tickers(self, tickers: list[str] | None) -> list[str]:
-        """Extract symbols from tickers array, filtering to watchlist. Fall back to ['ALL']."""
+        """Extract symbols from tickers array, filtering to watchlist. Fall back to ['MARKET']."""
         if not tickers or not isinstance(tickers, list):
-            return ["ALL"]
+            return ["MARKET"]
 
         # Convert tickers list to comma-separated string for parse_symbols
         tickers_str = ",".join(str(t) for t in tickers if t)
@@ -217,6 +221,6 @@ class PolygonMacroNewsProvider(NewsDataSource):
         )
 
         if not symbols:
-            return ["ALL"]
+            return ["MARKET"]
 
         return symbols

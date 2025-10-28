@@ -1,37 +1,28 @@
 """
-News classification module.
-Currently returns 'Company' for all items - stub for future ML/LLM implementation.
+News classification stub.
+
+The refactored pipeline relies on per-symbol importance flags stored in `news_symbols`,
+so this module currently returns no additional metadata. It remains as an extension
+point for future LLM-based classifiers.
 """
 
 import logging
 
-from data.models import NewsItem, NewsLabel, NewsLabelType
+from data.models import NewsEntry, NewsSymbol
 
 logger = logging.getLogger(__name__)
 
 
-def classify(news_items: list[NewsItem]) -> list[NewsLabel]:
+def classify(news_entries: list[NewsEntry]) -> list[NewsSymbol]:
     """
-    Classify news items into categories.
+    Stub classifier for news entries.
 
     Args:
-        news_items: List of NewsItem objects to classify
+        news_entries: List of NewsEntry objects to evaluate.
 
     Returns:
-        List of NewsLabel objects with classification labels
-
-    Note:
-        Current implementation is a stub returning 'Company' for all items.
-        Future versions will use heuristics and/or LLM for classification.
+        Empty list; routing is handled elsewhere.
     """
-    labels = []
-
-    for item in news_items:
-        # Stub implementation - always returns Company
-        label = NewsLabel(symbol=item.symbol, url=item.url, label=NewsLabelType.COMPANY)
-        labels.append(label)
-
-    if labels:
-        logger.debug(f"Classified {len(labels)} news items (stub mode - all 'Company')")
-
-    return labels
+    if news_entries:
+        logger.debug("News classifier stub invoked but no labels are generated.")
+    return []
