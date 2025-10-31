@@ -6,8 +6,26 @@ import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from data.models import NewsItem, PriceData, Session
+from data.models import NewsEntry, NewsItem, NewsType, PriceData, Session
 from data.storage import get_news_before, get_prices_before, store_news_items, store_price_data
+
+
+def _make_entry(
+    *,
+    symbol: str,
+    url_suffix: str,
+    headline: str,
+    news_type: NewsType = NewsType.COMPANY_SPECIFIC,
+) -> NewsEntry:
+    article = NewsItem(
+        url=f"https://example.com/{url_suffix}",
+        headline=headline,
+        source="Source",
+        published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
+        news_type=news_type,
+        content=None,
+    )
+    return NewsEntry(article=article, symbol=symbol, is_important=None)
 
 
 class TestCutoffQueries:
@@ -20,39 +38,21 @@ class TestCutoffQueries:
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         # First item - oldest
-        item1 = NewsItem(
-            symbol="AAPL",
-            url="https://example.com/old",
-            headline="Old News",
-            source="Reuters",
-            published=base_time,
-        )
-        store_news_items(temp_db, [item1])
+        entry1 = _make_entry(symbol="AAPL", url_suffix="old", headline="Old News")
+        store_news_items(temp_db, [entry1])
         time.sleep(1)  # 1 second delay to ensure different created_at
 
         # Second item - middle
-        item2 = NewsItem(
-            symbol="TSLA",
-            url="https://example.com/middle",
-            headline="Middle News",
-            source="Bloomberg",
-            published=base_time,
-        )
-        store_news_items(temp_db, [item2])
+        entry2 = _make_entry(symbol="TSLA", url_suffix="middle", headline="Middle News")
+        store_news_items(temp_db, [entry2])
 
         # Record cutoff time right after second item
         cutoff = datetime.now(UTC)
         time.sleep(1)  # 1 second delay before third item
 
         # Third item - newest
-        item3 = NewsItem(
-            symbol="AAPL",
-            url="https://example.com/new",
-            headline="New News",
-            source="Yahoo",
-            published=base_time,
-        )
-        store_news_items(temp_db, [item3])
+        entry3 = _make_entry(symbol="AAPL", url_suffix="new", headline="New News")
+        store_news_items(temp_db, [entry3])
 
         # Query news before cutoff (should get first 2 items)
         results = get_news_before(temp_db, cutoff)
@@ -65,26 +65,18 @@ class TestCutoffQueries:
 
         # Verify all expected fields are present
         for result in results:
-            assert hasattr(result, "symbol")
-            assert hasattr(result, "url")
-            assert hasattr(result, "headline")
-            assert hasattr(result, "content")
-            assert hasattr(result, "published")
-            assert hasattr(result, "source")
+            assert result.symbol in {"AAPL", "TSLA"}
+            assert result.url.startswith("https://example.com/")
+            assert result.headline
+            assert result.published == base_time
+            assert result.source == "Source"
 
     def test_get_news_before_boundary_conditions(self, temp_db):
         """Test get_news_before with boundary conditions using spaced items"""
-        base_time = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         # Store first news item
-        item1 = NewsItem(
-            symbol="AAPL",
-            url="https://example.com/item1",
-            headline="First News",
-            source="Reuters",
-            published=base_time,
-        )
-        store_news_items(temp_db, [item1])
+        entry1 = _make_entry(symbol="AAPL", url_suffix="item1", headline="First News")
+        store_news_items(temp_db, [entry1])
         time.sleep(1)  # 1 second delay
 
         # Record time between items
@@ -92,14 +84,8 @@ class TestCutoffQueries:
         time.sleep(1)  # 1 second delay
 
         # Store second news item
-        item2 = NewsItem(
-            symbol="TSLA",
-            url="https://example.com/item2",
-            headline="Second News",
-            source="Bloomberg",
-            published=base_time,
-        )
-        store_news_items(temp_db, [item2])
+        entry2 = _make_entry(symbol="TSLA", url_suffix="item2", headline="Second News")
+        store_news_items(temp_db, [entry2])
 
         # Test 1: Cutoff before all items (should get nothing)
         past_cutoff = datetime(2020, 1, 1, tzinfo=UTC)

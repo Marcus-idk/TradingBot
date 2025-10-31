@@ -13,7 +13,7 @@ from datetime import datetime
 import pytest
 
 from data.base import DataSource, DataSourceError, NewsDataSource, PriceDataSource
-from data.models import NewsItem, PriceData
+from data.models import NewsEntry, PriceData
 
 
 class TestDataSourceContract:
@@ -114,7 +114,7 @@ class TestNewsDataSourceContract:
                 *,
                 since: datetime | None = None,
                 min_id: int | None = None,
-            ) -> list[NewsItem]:
+            ) -> list[NewsEntry]:
                 assert since is None or isinstance(since, datetime)
                 assert min_id is None or isinstance(min_id, int)
                 return []

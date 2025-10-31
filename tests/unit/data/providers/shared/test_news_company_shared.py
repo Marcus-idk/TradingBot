@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from data import DataSourceError, NewsItem
+from data import DataSourceError, NewsEntry, NewsType
 from data.storage.storage_utils import _datetime_to_iso
 
 pytestmark = pytest.mark.asyncio
@@ -61,12 +61,13 @@ class TestNewsCompanyShared:
 
         assert len(results) == 1
         item = results[0]
-        assert isinstance(item, NewsItem)
+        assert isinstance(item, NewsEntry)
         assert item.symbol in provider_spec_company.default_symbols
         assert item.headline == "Tesla soars"
         assert item.content == "Detailed content"
         assert item.source == "Reuters"
         assert item.published == datetime.fromtimestamp(now_epoch, tz=UTC)
+        assert item.news_type is NewsType.COMPANY_SPECIFIC
 
     async def test_skips_missing_headline(self, provider_spec_company):
         provider = provider_spec_company.make_provider()

@@ -19,16 +19,19 @@ class TestCursorContext:
         # Insert data with commit=True (default)
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
-                (
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                    "VALUES (?, ?, ?, ?, ?)"
-                ),
-                ("AAPL", "https://test.com/1", "Test", "2024-01-01T00:00:00Z", "Test"),
+                """
+                INSERT INTO price_data (symbol, timestamp_iso, price, session)
+                VALUES (?, ?, ?, ?)
+            """,
+                ("AAPL", "2024-01-01T00:00:00Z", "150.00", "REG"),
             )
 
         # Verify data was committed by reading in a new connection
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT symbol FROM news_items WHERE url = ?", ("https://test.com/1",))
+            cursor.execute(
+                "SELECT symbol FROM price_data WHERE timestamp_iso = ?",
+                ("2024-01-01T00:00:00Z",),
+            )
             result = cursor.fetchone()
             assert result is not None
             assert result["symbol"] == "AAPL"
@@ -38,16 +41,19 @@ class TestCursorContext:
         # Try to insert with commit=False
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute(
-                (
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                    "VALUES (?, ?, ?, ?, ?)"
-                ),
-                ("TSLA", "https://test.com/2", "Test", "2024-01-01T00:00:00Z", "Test"),
+                """
+                INSERT INTO price_data (symbol, timestamp_iso, price, session)
+                VALUES (?, ?, ?, ?)
+            """,
+                ("TSLA", "2024-01-01T00:00:00Z", "200.00", "REG"),
             )
 
         # Verify data was NOT committed (should rollback on exit)
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT symbol FROM news_items WHERE url = ?", ("https://test.com/2",))
+            cursor.execute(
+                "SELECT symbol FROM price_data WHERE timestamp_iso = ?",
+                ("2024-01-01T00:00:00Z",),
+            )
             result = cursor.fetchone()
             assert result is None
 
@@ -57,17 +63,20 @@ class TestCursorContext:
         with pytest.raises(ValueError):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    (
-                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                        "VALUES (?, ?, ?, ?, ?)"
-                    ),
-                    ("MSFT", "https://test.com/3", "Test", "2024-01-01T00:00:00Z", "Test"),
+                    """
+                    INSERT INTO price_data (symbol, timestamp_iso, price, session)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    ("MSFT", "2024-01-01T00:00:00Z", "250.00", "REG"),
                 )
                 raise ValueError("Intentional error")
 
         # Verify rollback happened - no data should exist
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT symbol FROM news_items WHERE url = ?", ("https://test.com/3",))
+            cursor.execute(
+                "SELECT symbol FROM price_data WHERE symbol = ?",
+                ("MSFT",),
+            )
             result = cursor.fetchone()
             assert result is None
 
@@ -77,17 +86,20 @@ class TestCursorContext:
         with pytest.raises(SystemExit):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    (
-                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                        "VALUES (?, ?, ?, ?, ?)"
-                    ),
-                    ("GOOGL", "https://test.com/4", "Test", "2024-01-01T00:00:00Z", "Test"),
+                    """
+                    INSERT INTO price_data (symbol, timestamp_iso, price, session)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    ("GOOGL", "2024-01-01T00:00:00Z", "300.00", "REG"),
                 )
                 raise SystemExit("Simulated system exit")
 
         # Verify rollback happened
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT symbol FROM news_items WHERE url = ?", ("https://test.com/4",))
+            cursor.execute(
+                "SELECT symbol FROM price_data WHERE symbol = ?",
+                ("GOOGL",),
+            )
             result = cursor.fetchone()
             assert result is None
 
@@ -96,30 +108,30 @@ class TestCursorContext:
         # Insert a row
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
-                (
-                    "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                    "VALUES (?, ?, ?, ?, ?)"
-                ),
-                ("AMZN", "https://test.com/5", "Test Headline", "2024-01-01T00:00:00Z", "Reuters"),
+                """
+                INSERT INTO price_data (symbol, timestamp_iso, price, session, volume)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                ("AMZN", "2024-01-01T00:00:00Z", "175.00", "POST", 1000),
             )
 
         # Verify row_factory enables dict-like access
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute(
-                "SELECT symbol, headline, source FROM news_items WHERE url = ?",
-                ("https://test.com/5",),
+                "SELECT symbol, price, session FROM price_data WHERE symbol = ?",
+                ("AMZN",),
             )
             row = cursor.fetchone()
 
             # Test dict-like access
             assert row["symbol"] == "AMZN"
-            assert row["headline"] == "Test Headline"
-            assert row["source"] == "Reuters"
+            assert row["price"] == "175.00"
+            assert row["session"] == "POST"
 
             # Also test tuple-style access
             assert row[0] == "AMZN"
-            assert row[1] == "Test Headline"
-            assert row[2] == "Reuters"
+            assert row[1] == "175.00"
+            assert row[2] == "POST"
 
     def test_cursor_context_cleanup_on_cursor_error(self, temp_db):
         """Test that connection cleanup happens even if cursor operations fail"""
@@ -145,16 +157,16 @@ class TestCursorContext:
         with pytest.raises(RuntimeError):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(
-                    (
-                        "INSERT INTO news_items (symbol, url, headline, published_iso, source) "
-                        "VALUES (?, ?, ?, ?, ?)"
-                    ),
-                    ("FB", "https://test.com/6", "Test", "2024-01-01T00:00:00Z", "Test"),
+                    """
+                    INSERT INTO price_data (symbol, timestamp_iso, price, session)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    ("META", "2024-01-01T00:00:00Z", "190.00", "REG"),
                 )
                 raise RuntimeError("Test error")
 
         # Verify we can still access database (connections were properly closed)
         with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT COUNT(*) as count FROM news_items")
+            cursor.execute("SELECT COUNT(*) as count FROM price_data")
             result = cursor.fetchone()
             assert result is not None  # Should still work

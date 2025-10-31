@@ -3,75 +3,57 @@
 from datetime import UTC, datetime
 
 from analysis.urgency_detector import detect_urgency
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
+
+
+def _make_entry(
+    *,
+    symbol: str,
+    url_suffix: str,
+    content: str | None = None,
+) -> NewsEntry:
+    article = NewsItem(
+        url=f"https://example.com/news{url_suffix}",
+        headline=f"Headline {url_suffix}",
+        published=datetime(2024, 1, 15, 12, 0, tzinfo=UTC),
+        source="UnitTest",
+        news_type=NewsType.COMPANY_SPECIFIC,
+        content=content,
+    )
+    return NewsEntry(article=article, symbol=symbol)
 
 
 def test_detect_urgency_returns_empty_list():
-    """Test that urgency detector stub returns empty list (no urgent items)."""
-    # Create test news items
-    news_items = [
-        NewsItem(
-            symbol="AAPL",
-            url="https://example.com/news1",
-            headline="Apple announces bankruptcy",
-            published=datetime.now(UTC),
-            source="TechNews",
-        ),
-        NewsItem(
-            symbol="MSFT",
-            url="https://example.com/news2",
-            headline="SEC investigation announced",
-            published=datetime.now(UTC),
-            source="Finance",
-        ),
+    """Detector stub returns empty list for populated entries."""
+    entries = [
+        _make_entry(symbol="AAPL", url_suffix="1", content="Bankruptcy chatter"),
+        _make_entry(symbol="MSFT", url_suffix="2"),
     ]
 
-    # Detect urgency
-    urgent_items = detect_urgency(news_items)
+    urgent_items = detect_urgency(entries)
 
-    # Verify stub returns empty list (no urgent items)
     assert urgent_items == []
 
 
 def test_detect_urgency_handles_empty_list():
-    """Test urgency detector handles empty input."""
+    """Detector stub handles empty input."""
     urgent_items = detect_urgency([])
+
     assert urgent_items == []
 
 
 def test_detect_urgency_extracts_text_from_headline_and_content():
-    """Test that detector extracts text from both headline and content without crashing."""
-    news_items = [
-        # Item with headline only (no content)
-        NewsItem(
-            symbol="AAPL",
-            url="https://example.com/news1",
-            headline="Breaking news",
-            published=datetime.now(UTC),
-            source="TechNews",
-        ),
-        # Item with headline and content
-        NewsItem(
+    """Detector accesses headline/content safely even when content is None."""
+    entries = [
+        _make_entry(symbol="AAPL", url_suffix="1"),
+        _make_entry(
             symbol="MSFT",
-            url="https://example.com/news2",
-            headline="Microsoft update",
-            published=datetime.now(UTC),
-            source="Finance",
-            content="Detailed content about the update and its implications.",
+            url_suffix="2",
+            content="Detailed content about market movement.",
         ),
-        # Item with content set to None explicitly
-        NewsItem(
-            symbol="TSLA",
-            url="https://example.com/news3",
-            headline="Tesla announcement",
-            published=datetime.now(UTC),
-            source="AutoNews",
-            content=None,
-        ),
+        _make_entry(symbol="TSLA", url_suffix="3", content=None),
     ]
 
-    # Should not crash when extracting text from items with/without content
-    urgent_items = detect_urgency(news_items)
+    urgent_items = detect_urgency(entries)
 
-    # Verify stub still returns empty (no urgent items)
     assert urgent_items == []

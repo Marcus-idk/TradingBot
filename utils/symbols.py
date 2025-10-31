@@ -5,9 +5,17 @@ Follow Writing_Code.md: simple, clear, and consistent utilities.
 """
 
 import logging
+import re
 from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
+
+_SYMBOL_PATTERN = re.compile(r"[A-Z][A-Z0-9]{0,4}([.\-][A-Z0-9]{1,2})?$")
+
+
+def _is_valid_symbol(symbol: str) -> bool:
+    """Return True if symbol matches supported exchange ticker formats."""
+    return bool(_SYMBOL_PATTERN.fullmatch(symbol))
 
 
 def parse_symbols(
@@ -24,7 +32,7 @@ def parse_symbols(
     - Trims/uppercases
     - Deduplicates while preserving order
     - If `filter_to` is provided, returns only symbols present in that set
-    - If `validate` is True, enforce 1-5 A-Z and log anomalies at DEBUG
+    - If `validate` is True, enforce common ticker formats (allows share-class suffixes)
     """
 
     if not raw or not isinstance(raw, str) or not raw.strip():
@@ -45,8 +53,8 @@ def parse_symbols(
         if sym in seen:
             continue
 
-        # Validate format: 1-5 uppercase letters only
-        if validate and not (sym.isalpha() and 1 <= len(sym) <= 5):
+        # Validate against supported ticker formats (e.g., BRK.B, BF-B, GOOG, PSX)
+        if validate and not _is_valid_symbol(sym):
             logger.debug(f"Unexpected {log_label} entry format: {sym}")
             continue
 

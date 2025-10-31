@@ -27,6 +27,10 @@ A lightweight US equities trading bot skeleton with strict data models, SQLite s
 - **LLM Providers Guide**: OpenAI and Gemini provider parameters, tools, and usage examples
   - [docs/LLM_Providers_Guide.md](docs/LLM_Providers_Guide.md)
 
+## Prerequisites
+
+- Python 3.12 or newer
+
 ## Development Setup
 
 **1. Install runtime dependencies:**

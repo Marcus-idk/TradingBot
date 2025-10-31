@@ -12,7 +12,10 @@ from data.models import (
     AnalysisResult,
     AnalysisType,
     Holdings,
+    NewsEntry,
     NewsItem,
+    NewsSymbol,
+    NewsType,
     PriceData,
     Session,
     Stance,
@@ -20,127 +23,191 @@ from data.models import (
 
 
 class TestNewsItem:
-    """Test NewsItem model validation"""
+    """Test NewsItem model validation."""
 
     def test_newsitem_valid_creation(self):
-        """Test valid NewsItem creation with all required fields"""
+        """Valid NewsItem requires url/headline/source/news_type."""
         item = NewsItem(
-            symbol="AAPL",
             url="https://example.com/news/1",
             headline="Apple Stock Rises",
             source="Reuters",
             published=datetime(2024, 1, 15, 10, 30),
+            news_type=NewsType.COMPANY_SPECIFIC,
             content="Optional content here",
         )
-        assert item.symbol == "AAPL"
         assert item.url == "https://example.com/news/1"
         assert item.headline == "Apple Stock Rises"
         assert item.source == "Reuters"
         assert item.published.tzinfo == UTC
         assert item.content == "Optional content here"
+        assert item.news_type is NewsType.COMPANY_SPECIFIC
 
     def test_newsitem_url_validation(self):
-        """Test URL validation - only HTTP/HTTPS allowed"""
-        # Valid URLs
-        valid_urls = [
+        """URL must be http(s)."""
+        base_kwargs = {
+            "headline": "Test",
+            "source": "Test Source",
+            "published": datetime.now(),
+            "news_type": NewsType.COMPANY_SPECIFIC,
+        }
+
+        for url in [
             "http://example.com",
             "https://example.com",
             "https://example.com/path?param=value",
-        ]
-
-        for url in valid_urls:
-            item = NewsItem(
-                symbol="AAPL",
-                url=url,
-                headline="Test",
-                source="Test Source",
-                published=datetime.now(),
-            )
+        ]:
+            item = NewsItem(url=url, **base_kwargs)
             assert item.url == url
 
-        # Invalid URLs should raise ValueError
-        invalid_urls = [
+        for url in [
             "ftp://example.com",
             "file:///path/to/file",
             "data:text/plain;base64,SGVsbG8=",
             "javascript:alert(1)",
             "invalid-url",
             "",
-        ]
-
-        for url in invalid_urls:
+        ]:
             with pytest.raises(ValueError, match="url must be http\\(s\\)"):
-                NewsItem(
-                    symbol="AAPL",
-                    url=url,
-                    headline="Test",
-                    source="Test Source",
-                    published=datetime.now(),
-                )
+                NewsItem(url=url, **base_kwargs)
 
     def test_newsitem_empty_field_validation(self):
-        """Test empty field validation after strip()"""
-        base_data = {
-            "symbol": "AAPL",
+        """headline, source, and news_type required after strip()."""
+        base_kwargs = {
             "url": "https://example.com",
             "headline": "Test Headline",
             "source": "Test Source",
             "published": datetime.now(),
+            "news_type": NewsType.MACRO,
         }
 
-        # Empty symbol after strip
-        with pytest.raises(ValueError, match="symbol cannot be empty"):
-            NewsItem(**{**base_data, "symbol": "  "})
-
-        # Empty headline after strip
         with pytest.raises(ValueError, match="headline cannot be empty"):
-            NewsItem(**{**base_data, "headline": "\t\n"})
+            NewsItem(**{**base_kwargs, "headline": "\t\n"})
 
-        # Empty source after strip
         with pytest.raises(ValueError, match="source cannot be empty"):
-            NewsItem(**{**base_data, "source": ""})
+            NewsItem(**{**base_kwargs, "source": ""})
 
-        # NOTE: content is NOT trimmed (per codex correction)
-        item = NewsItem(**{**base_data, "content": "  \n  "})
-        assert item.content == "  \n  "  # Preserved as-is
+        item = NewsItem(**{**base_kwargs, "content": "  \n  "})
+        assert item.content == "  \n  "
 
-    def test_newsitem_symbol_uppercasing(self):
-        """Test symbol is automatically uppercased"""
-        item = NewsItem(
-            symbol="aapl",
-            url="https://example.com/news",
-            headline="Test",
-            source="Test",
+    def test_newsitem_news_type_variants(self):
+        """news_type accepts enum instances or exact strings."""
+        item_enum = NewsItem(
+            url="https://example.com/enum",
+            headline="Enum",
+            source="Source",
             published=datetime.now(),
+            news_type=NewsType.MACRO,
         )
-        assert item.symbol == "AAPL"
+        assert item_enum.news_type is NewsType.MACRO
 
-        # Test mixed case
-        item2 = NewsItem(
-            symbol="tSlA",
-            url="https://example.com/news2",
-            headline="Test",
-            source="Test",
+        item_str = NewsItem(
+            url="https://example.com/string",
+            headline="String",
+            source="Source",
             published=datetime.now(),
+            news_type="social_sentiment",
         )
-        assert item2.symbol == "TSLA"
+        assert item_str.news_type is NewsType.SOCIAL_SENTIMENT
+
+        with pytest.raises(ValueError, match="valid NewsType"):
+            NewsItem(
+                url="https://example.com/invalid",
+                headline="Invalid",
+                source="Source",
+                published=datetime.now(),
+                news_type="invalid",
+            )
 
     def test_newsitem_timezone_normalization(self):
-        """Test naive datetime → UTC conversion"""
+        """Naive datetimes converted to UTC."""
         naive_dt = datetime(2024, 1, 15, 10, 30)
         item = NewsItem(
-            symbol="AAPL",
             url="https://example.com",
             headline="Test",
             source="Source",
             published=naive_dt,
+            news_type=NewsType.COMPANY_SPECIFIC,
         )
 
-        # Should be converted to UTC
         assert item.published.tzinfo == UTC
         assert item.published.year == 2024
         assert item.published.month == 1
         assert item.published.day == 15
+
+
+class TestNewsEntry:
+    """Tests for NewsEntry wrapper semantics."""
+
+    @staticmethod
+    def _article() -> NewsItem:
+        return NewsItem(
+            url="https://example.com/news",
+            headline="Headline",
+            source="Source",
+            published=datetime(2024, 1, 15, 9, 0),
+            news_type=NewsType.COMPANY_SPECIFIC,
+        )
+
+    def test_newsentry_symbol_uppercasing_and_passthrough(self):
+        article = self._article()
+        entry = NewsEntry(article=article, symbol="aapl", is_important=None)
+
+        assert entry.symbol == "AAPL"
+        assert entry.url == article.url
+        assert entry.headline == article.headline
+        assert entry.source == article.source
+        assert entry.published == article.published
+        assert entry.news_type is NewsType.COMPANY_SPECIFIC
+
+    def test_newsentry_is_important_accepts_bool_or_none(self):
+        article = self._article()
+        assert NewsEntry(article=article, symbol="MSFT", is_important=True).is_important is True
+        assert NewsEntry(article=article, symbol="TSLA", is_important=False).is_important is False
+        assert NewsEntry(article=article, symbol="GOOG", is_important=None).is_important is None
+
+    def test_newsentry_requires_non_empty_symbol(self):
+        article = self._article()
+        with pytest.raises(ValueError, match="symbol cannot be empty"):
+            NewsEntry(article=article, symbol="  ", is_important=None)
+
+    def test_newsentry_invalid_is_important_value(self):
+        article = self._article()
+        with pytest.raises(ValueError, match="is_important must be True, False, or None"):
+            NewsEntry(article=article, symbol="AAPL", is_important="yes")  # type: ignore[arg-type]
+
+
+class TestNewsSymbol:
+    """Tests for NewsSymbol link validation."""
+
+    def test_newssymbol_valid_creation(self):
+        link = NewsSymbol(url="https://example.com/news", symbol="aapl", is_important=None)
+        assert link.url == "https://example.com/news"
+        assert link.symbol == "AAPL"
+        assert link.is_important is None
+
+    def test_newssymbol_importance_bool_conversion(self):
+        assert (
+            NewsSymbol(
+                url="https://example.com/news", symbol="msft", is_important=True
+            ).is_important
+            is True
+        )
+        assert (
+            NewsSymbol(
+                url="https://example.com/news", symbol="msft", is_important=False
+            ).is_important
+            is False
+        )
+
+    def test_newssymbol_invalid_inputs_raise(self):
+        with pytest.raises(ValueError, match="url must be http\\(s\\)"):
+            NewsSymbol(url="ftp://example.com", symbol="AAPL")
+
+        with pytest.raises(ValueError, match="symbol cannot be empty"):
+            NewsSymbol(url="https://example.com", symbol="  ")
+
+        with pytest.raises(ValueError, match="is_important must be True, False, or None"):
+            NewsSymbol(url="https://example.com", symbol="AAPL", is_important=2)  # type: ignore[arg-type]
 
 
 class TestPriceData:

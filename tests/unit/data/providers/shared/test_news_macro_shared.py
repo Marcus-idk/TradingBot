@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from data import DataSourceError
+from data import DataSourceError, NewsEntry, NewsType
 
 pytestmark = pytest.mark.asyncio
 
@@ -44,9 +44,11 @@ class TestNewsMacroShared:
 
         results = await provider.fetch_incremental()
 
+        assert all(isinstance(item, NewsEntry) for item in results)
         assert {item.symbol for item in results} == {"AAPL", "MSFT"}
+        assert {item.news_type for item in results} == {NewsType.MACRO}
 
-    async def test_falls_back_to_all_when_no_related(self, provider_spec_macro):
+    async def test_falls_back_to_market_when_no_related(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT"])
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="", epoch=now_epoch)
@@ -56,7 +58,10 @@ class TestNewsMacroShared:
         results = await provider.fetch_incremental()
 
         assert len(results) == 1
-        assert results[0].symbol == "ALL"
+        fallback = results[0]
+        assert isinstance(fallback, NewsEntry)
+        assert fallback.symbol == "MARKET"
+        assert fallback.news_type is NewsType.MACRO
 
     async def test_filters_buffer_time_when_bootstrap(self, provider_spec_macro, monkeypatch):
         provider = provider_spec_macro.make_provider()
@@ -89,7 +94,9 @@ class TestNewsMacroShared:
             results = await provider.fetch_incremental(since=None)
 
         assert len(results) == 1
-        assert results[0].published == datetime.fromtimestamp(inside_epoch, tz=UTC)
+        entry = results[0]
+        assert entry.published == datetime.fromtimestamp(inside_epoch, tz=UTC)
+        assert entry.news_type is NewsType.MACRO
 
     async def test_invalid_articles_are_skipped(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
@@ -110,7 +117,9 @@ class TestNewsMacroShared:
         assert len(results) == 1
         # Need to check the right field name based on provider
         headline_field = "title" if "title" in good_article else "headline"
-        assert results[0].headline == good_article[headline_field]
+        entry = results[0]
+        assert entry.headline == good_article[headline_field]
+        assert entry.news_type is NewsType.MACRO
 
     async def test_structural_error_raises(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
@@ -123,7 +132,7 @@ class TestNewsMacroShared:
         with pytest.raises(DataSourceError):
             await provider.fetch_incremental()
 
-    async def test_empty_watchlist_falls_back_to_all(self, provider_spec_macro):
+    async def test_empty_watchlist_falls_back_to_market(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=[])
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="GOOG", epoch=now_epoch)
@@ -133,4 +142,7 @@ class TestNewsMacroShared:
         results = await provider.fetch_incremental()
 
         assert len(results) == 1
-        assert results[0].symbol == "ALL"
+        fallback = results[0]
+        assert isinstance(fallback, NewsEntry)
+        assert fallback.symbol == "MARKET"
+        assert fallback.news_type is NewsType.MACRO

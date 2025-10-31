@@ -9,7 +9,7 @@
 ---
 
 ## PROJECT CONTEXT
-- **Python Version**: 3.13.4 (target 3.13+)
+- **Python Version**: 3.12.x (requires 3.12+)
 - **Principle**: Follow existing patterns. Propose improvements only when they clearly reduce complexity.
 - **Scope**: All new/changed code
 
@@ -18,7 +18,7 @@
 # MUST-FOLLOW RULES
 
 ### PYTHON_VERSION
-Use Python 3.13+ modern syntax.
+Use Python 3.12+ modern syntax.
 ```python
 # ✅ list[str], dict[str, int | None], match statements, built-in generics
 # ❌ typing.List, typing.Optional, typing.Union

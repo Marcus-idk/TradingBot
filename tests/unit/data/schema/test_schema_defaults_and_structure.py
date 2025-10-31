@@ -30,10 +30,13 @@ class TestDefaultValues:
             # Insert without specifying created_at_iso
             cursor.execute(
                 """
-                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                INSERT INTO news_items (url, headline, published_iso, source, news_type)
                 VALUES (
-                    'AAPL', 'http://example.com/test', 'Test News',
-                    '2024-01-01T10:00:00Z', 'test'
+                    'http://example.com/test',
+                    'Test News',
+                    '2024-01-01T10:00:00Z',
+                    'test',
+                    'macro'
                 )
                 """
             )
@@ -41,7 +44,7 @@ class TestDefaultValues:
             # Verify timestamp was set
             result = cursor.execute("""
                 SELECT created_at_iso FROM news_items 
-                WHERE symbol='AAPL' AND url='http://example.com/test'
+                WHERE url='http://example.com/test'
             """).fetchone()
 
             # Should be an ISO timestamp
@@ -49,26 +52,29 @@ class TestDefaultValues:
             assert "T" in result[0]  # ISO format check
             assert result[0].endswith("Z")  # UTC timezone marker
 
-    def test_news_labels_timestamp_default(self, temp_db):
-        """Test created_at_iso default for news_labels table."""
+    def test_news_symbols_timestamp_default(self, temp_db):
+        """Test created_at_iso default for news_symbols table."""
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
                 """
-                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                INSERT INTO news_items (url, headline, published_iso, source, news_type)
                 VALUES (
-                    'AAPL', 'http://example.com/label-default', 'Label Default',
-                    '2024-01-01T10:00:00Z', 'test'
+                    'http://example.com/label-default',
+                    'Label Default',
+                    '2024-01-01T10:00:00Z',
+                    'test',
+                    'macro'
                 )
                 """
             )
             cursor.execute("""
-                INSERT INTO news_labels (symbol, url, label)
-                VALUES ('AAPL', 'http://example.com/label-default', 'Company')
+                INSERT INTO news_symbols (url, symbol, is_important)
+                VALUES ('http://example.com/label-default', 'AAPL', 1)
             """)
 
             result = cursor.execute("""
-                SELECT created_at_iso FROM news_labels
-                WHERE symbol='AAPL' AND url='http://example.com/label-default'
+                SELECT created_at_iso FROM news_symbols
+                WHERE url='http://example.com/label-default' AND symbol='AAPL'
             """).fetchone()
 
             assert result[0] is not None
@@ -93,11 +99,11 @@ class TestTableStructure:
             # Required tables (update here when schema grows)
             required = {
                 "news_items",
+                "news_symbols",
                 "price_data",
                 "analysis_results",
                 "holdings",
                 "last_seen",
-                "news_labels",
             }
 
             names = {name for name, _ in tables}

@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from data.models import AnalysisType, NewsLabelType, Session, Stance, Urgency
+from data.models import AnalysisType, NewsType, Session, Stance, Urgency
 from data.storage.db_context import _cursor_context
 
 
@@ -47,16 +47,16 @@ class TestEnumValueLocks:
             "head_trader",
         }
 
-    def test_news_label_enum_values_unchanged(self):
-        """Lock NewsLabelType values - stored in database for labels."""
-        assert NewsLabelType.COMPANY.value == "Company"
-        assert NewsLabelType.PEOPLE.value == "People"
-        assert NewsLabelType.MARKET_WITH_MENTION.value == "MarketWithMention"
-        assert len(NewsLabelType) == 3
-        assert set(label.value for label in NewsLabelType) == {
-            "Company",
-            "People",
-            "MarketWithMention",
+    def test_news_type_enum_values_unchanged(self):
+        """Lock NewsType values - stored in database."""
+        assert NewsType.MACRO.value == "macro"
+        assert NewsType.COMPANY_SPECIFIC.value == "company_specific"
+        assert NewsType.SOCIAL_SENTIMENT.value == "social_sentiment"
+        assert len(NewsType) == 3
+        assert set(news_type.value for news_type in NewsType) == {
+            "macro",
+            "company_specific",
+            "social_sentiment",
         }
 
     def test_urgency_enum_values_unchanged(self):
@@ -192,30 +192,126 @@ class TestEnumConstraints:
                 """
                 )
 
-    def test_news_label_enum_values(self, temp_db):
-        """Test news_labels label constraint values."""
+    def test_news_type_enum_values(self, temp_db):
+        """Test news_items.news_type constraint values."""
         with _cursor_context(temp_db) as cursor:
-            for suffix, label in enumerate(["Company", "People", "MarketWithMention"]):
+            for suffix, news_type in enumerate(["macro", "company_specific", "social_sentiment"]):
                 cursor.execute(
                     """
-                    INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                    INSERT INTO news_items (
+                        url,
+                        headline,
+                        content,
+                        published_iso,
+                        source,
+                        news_type
+                    )
                     VALUES (
-                        'AAPL', 'http://example.com/enum-' || ?, 'Enum Value',
-                        '2024-01-01T10:00:00Z', 'test'
+                        'http://example.com/enum-' || ?,
+                        'Enum Value',
+                        NULL,
+                        '2024-01-01T10:00:00Z',
+                        'test',
+                        ?
                     )
                 """,
-                    (suffix,),
-                )
-                cursor.execute(
-                    """
-                    INSERT INTO news_labels (symbol, url, label)
-                    VALUES ('AAPL', 'http://example.com/enum-' || ?, ?)
-                """,
-                    (suffix, label),
+                    (suffix, news_type),
                 )
 
             with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
-                cursor.execute("""
-                    INSERT INTO news_labels (symbol, url, label)
-                    VALUES ('AAPL', 'http://example.com/enum-invalid', 'InvalidLabel')
-                """)
+                cursor.execute(
+                    """
+                    INSERT INTO news_items (
+                        url,
+                        headline,
+                        content,
+                        published_iso,
+                        source,
+                        news_type
+                    )
+                    VALUES (
+                        'http://example.com/enum-invalid',
+                        'Invalid Enum',
+                        NULL,
+                        '2024-01-01T10:00:00Z',
+                        'test',
+                        'invalid'
+                    )
+                """
+                )
+
+            with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
+                cursor.execute(
+                    """
+                    INSERT INTO news_items (
+                        url,
+                        headline,
+                        content,
+                        published_iso,
+                        source,
+                        news_type
+                    )
+                    VALUES (
+                        'http://example.com/enum-invalid-case',
+                        'Invalid Enum Case',
+                        NULL,
+                        '2024-01-01T10:00:00Z',
+                        'test',
+                        'MACRO'
+                    )
+                """
+                )
+
+    def test_news_symbols_is_important_constraint(self, temp_db):
+        """Test news_symbols.is_important constraint allows NULL/0/1 only."""
+        with _cursor_context(temp_db) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO news_items (
+                    url,
+                    headline,
+                    content,
+                    published_iso,
+                    source,
+                    news_type
+                )
+                VALUES (
+                    'http://example.com/symbol',
+                    'Symbol Test',
+                    NULL,
+                    '2024-01-01T10:00:00Z',
+                    'test',
+                    'macro'
+                )
+            """
+            )
+
+            # NULL is allowed
+            cursor.execute(
+                """
+                INSERT INTO news_symbols (url, symbol, is_important)
+                VALUES ('http://example.com/symbol', 'AAPL', NULL)
+            """
+            )
+
+            # 0 and 1 are allowed
+            cursor.execute(
+                """
+                INSERT INTO news_symbols (url, symbol, is_important)
+                VALUES ('http://example.com/symbol', 'TSLA', 0)
+            """
+            )
+            cursor.execute(
+                """
+                INSERT INTO news_symbols (url, symbol, is_important)
+                VALUES ('http://example.com/symbol', 'MSFT', 1)
+            """
+            )
+
+            with pytest.raises(sqlite3.IntegrityError, match="CHECK constraint failed"):
+                cursor.execute(
+                    """
+                    INSERT INTO news_symbols (url, symbol, is_important)
+                    VALUES ('http://example.com/symbol', 'NVDA', 5)
+                """
+                )

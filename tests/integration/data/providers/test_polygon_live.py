@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from config.providers.polygon import PolygonSettings
-from data.models import NewsItem
+from data.models import NewsEntry
 from data.providers.polygon import PolygonNewsProvider
 
 pytestmark = [pytest.mark.network, pytest.mark.asyncio]
@@ -33,13 +33,13 @@ async def test_live_news_fetch():
     assert isinstance(results, list), "fetch_incremental should return a list"
 
     if results:
-        article = results[0]
-        assert isinstance(article, NewsItem), "should return NewsItem instances"
-        assert article.symbol == "AAPL", "fetched symbol should match request"
-        assert article.headline and len(article.headline) > 0, "headline should be non-empty"
-        assert article.url and article.url.startswith("http"), "url should be http(s)"
-        assert article.published.tzinfo == UTC, "timestamps must be UTC"
-        assert article.source is not None, "source should be present"
+        entry = results[0]
+        assert isinstance(entry, NewsEntry), "should return NewsEntry instances"
+        assert entry.symbol == "AAPL", "fetched symbol should match request"
+        assert entry.headline and len(entry.headline) > 0, "headline should be non-empty"
+        assert entry.url and entry.url.startswith("http"), "url should be http(s)"
+        assert entry.published.tzinfo == UTC, "timestamps must be UTC"
+        assert entry.source is not None, "source should be present"
     else:
         pass
 
@@ -84,6 +84,6 @@ async def test_live_error_handling():
 
     provider = PolygonNewsProvider(settings, ["INVALID_SYMBOL_XYZ123"])
     results = await provider.fetch_incremental(since=datetime.now(UTC) - timedelta(days=2))
-    assert len(results) == 0 or all(r.headline and r.url.startswith("http") for r in results), (
-        "invalid symbol should yield no results or valid-shaped items"
-    )
+    assert len(results) == 0 or all(
+        isinstance(r, NewsEntry) and r.headline and r.url.startswith("http") for r in results
+    ), "invalid symbol should yield no results or valid-shaped items"

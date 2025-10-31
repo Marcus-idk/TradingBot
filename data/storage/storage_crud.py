@@ -153,7 +153,7 @@ def get_price_data_since(db_path: str, timestamp: datetime) -> list[PriceData]:
     with _cursor_context(db_path, commit=False) as cursor:
         cursor.execute(
             """
-            SELECT symbol, timestamp_iso, price, volume, session, created_at_iso
+            SELECT symbol, timestamp_iso, price, volume, session
             FROM price_data
             WHERE timestamp_iso >= ?
             ORDER BY timestamp_iso ASC

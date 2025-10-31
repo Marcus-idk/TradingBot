@@ -1,174 +1,187 @@
 """
-Tests news item storage operations and deduplication.
+Tests news item storage operations and symbol link persistence.
 """
 
 from datetime import UTC, datetime
 
-from data.models import NewsItem, NewsLabel, NewsLabelType
-from data.storage import get_news_labels, store_news_items, store_news_labels
+from data.models import NewsEntry, NewsItem, NewsType
+from data.storage import get_news_symbols, store_news_items
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import _normalize_url
 
 
+def _make_entry(
+    *,
+    symbol: str,
+    url: str,
+    is_important: bool | None,
+    headline: str,
+    published: datetime | None = None,
+    news_type: NewsType = NewsType.COMPANY_SPECIFIC,
+) -> NewsEntry:
+    published_at = published or datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
+    article = NewsItem(
+        url=url,
+        headline=headline,
+        content=None,
+        published=published_at,
+        source="UnitTest",
+        news_type=news_type,
+    )
+    return NewsEntry(article=article, symbol=symbol, is_important=is_important)
+
+
 class TestNewsItemStorage:
-    """Test news item storage operations"""
+    """Tests for storing NewsEntry objects."""
 
     def test_store_news_deduplication_insert_or_ignore(self, temp_db):
-        """Test news storage with URL normalization and deduplication"""
-        # Create test news items with different URLs that normalize to same
-        items = [
-            NewsItem(
-                symbol="AAPL",
-                url="https://example.com/news/1?utm_source=google",
-                headline="Apple News",
-                source="Reuters",
-                published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
-            ),
-            NewsItem(
-                symbol="AAPL",
-                url="https://example.com/news/1?ref=twitter",  # Same normalized URL
-                headline="Apple News Updated",  # Different headline
-                source="Reuters",
-                published=datetime(2024, 1, 15, 10, 30, tzinfo=UTC),
-            ),
-        ]
+        """News entries sharing a normalized URL deduplicate into one article row."""
+        entry_primary = _make_entry(
+            symbol="AAPL",
+            url="https://example.com/news/1?utm_source=google",
+            is_important=True,
+            headline="Apple News",
+        )
+        entry_secondary = _make_entry(
+            symbol="MSFT",
+            url="https://example.com/news/1?ref=twitter",
+            is_important=False,
+            headline="Apple News Updated",
+        )
 
-        # Store news items - second item should be ignored due to URL normalization
-        store_news_items(temp_db, items)
+        store_news_items(temp_db, [entry_primary, entry_secondary])
 
-        # Verify deduplication worked - only first item should remain
-        with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("""
-                SELECT COUNT(*), headline, url FROM news_items
-                WHERE symbol = 'AAPL'
-            """)
-            count, headline, stored_url = cursor.fetchone()
-
-            assert count == 1, f"Expected 1 record, got {count}"
-            assert headline == "Apple News", "First record should be kept"
-            assert stored_url == "https://example.com/news/1", "URL should be normalized"
-
-    def test_store_news_empty_list_no_error(self, temp_db):
-        """Test storing empty news list doesn't cause errors"""
-        store_news_items(temp_db, [])  # Should not raise error
-
-        # Verify no records stored
+        normalized_url = _normalize_url(entry_primary.url)
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute("SELECT COUNT(*) FROM news_items")
-            count = cursor.fetchone()[0]
-            assert count == 0
+            assert cursor.fetchone()[0] == 1
 
-
-class TestNewsLabelStorage:
-    """Test news label storage operations."""
-
-    def _seed_news(self, temp_db, symbol: str, url: str) -> NewsItem:
-        news = NewsItem(
-            symbol=symbol,
-            url=url,
-            headline=f"Headline for {symbol}",
-            source="Test",
-            published=datetime(2024, 1, 15, 12, 0, tzinfo=UTC),
-        )
-        store_news_items(temp_db, [news])
-        return news
-
-    def test_store_and_get_news_labels(self, temp_db):
-        """Storing labels persists them and get_news_labels returns NewsLabel models."""
-        news = self._seed_news(temp_db, "AAPL", "https://example.com/news/primary")
-        labeled_at = datetime(2024, 1, 15, 12, 5, tzinfo=UTC)
-        label = NewsLabel(
-            symbol=news.symbol,
-            url=news.url,
-            label=NewsLabelType.COMPANY,
-            created_at=labeled_at,
-        )
-
-        store_news_labels(temp_db, [label])
-        labels = get_news_labels(temp_db)
-
-        assert len(labels) == 1
-        stored = labels[0]
-        assert stored.symbol == "AAPL"
-        assert stored.url == "https://example.com/news/primary"
-        assert stored.label is NewsLabelType.COMPANY
-        assert stored.created_at == labeled_at
-
-    def test_store_news_labels_upsert_updates_existing_label(self, temp_db):
-        """Re-storing the same symbol/url updates the label value and timestamp."""
-        news = self._seed_news(temp_db, "TSLA", "https://example.com/news/label")
-        first_time = datetime(2024, 1, 15, 13, 0, tzinfo=UTC)
-        second_time = datetime(2024, 1, 15, 14, 30, tzinfo=UTC)
-
-        first_label = NewsLabel(
-            symbol=news.symbol,
-            url=news.url,
-            label=NewsLabelType.MARKET_WITH_MENTION,
-            created_at=first_time,
-        )
-        second_label = NewsLabel(
-            symbol=news.symbol, url=news.url, label=NewsLabelType.PEOPLE, created_at=second_time
-        )
-
-        store_news_labels(temp_db, [first_label])
-        store_news_labels(temp_db, [second_label])
-
-        labels = get_news_labels(temp_db, symbol="TSLA")
-        assert len(labels) == 1
-        stored = labels[0]
-        assert stored.label is NewsLabelType.PEOPLE
-        assert stored.created_at == second_time
-
-    def test_news_labels_cascade_on_news_deletion(self, temp_db):
-        """Verify labels are automatically deleted when parent news item is deleted (CASCADE)."""
-        # Create 2 news items
-        news1 = self._seed_news(temp_db, "MSFT", "https://example.com/news/delete")
-        news2 = self._seed_news(temp_db, "MSFT", "https://example.com/news/keep")
-
-        # Add labels for both
-        labels = [
-            NewsLabel(symbol=news1.symbol, url=news1.url, label=NewsLabelType.COMPANY),
-            NewsLabel(symbol=news2.symbol, url=news2.url, label=NewsLabelType.PEOPLE),
-        ]
-        store_news_labels(temp_db, labels)
-
-        # Verify both labels exist
-        all_labels = get_news_labels(temp_db)
-        assert len(all_labels) == 2
-
-        # Delete first news item (parent)
-        normalized_url = _normalize_url(news1.url)
-        with _cursor_context(temp_db) as cursor:
             cursor.execute(
-                "DELETE FROM news_items WHERE symbol = ? AND url = ?", ("MSFT", normalized_url)
+                """
+                SELECT url, headline, source, news_type
+                FROM news_items
+            """
             )
+            row = cursor.fetchone()
+            assert row["url"] == normalized_url
+            assert row["headline"] == "Apple News"
+            assert row["source"] == "UnitTest"
+            assert row["news_type"] == NewsType.COMPANY_SPECIFIC.value
 
-        # Verify only the label for deleted news is gone (CASCADE worked)
-        remaining = get_news_labels(temp_db, symbol="MSFT")
-        assert len(remaining) == 1
-        assert remaining[0].url == "https://example.com/news/keep"
-        assert remaining[0].label is NewsLabelType.PEOPLE
+            cursor.execute(
+                """
+                SELECT url, symbol, is_important
+                FROM news_symbols
+                ORDER BY symbol ASC
+            """
+            )
+            rows = cursor.fetchall()
+            assert [(r["symbol"], r["is_important"]) for r in rows] == [
+                ("AAPL", 1),
+                ("MSFT", 0),
+            ]
 
-    def test_get_news_labels_filters_by_symbol(self, temp_db):
-        """Symbol filter returns only labels for the requested ticker."""
-        self._seed_news(temp_db, "AAPL", "https://example.com/news/a")
-        self._seed_news(temp_db, "TSLA", "https://example.com/news/b")
+        # API facade returns NewsSymbol models with bool coercion
+        symbols = get_news_symbols(temp_db)
+        assert {(link.symbol, link.is_important) for link in symbols} == {
+            ("AAPL", True),
+            ("MSFT", False),
+        }
 
-        labels = [
-            NewsLabel(
+    def test_store_news_empty_list_no_error(self, temp_db):
+        """Storing an empty list is a no-op."""
+        store_news_items(temp_db, [])
+
+        with _cursor_context(temp_db, commit=False) as cursor:
+            cursor.execute("SELECT COUNT(*) FROM news_items")
+            assert cursor.fetchone()[0] == 0
+            cursor.execute("SELECT COUNT(*) FROM news_symbols")
+            assert cursor.fetchone()[0] == 0
+
+
+class TestNewsSymbolsStorage:
+    """Tests for news_symbols persistence helpers."""
+
+    def test_store_and_get_news_symbols(self, temp_db):
+        """Persist entries with varying importance flags and round-trip via facade."""
+        entries = [
+            _make_entry(
                 symbol="AAPL",
                 url="https://example.com/news/a",
-                label=NewsLabelType.COMPANY,
+                is_important=True,
+                headline="AAPL Headline",
             ),
-            NewsLabel(
+            _make_entry(
+                symbol="MSFT",
+                url="https://example.com/news/a",
+                is_important=False,
+                headline="MSFT Headline",
+            ),
+            _make_entry(
                 symbol="TSLA",
                 url="https://example.com/news/b",
-                label=NewsLabelType.PEOPLE,
+                is_important=None,
+                headline="TSLA Headline",
+                news_type=NewsType.MACRO,
             ),
         ]
-        store_news_labels(temp_db, labels)
 
-        aapl_labels = get_news_labels(temp_db, symbol="AAPL")
-        assert len(aapl_labels) == 1
-        assert aapl_labels[0].symbol == "AAPL"
-        assert aapl_labels[0].label is NewsLabelType.COMPANY
+        store_news_items(temp_db, entries)
+
+        links = get_news_symbols(temp_db)
+        assert len(links) == 3
+        by_symbol = {link.symbol: link for link in links}
+        assert by_symbol["AAPL"].is_important is True
+        assert by_symbol["MSFT"].is_important is False
+        assert by_symbol["TSLA"].is_important is None
+
+    def test_get_news_symbols_filters_by_symbol(self, temp_db):
+        """Filtering by symbol returns only matching links."""
+        entries = [
+            _make_entry(
+                symbol="AAPL",
+                url="https://example.com/news/a",
+                is_important=True,
+                headline="AAPL Headline",
+            ),
+            _make_entry(
+                symbol="TSLA",
+                url="https://example.com/news/b",
+                is_important=None,
+                headline="TSLA Headline",
+            ),
+        ]
+
+        store_news_items(temp_db, entries)
+
+        tsla_links = get_news_symbols(temp_db, symbol="tsla")
+        assert len(tsla_links) == 1
+        assert tsla_links[0].symbol == "TSLA"
+        assert tsla_links[0].url == _normalize_url("https://example.com/news/b")
+
+    def test_news_symbols_cascade_on_news_deletion(self, temp_db):
+        """Deleting a news_items row cascades to news_symbols."""
+        article_url = "https://example.com/news/cascade?utm_campaign=test"
+        entries = [
+            _make_entry(symbol="AAPL", url=article_url, is_important=True, headline="Shared"),
+            _make_entry(symbol="MSFT", url=article_url, is_important=None, headline="Shared"),
+            _make_entry(
+                symbol="TSLA",
+                url="https://example.com/news/keep",
+                is_important=False,
+                headline="Separate",
+            ),
+        ]
+
+        store_news_items(temp_db, entries)
+
+        with _cursor_context(temp_db) as cursor:
+            cursor.execute(
+                "DELETE FROM news_items WHERE url = ?",
+                (_normalize_url(article_url),),
+            )
+
+        remaining = get_news_symbols(temp_db)
+        assert {(link.symbol, link.url) for link in remaining} == {
+            ("TSLA", _normalize_url("https://example.com/news/keep")),
+        }

@@ -2,11 +2,11 @@
 
 import logging
 import urllib.parse
-from datetime import (  # noqa: F401 - used by tests via monkeypatch
+from datetime import (
     UTC,
     datetime,
     timedelta,
-    timezone,
+    timezone,  # noqa: F401 - used by tests via monkeypatch
 )
 from typing import Any
 

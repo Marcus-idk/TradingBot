@@ -7,14 +7,15 @@ from decimal import Decimal
 
 import pytest
 
-from data.models import AnalysisType, NewsLabelType, Session, Stance
+from data.models import AnalysisType, NewsEntry, NewsItem, NewsSymbol, NewsType, Session, Stance
 from data.storage.storage_utils import (
     _iso_to_datetime,
     _parse_rfc3339,
     _row_to_analysis_result,
     _row_to_holdings,
+    _row_to_news_entry,
     _row_to_news_item,
-    _row_to_news_label,
+    _row_to_news_symbol,
     _row_to_price_data,
 )
 
@@ -46,50 +47,70 @@ class TestIsoParsingHelpers:
 class TestRowMappers:
     """Tests for row-to-model conversion helpers."""
 
-    def test_row_to_news_item_maps_fields(self):
+    def test_row_to_news_item_maps_fields_and_type(self):
         row = {
-            "symbol": "aapl",
             "url": "https://example.com/news/1",
             "headline": "Headline",
             "published_iso": "2024-03-10T15:45:00Z",
             "source": "Source",
             "content": "Body",
+            "news_type": "company_specific",
         }
 
         result = _row_to_news_item(row)
 
-        assert result.symbol == "AAPL"
+        assert isinstance(result, NewsItem)
         assert result.url == "https://example.com/news/1"
         assert result.headline == "Headline"
         assert result.published == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
         assert result.source == "Source"
         assert result.content == "Body"
+        assert result.news_type is NewsType.COMPANY_SPECIFIC
 
-    def test_row_to_news_label_handles_optional_created_at(self):
-        row = {
-            "symbol": "aapl",
+    def test_row_to_news_symbol_maps_fields_and_nullable_is_important(self):
+        row_true = {
             "url": "https://example.com/news/1",
-            "label": "Company",
-            "created_at_iso": None,
+            "symbol": "aapl",
+            "is_important": 1,
+        }
+        row_null = {
+            "url": "https://example.com/news/1",
+            "symbol": "msft",
+            "is_important": None,
         }
 
-        result = _row_to_news_label(row)
+        result_true = _row_to_news_symbol(row_true)
+        result_null = _row_to_news_symbol(row_null)
 
-        assert result.symbol == "AAPL"
-        assert result.label == NewsLabelType.COMPANY
-        assert result.created_at is None
+        assert isinstance(result_true, NewsSymbol)
+        assert result_true.symbol == "AAPL"
+        assert result_true.is_important is True
+        assert result_null.symbol == "MSFT"
+        assert result_null.is_important is None
 
-    def test_row_to_news_label_parses_created_at(self):
+    def test_row_to_news_entry_maps_joined_row(self):
         row = {
-            "symbol": "aapl",
             "url": "https://example.com/news/1",
-            "label": "Company",
-            "created_at_iso": "2024-03-10T16:00:00Z",
+            "headline": "Joined Headline",
+            "content": "Joined Content",
+            "published_iso": "2024-03-10T15:45:00Z",
+            "source": "Source",
+            "news_type": "macro",
+            "symbol": "market",
+            "is_important": 0,
         }
 
-        result = _row_to_news_label(row)
+        entry = _row_to_news_entry(row)
 
-        assert result.created_at == datetime(2024, 3, 10, 16, 0, tzinfo=UTC)
+        assert isinstance(entry, NewsEntry)
+        assert entry.symbol == "MARKET"
+        assert entry.is_important is False
+        assert entry.url == "https://example.com/news/1"
+        assert entry.headline == "Joined Headline"
+        assert entry.content == "Joined Content"
+        assert entry.published == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
+        assert entry.source == "Source"
+        assert entry.news_type is NewsType.MACRO
 
     def test_row_to_price_data_maps_decimal_and_session(self):
         row = {

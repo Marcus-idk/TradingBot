@@ -6,7 +6,7 @@ to ensure duplicate articles from different sources are properly handled.
 
 from datetime import UTC, datetime
 
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.storage import get_news_since, store_news_items
 
 
@@ -29,51 +29,63 @@ class TestNewsDeduplication:
 
         # Create the same news article from different data sources with various tracking parameters
         # Source 1: Finnhub with UTM parameters
-        finnhub_article = NewsItem(
+        finnhub_article = NewsEntry(
+            article=NewsItem(
+                url=(
+                    f"{base_url}?utm_source=finnhub&utm_campaign=api&utm_medium=financial&"
+                    "utm_term=earnings"
+                ),
+                headline="Apple Reports Strong Q4 Earnings Beat Expectations",
+                content=(
+                    "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                    "showing robust iPhone sales and services growth."
+                ),
+                source="Finnhub API",
+                published=test_timestamp,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
             symbol=symbol,
-            url=(
-                f"{base_url}?utm_source=finnhub&utm_campaign=api&utm_medium=financial&"
-                "utm_term=earnings"
-            ),
-            headline="Apple Reports Strong Q4 Earnings Beat Expectations",
-            content=(
-                "Apple Inc. exceeded analyst expectations with quarterly earnings "
-                "showing robust iPhone sales and services growth."
-            ),
-            source="Finnhub API",
-            published=test_timestamp,
+            is_important=True,
         )
 
         # Source 2: Polygon with mixed tracking parameters (case-insensitive test)
-        polygon_article = NewsItem(
-            symbol=symbol,
-            url=(
-                f"{base_url}?UTM_SOURCE=polygon&ref=feed&fbclid=IwAR1234567890&"
-                "campaign=newsletter&utm_content=finance"
+        polygon_article = NewsEntry(
+            article=NewsItem(
+                url=(
+                    f"{base_url}?UTM_SOURCE=polygon&ref=feed&fbclid=IwAR1234567890&"
+                    "campaign=newsletter&utm_content=finance"
+                ),
+                headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
+                content=(
+                    "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                    "showing robust iPhone sales and services growth."
+                ),
+                source="Polygon",
+                published=test_timestamp,
+                news_type=NewsType.COMPANY_SPECIFIC,
             ),
-            headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
-            content=(
-                "Apple Inc. exceeded analyst expectations with quarterly earnings "
-                "showing robust iPhone sales and services growth."
-            ),  # Same content
-            source="Polygon",
-            published=test_timestamp,
+            symbol=symbol,
+            is_important=False,
         )
 
         # Source 3: Google Analytics with additional tracking parameters
-        google_article = NewsItem(
-            symbol=symbol,
-            url=(
-                f"{base_url}?gclid=Cj0KCQjw-uH1BRCm&UTM_CAMPAIGN=finance&"
-                "utm_medium=cpc&fbclid=different123"
+        google_article = NewsEntry(
+            article=NewsItem(
+                url=(
+                    f"{base_url}?gclid=Cj0KCQjw-uH1BRCm&UTM_CAMPAIGN=finance&"
+                    "utm_medium=cpc&fbclid=different123"
+                ),
+                headline="Apple Reports Strong Q4 Earnings Beat Expectations",
+                content=(
+                    "Apple Inc. exceeded analyst expectations with quarterly earnings "
+                    "showing robust iPhone sales and services growth."
+                ),
+                source="Google News",
+                published=test_timestamp,
+                news_type=NewsType.COMPANY_SPECIFIC,
             ),
-            headline="Apple Reports Strong Q4 Earnings Beat Expectations",  # Same headline
-            content=(
-                "Apple Inc. exceeded analyst expectations with quarterly earnings "
-                "showing robust iPhone sales and services growth."
-            ),  # Same content
-            source="Google News",
-            published=test_timestamp,
+            symbol=symbol,
+            is_important=None,
         )
 
         # Store first article from Finnhub
@@ -130,14 +142,17 @@ class TestNewsDeduplication:
 
         # Test with a different symbol to ensure deduplication is symbol-specific
         different_symbol = "TSLA"
-        tesla_article = NewsItem(
+        tesla_article = NewsEntry(
+            article=NewsItem(
+                url=f"{base_url}?utm_source=tesla_news&gclid=different_tracking",
+                headline="Tesla News Using Same Base URL",
+                content="This should be stored separately due to different symbol.",
+                source="Tesla Source",
+                published=test_timestamp,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
             symbol=different_symbol,
-            # Same base URL, different symbol
-            url=(f"{base_url}?utm_source=tesla_news&gclid=different_tracking"),
-            headline="Tesla News Using Same Base URL",
-            content="This should be stored separately due to different symbol.",
-            source="Tesla Source",
-            published=test_timestamp,
+            is_important=None,
         )
 
         store_news_items(temp_db, [tesla_article])

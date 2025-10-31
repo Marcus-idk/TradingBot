@@ -22,7 +22,7 @@ def detect_urgency(news_entries: list[NewsEntry]) -> list[NewsEntry]:
         news_entries: List of NewsEntry objects to analyze
 
     Returns:
-        List of NewsItem objects flagged as urgent (empty for stub implementation)
+        List of NewsEntry objects flagged as urgent (empty for stub implementation)
 
     Note:
         Current implementation is a stub that always returns empty list.

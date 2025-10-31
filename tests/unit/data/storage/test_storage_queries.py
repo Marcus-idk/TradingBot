@@ -9,7 +9,9 @@ from data.models import (
     AnalysisResult,
     AnalysisType,
     Holdings,
+    NewsEntry,
     NewsItem,
+    NewsType,
     PriceData,
     Session,
     Stance,
@@ -32,31 +34,43 @@ class TestQueryOperations:
     def test_get_news_since_timestamp_filtering(self, temp_db):
         """Test news retrieval with timestamp filtering"""
         # Store news items with different timestamps
-        items = [
-            NewsItem(
+        entries = [
+            NewsEntry(
+                article=NewsItem(
+                    url="https://example.com/1",
+                    headline="Old News",
+                    source="Reuters",
+                    published=datetime(2024, 1, 10, 10, 0, tzinfo=UTC),
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol="AAPL",
-                url="https://example.com/1",
-                headline="Old News",
-                source="Reuters",
-                published=datetime(2024, 1, 10, 10, 0, tzinfo=UTC),
+                is_important=None,
             ),
-            NewsItem(
+            NewsEntry(
+                article=NewsItem(
+                    url="https://example.com/2",
+                    headline="Recent News",
+                    source="Reuters",
+                    published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol="AAPL",
-                url="https://example.com/2",
-                headline="Recent News",
-                source="Reuters",
-                published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
+                is_important=True,
             ),
-            NewsItem(
+            NewsEntry(
+                article=NewsItem(
+                    url="https://example.com/3",
+                    headline="Tesla News",
+                    source="Reuters",
+                    published=datetime(2024, 1, 20, 10, 0, tzinfo=UTC),
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol="TSLA",
-                url="https://example.com/3",
-                headline="Tesla News",
-                source="Reuters",
-                published=datetime(2024, 1, 20, 10, 0, tzinfo=UTC),
+                is_important=False,
             ),
         ]
 
-        store_news_items(temp_db, items)
+        store_news_items(temp_db, entries)
 
         # Query news since 2024-01-12 (should get 2 items)
         since = datetime(2024, 1, 12, 0, 0, tzinfo=UTC)
@@ -70,12 +84,10 @@ class TestQueryOperations:
 
         # Verify all expected fields are present
         for result in results:
-            assert hasattr(result, "symbol")
-            assert hasattr(result, "url")
-            assert hasattr(result, "headline")
-            assert hasattr(result, "content")
-            assert hasattr(result, "published")
-            assert hasattr(result, "source")
+            assert result.symbol in {"AAPL", "TSLA"}
+            assert result.url.startswith("https://example.com/")
+            assert result.source == "Reuters"
+            assert result.news_type is NewsType.COMPANY_SPECIFIC
 
     def test_get_price_data_since_ordering(self, temp_db):
         """Test price data retrieval with proper ordering"""

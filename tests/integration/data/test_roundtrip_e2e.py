@@ -11,7 +11,9 @@ from data.models import (
     AnalysisResult,
     AnalysisType,
     Holdings,
+    NewsEntry,
     NewsItem,
+    NewsType,
     PriceData,
     Session,
     Stance,
@@ -43,31 +45,43 @@ class TestDataRoundtrip:
         test_timestamp = datetime(2024, 1, 15, 10, 30, 45, tzinfo=UTC)
         naive_timestamp = datetime(2024, 1, 15, 14, 45, 30)  # Will be converted to UTC
 
-        # NewsItems with realistic symbols and boundary cases
-        news_items = [
-            NewsItem(
+        # NewsEntries with realistic symbols and boundary cases
+        news_entries = [
+            NewsEntry(
+                article=NewsItem(
+                    url="https://finance.yahoo.com/news/apple-earnings-report?utm_source=newsletter",
+                    headline="Apple Reports Strong Q1 Earnings, Stock Jumps",
+                    content="Apple Inc. reported stronger-than-expected quarterly earnings...",
+                    source="Yahoo Finance",
+                    published=test_timestamp,
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol="AAPL",
-                url="https://finance.yahoo.com/news/apple-earnings-report?utm_source=newsletter",
-                headline="Apple Reports Strong Q1 Earnings, Stock Jumps",
-                content="Apple Inc. reported stronger-than-expected quarterly earnings...",
-                source="Yahoo Finance",
-                published=test_timestamp,
+                is_important=True,
             ),
-            NewsItem(
+            NewsEntry(
+                article=NewsItem(
+                    url="https://reuters.com/business/tesla-production-update",
+                    headline="Tesla Increases Production Guidance for 2024",
+                    content=None,  # Test None content
+                    source="Reuters",
+                    published=naive_timestamp,  # Test timezone conversion
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol="TSLA",
-                url="https://reuters.com/business/tesla-production-update",
-                headline="Tesla Increases Production Guidance for 2024",
-                content=None,  # Test None content
-                source="Reuters",
-                published=naive_timestamp,  # Test timezone conversion
+                is_important=None,
             ),
-            NewsItem(
+            NewsEntry(
+                article=NewsItem(
+                    url="https://bloomberg.com/markets/etf-flows",
+                    headline="SPY ETF Sees Record Inflows Amid Market Rally",
+                    content="",
+                    source="Bloomberg",
+                    published=test_timestamp,
+                    news_type=NewsType.MACRO,
+                ),
                 symbol="SPY",
-                url="https://bloomberg.com/markets/etf-flows",
-                headline="SPY ETF Sees Record Inflows Amid Market Rally",
-                content="",  # Test empty content
-                source="Bloomberg",
-                published=test_timestamp,
+                is_important=False,
             ),
         ]
 
@@ -163,7 +177,7 @@ class TestDataRoundtrip:
         ]
 
         # 2. STORE ALL DATA USING STORAGE FUNCTIONS
-        store_news_items(temp_db, news_items)
+        store_news_items(temp_db, news_entries)
         store_price_data(temp_db, price_data)
 
         for result in analysis_results:
@@ -194,6 +208,8 @@ class TestDataRoundtrip:
         )
         assert aapl_news.source == "Yahoo Finance"
         assert aapl_news.published == datetime(2024, 1, 15, 10, 30, 45, tzinfo=UTC)
+        assert aapl_news.news_type is NewsType.COMPANY_SPECIFIC
+        assert aapl_news.is_important is True
 
         # Find TSLA news item - test timezone conversion and None content
         tsla_news = next(item for item in retrieved_news if item.symbol == "TSLA")
@@ -201,10 +217,14 @@ class TestDataRoundtrip:
         assert tsla_news.published == datetime(
             2024, 1, 15, 14, 45, 30, tzinfo=UTC
         )  # Naive converted to UTC
+        assert tsla_news.is_important is None
 
         # Find SPY news item - test empty content
         spy_news = next(item for item in retrieved_news if item.symbol == "SPY")
         assert spy_news.content == ""  # Empty string preserved
+        assert spy_news.published == datetime(2024, 1, 15, 10, 30, 45, tzinfo=UTC)
+        assert spy_news.news_type is NewsType.MACRO
+        assert spy_news.is_important is False
 
         # Verify PriceData with Decimal precision
         assert len(retrieved_prices) == 3, (
@@ -314,12 +334,16 @@ class TestDataRoundtrip:
 
         # Store news
         news = [
-            NewsItem(
+            NewsEntry(
+                article=NewsItem(
+                    url="https://example.com/aapl-news",
+                    headline="AAPL News",
+                    source="Test Source",
+                    published=test_time,
+                    news_type=NewsType.COMPANY_SPECIFIC,
+                ),
                 symbol=symbol,
-                url="https://example.com/aapl-news",
-                headline="AAPL News",
-                source="Test Source",
-                published=test_time,
+                is_important=None,
             )
         ]
         store_news_items(temp_db, news)

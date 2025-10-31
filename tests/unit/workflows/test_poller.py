@@ -9,12 +9,11 @@ import asyncio
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import patch
 
 import pytest
 
 from data.base import NewsDataSource, PriceDataSource
-from data.models import NewsItem, PriceData, Session
+from data.models import NewsEntry, NewsItem, NewsType, PriceData, Session
 from data.storage import (
     get_last_macro_min_id,
     get_last_news_time,
@@ -27,10 +26,29 @@ from workflows.poller import DataPoller
 pytestmark = pytest.mark.asyncio
 
 
+def _make_entry(
+    *,
+    symbol: str,
+    url_suffix: str,
+    headline: str,
+    published: datetime,
+    news_type: NewsType,
+) -> NewsEntry:
+    article = NewsItem(
+        url=f"https://example.com/{url_suffix}",
+        headline=headline,
+        source="StubSource",
+        published=published,
+        news_type=news_type,
+        content=None,
+    )
+    return NewsEntry(article=article, symbol=symbol, is_important=None)
+
+
 class StubNews(NewsDataSource):
     """Stub news provider returning a preset list of items."""
 
-    def __init__(self, items: list[NewsItem]):
+    def __init__(self, items: list[NewsEntry]):
         super().__init__("StubNews")
         self._items = items
         self.last_called_with_since: datetime | None = None
@@ -42,7 +60,7 @@ class StubNews(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         self.last_called_with_since = since
         return self._items
 
@@ -68,7 +86,7 @@ class StubPrice(PriceDataSource):
 class StubMacroNews(NewsDataSource):
     """Stub macro news provider that tracks parameters and returns preset items."""
 
-    def __init__(self, items: list[NewsItem]):
+    def __init__(self, items: list[NewsEntry]):
         super().__init__("StubMacroNews")
         self._items = items
         self.last_fetched_max_id: int | None = None
@@ -82,7 +100,7 @@ class StubMacroNews(NewsDataSource):
         self,
         *,
         min_id: int | None = None,
-    ) -> list[NewsItem]:
+    ) -> list[NewsEntry]:
         # Track what parameters we were called with
         self.last_called_with_min_id = min_id
         self.last_called_with_since = None
@@ -98,8 +116,20 @@ class TestDataPoller:
         t2 = datetime(2024, 1, 15, 10, 5, tzinfo=UTC)
 
         news = [
-            NewsItem("AAPL", "https://example.com/n1", "h1", t1, "S"),
-            NewsItem("AAPL", "https://example.com/n2", "h2", t2, "S"),
+            _make_entry(
+                symbol="AAPL",
+                url_suffix="n1",
+                headline="h1",
+                published=t1,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
+            _make_entry(
+                symbol="AAPL",
+                url_suffix="n2",
+                headline="h2",
+                published=t2,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
         ]
         prices = [
             PriceData("AAPL", t2, Decimal("123.45"), session=Session.REG),
@@ -132,7 +162,7 @@ class TestDataPoller:
                 *,
                 since: datetime | None = None,
                 min_id: int | None = None,
-            ) -> list[NewsItem]:
+            ) -> list[NewsEntry]:
                 raise RuntimeError("boom")
 
         ok_prices = [
@@ -199,8 +229,8 @@ class TestDataPoller:
         another_poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=120)
         assert another_poller.poll_interval == 120
 
-    async def test_macro_provider_receives_min_id_and_results_routed(self, temp_db, monkeypatch):
-        """Test provider dispatch logic: both providers receive min_id; results routed by type"""
+    async def test_macro_provider_min_id_passed_and_watermark_updated(self, temp_db):
+        """Macro providers consume min_id watermark and update it after fetch."""
         t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         # Set initial watermark
@@ -208,10 +238,22 @@ class TestDataPoller:
 
         # Create distinct news items for each provider
         company_news = [
-            NewsItem("AAPL", "https://example.com/company", "Company news", t1, "S"),
+            _make_entry(
+                symbol="AAPL",
+                url_suffix="company",
+                headline="Company news",
+                published=t1,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
         ]
         macro_news = [
-            NewsItem("ALL", "https://example.com/macro", "Macro news", t1, "S"),
+            _make_entry(
+                symbol="MARKET",
+                url_suffix="macro",
+                headline="Macro news",
+                published=t1,
+                news_type=NewsType.MACRO,
+            ),
         ]
 
         # Create providers
@@ -225,7 +267,7 @@ class TestDataPoller:
         )
 
         # Explicitly mark macro provider without patching builtins
-        poller._macro_providers = {macro_provider}
+        poller._finnhub_macro_providers = {macro_provider}
 
         stats = await poller.poll_once()
 
@@ -239,13 +281,13 @@ class TestDataPoller:
         assert stats["news"] == 2
         stored_news = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))
         assert len(stored_news) == 2
+        symbols = {entry.symbol for entry in stored_news}
+        assert symbols == {"AAPL", "MARKET"}
 
         # Verify macro watermark was updated
         assert get_last_macro_min_id(temp_db) == 150
 
-    async def test_updates_news_since_iso_and_macro_min_id_independently(
-        self, temp_db, monkeypatch
-    ):
+    async def test_updates_news_since_iso_and_macro_min_id_independently(self, temp_db):
         """Test dual watermark updates: datetime and integer advance independently"""
         t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
         t2 = datetime(2024, 1, 15, 10, 5, tzinfo=UTC)
@@ -255,11 +297,29 @@ class TestDataPoller:
 
         # Create news with different timestamps
         company_news = [
-            NewsItem("AAPL", "https://example.com/c1", "Company 1", t1, "S"),
-            NewsItem("AAPL", "https://example.com/c2", "Company 2", t2, "S"),  # Latest timestamp
+            _make_entry(
+                symbol="AAPL",
+                url_suffix="c1",
+                headline="Company 1",
+                published=t1,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
+            _make_entry(
+                symbol="AAPL",
+                url_suffix="c2",
+                headline="Company 2",
+                published=t2,
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),  # Latest timestamp
         ]
         macro_news = [
-            NewsItem("ALL", "https://example.com/m1", "Macro 1", t1, "S"),
+            _make_entry(
+                symbol="MARKET",
+                url_suffix="m1",
+                headline="Macro 1",
+                published=t1,
+                news_type=NewsType.MACRO,
+            ),
         ]
 
         # Create providers
@@ -273,7 +333,7 @@ class TestDataPoller:
         )
 
         # Explicitly mark macro provider without patching builtins
-        poller._macro_providers = {macro_provider}
+        poller._finnhub_macro_providers = {macro_provider}
 
         await poller.poll_once()
 
@@ -282,46 +342,3 @@ class TestDataPoller:
 
         # Verify macro_news_min_id advanced independently to 150
         assert get_last_macro_min_id(temp_db) == 150
-
-    async def test_macro_news_skips_classification_company_only_called(self, temp_db, monkeypatch):
-        """Test classification routing: company news classified, macro skipped"""
-        t1 = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-
-        # Create distinct news items
-        company_news = [
-            NewsItem("AAPL", "https://example.com/company", "Company news", t1, "S"),
-        ]
-        macro_news = [
-            NewsItem("ALL", "https://example.com/macro", "Macro news", t1, "S"),
-        ]
-
-        # Create providers
-        company_provider = StubNews(company_news)
-        macro_provider = StubMacroNews(macro_news)
-
-        # Track what was passed to classify()
-        classify_called_with = []
-
-        def mock_classify(news_items):
-            classify_called_with.extend(news_items)
-            return []  # Return empty labels
-
-        # Patch classify function
-        with patch("workflows.poller.classify", side_effect=mock_classify):
-            # Create poller
-            poller = DataPoller(
-                temp_db, [company_provider, macro_provider], [StubPrice([])], poll_interval=300
-            )
-
-            # Explicitly mark macro provider without patching builtins
-            poller._macro_providers = {macro_provider}
-
-            await poller.poll_once()
-
-        # Verify classify was called with ONLY company news
-        assert len(classify_called_with) == 1
-        assert classify_called_with[0].symbol == "AAPL"
-        assert classify_called_with[0].headline == "Company news"
-
-        # Verify macro news was NOT passed to classify
-        assert not any(item.symbol == "ALL" for item in classify_called_with)

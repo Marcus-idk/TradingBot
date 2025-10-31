@@ -1,44 +1,34 @@
-"""Unit tests for news classification module."""
+"""Unit tests for the news classifier stub."""
 
 from datetime import UTC, datetime
 
 from analysis.news_classifier import classify
-from data.models import NewsItem, NewsLabelType
+from data.models import NewsEntry, NewsItem, NewsType
 
 
-def test_classify_returns_company_for_all():
-    """Test that classifier stub returns Company label for all news."""
-    # Create test news items
-    news_items = [
-        NewsItem(
-            symbol="AAPL",
-            url="https://example.com/news1",
-            headline="Apple announces new product",
-            published=datetime.now(UTC),
-            source="TechNews",
-        ),
-        NewsItem(
-            symbol="MSFT",
-            url="https://example.com/news2",
-            headline="Microsoft earnings report",
-            published=datetime.now(UTC),
-            source="Finance",
-        ),
-    ]
-
-    # Classify
-    labels = classify(news_items)
-
-    # Verify all labeled as Company (stub behavior)
-    assert len(labels) == 2
-    assert all(label.label == NewsLabelType.COMPANY for label in labels)
-    assert labels[0].symbol == "AAPL"
-    assert labels[0].url == "https://example.com/news1"
-    assert labels[1].symbol == "MSFT"
-    assert labels[1].url == "https://example.com/news2"
+def _make_entry(symbol: str, url_suffix: str) -> NewsEntry:
+    article = NewsItem(
+        url=f"https://example.com/news{url_suffix}",
+        headline=f"Headline {url_suffix}",
+        published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
+        source="UnitTest",
+        news_type=NewsType.COMPANY_SPECIFIC,
+        content=None,
+    )
+    return NewsEntry(article=article, symbol=symbol)
 
 
-def test_classify_empty_list():
-    """Test classifier handles empty input."""
+def test_classify_returns_empty_list_for_any_input():
+    """Stub classifier returns empty list regardless of entries provided."""
+    entries = [_make_entry("AAPL", "1"), _make_entry("MSFT", "2")]
+
+    labels = classify(entries)
+
+    assert labels == []
+
+
+def test_classify_handles_empty_list():
+    """Classifier handles empty input without logging debug path."""
     labels = classify([])
+
     assert labels == []

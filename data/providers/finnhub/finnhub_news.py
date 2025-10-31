@@ -1,11 +1,11 @@
 """Company news provider implementation."""
 
 import logging
-from datetime import (  # noqa: F401 - used by tests via monkeypatch
+from datetime import (
     UTC,
     datetime,
     timedelta,
-    timezone,
+    timezone,  # noqa: F401 - used by tests via monkeypatch
 )
 from typing import Any
 

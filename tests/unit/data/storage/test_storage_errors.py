@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from data.models import NewsItem
+from data.models import NewsEntry, NewsItem, NewsType
 from data.storage import (
     get_all_holdings,
     get_analysis_results,
@@ -27,17 +27,21 @@ class TestErrorHandling:
         nonexistent_path = "/nonexistent/path/database.db"
 
         # Create test data to force actual database connection attempt
-        test_item = NewsItem(
+        test_entry = NewsEntry(
+            article=NewsItem(
+                url="https://example.com/test",
+                headline="Test News",
+                source="Test",
+                published=datetime.now(UTC),
+                news_type=NewsType.COMPANY_SPECIFIC,
+            ),
             symbol="AAPL",
-            url="https://example.com/test",
-            headline="Test News",
-            source="Test",
-            published=datetime.now(UTC),
+            is_important=None,
         )
 
         # Operations should raise appropriate database errors
         with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
-            store_news_items(nonexistent_path, [test_item])  # Forces DB connection
+            store_news_items(nonexistent_path, [test_entry])  # Forces DB connection
 
         with pytest.raises((sqlite3.OperationalError, FileNotFoundError)):
             get_news_since(nonexistent_path, datetime.now(UTC))

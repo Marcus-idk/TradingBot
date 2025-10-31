@@ -7,7 +7,16 @@ from model initialization through storage to retrieval.
 from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 
-from data.models import AnalysisResult, AnalysisType, Holdings, NewsItem, PriceData, Stance
+from data.models import (
+    AnalysisResult,
+    AnalysisType,
+    Holdings,
+    NewsEntry,
+    NewsItem,
+    NewsType,
+    PriceData,
+    Stance,
+)
 from data.storage import (
     get_all_holdings,
     get_analysis_results,
@@ -23,6 +32,27 @@ from data.storage.db_context import _cursor_context
 
 class TestTimezonePipeline:
     """Test UTC timezone consistency throughout the entire data pipeline"""
+
+    @staticmethod
+    def _make_entry(
+        *,
+        symbol: str,
+        url: str,
+        headline: str,
+        source: str,
+        published: datetime,
+        content: str | None = None,
+        news_type: NewsType = NewsType.COMPANY_SPECIFIC,
+    ) -> NewsEntry:
+        article = NewsItem(
+            url=url,
+            headline=headline,
+            source=source,
+            published=published,
+            news_type=news_type,
+            content=content,
+        )
+        return NewsEntry(article=article, symbol=symbol, is_important=None)
 
     def test_timezone_consistency(self, temp_db):
         """
@@ -67,25 +97,25 @@ class TestTimezonePipeline:
 
         # Test NewsItem normalization
         news_naive = NewsItem(
-            symbol="TEST1",
             url="https://example.com/1",
             headline="Test 1",
             source="Test Source",
             published=naive_dt,
+            news_type=NewsType.COMPANY_SPECIFIC,
         )
         news_utc = NewsItem(
-            symbol="TEST2",
             url="https://example.com/2",
             headline="Test 2",
             source="Test Source",
             published=utc_aware_dt,
+            news_type=NewsType.COMPANY_SPECIFIC,
         )
         news_eastern = NewsItem(
-            symbol="TEST3",
             url="https://example.com/3",
             headline="Test 3",
             source="Test Source",
             published=eastern_dt,
+            news_type=NewsType.COMPANY_SPECIFIC,
         )
 
         # Verify all NewsItem published times are normalized to UTC
@@ -147,21 +177,21 @@ class TestTimezonePipeline:
 
         # Store all test data and verify ISO format in database
         test_news = [
-            NewsItem(
+            self._make_entry(
                 symbol="TZ1",
                 url="https://example.com/tz1",
                 headline="Timezone Test 1",
                 source="Test",
                 published=naive_dt,
             ),
-            NewsItem(
+            self._make_entry(
                 symbol="TZ2",
                 url="https://example.com/tz2",
                 headline="Timezone Test 2",
                 source="Test",
                 published=eastern_dt,
             ),
-            NewsItem(
+            self._make_entry(
                 symbol="TZ3",
                 url="https://example.com/tz3",
                 headline="Timezone Test 3",
@@ -231,11 +261,15 @@ class TestTimezonePipeline:
         with _cursor_context(temp_db, commit=False) as cursor:
             # Check news_items table
             cursor.execute(
-                "SELECT symbol, published_iso FROM news_items "
-                "WHERE symbol LIKE 'TZ%' ORDER BY symbol"
+                """
+                SELECT ns.symbol, ni.published_iso
+                FROM news_items AS ni
+                JOIN news_symbols AS ns ON ns.url = ni.url
+                WHERE ns.symbol LIKE 'TZ%'
+                ORDER BY ns.symbol
+                """
             )
-            news_rows = cursor.fetchall()
-            for symbol, published_iso in news_rows:
+            for symbol, published_iso in cursor.fetchall():
                 assert published_iso.endswith("Z"), (
                     f"News item {symbol} published_iso should end with 'Z': {published_iso}"
                 )
@@ -333,7 +367,7 @@ class TestTimezonePipeline:
         consistency_symbol = "CONSISTENCY_TEST"
 
         # Create all models with the same timestamp
-        consistency_news = NewsItem(
+        consistency_news = self._make_entry(
             symbol=consistency_symbol,
             url="https://example.com/consistency",
             headline="Consistency Test",
@@ -413,7 +447,7 @@ class TestTimezonePipeline:
         edt_tz = timezone(timedelta(hours=-4))
         test_time = datetime(2024, 3, 10, 2, 30, tzinfo=edt_tz)  # UTC-4 timezone conversion
 
-        boundary_news = NewsItem(
+        boundary_news = self._make_entry(
             symbol="BOUNDARY",
             url="https://example.com/boundary",
             headline="Boundary Test",

@@ -98,7 +98,11 @@ def build_config(with_viewer: bool) -> PollerConfig:
     # Get UI port if viewer enabled
     ui_port = None
     if with_viewer:
-        ui_port = int(os.getenv("STREAMLIT_PORT", "8501"))
+        port_raw = os.getenv("STREAMLIT_PORT", "8501")
+        try:
+            ui_port = int(port_raw)
+        except ValueError as exc:
+            raise ValueError(f"Invalid STREAMLIT_PORT '{port_raw}', must be an integer.") from exc
 
     # Load Finnhub settings
     try:

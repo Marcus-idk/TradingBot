@@ -78,8 +78,8 @@ class DataPoller:
         self.running = False
         self._stop_event = asyncio.Event()
 
-        # Identify macro providers once at init (avoid isinstance in hot path)
-        self._macro_providers = {
+        # Track macro providers that use ID-based watermarks (currently Finnhub macro endpoint)
+        self._finnhub_macro_providers = {
             provider
             for provider in news_providers
             if isinstance(provider, FinnhubMacroNewsProvider)
@@ -111,7 +111,7 @@ class DataPoller:
         # Start both news and price fetches concurrently (don't await yet)
         news_tasks = []
         for provider in self.news_providers:
-            if provider in self._macro_providers:
+            if provider in self._finnhub_macro_providers:
                 news_tasks.append(provider.fetch_incremental(min_id=last_macro_min_id))
             else:
                 news_tasks.append(provider.fetch_incremental(since=last_news_time))
@@ -135,7 +135,7 @@ class DataPoller:
                 logger.error(f"{provider_name} news fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
             else:
-                if provider in self._macro_providers:
+                if provider in self._finnhub_macro_providers:
                     macro_news.extend(result)
                 else:
                     company_news.extend(result)
@@ -269,7 +269,7 @@ class DataPoller:
             )
 
             # Persist minId watermark for macro news providers
-            for provider in self._macro_providers:
+            for provider in self._finnhub_macro_providers:
                 if provider.last_fetched_max_id:
                     await asyncio.to_thread(
                         set_last_macro_min_id, self.db_path, provider.last_fetched_max_id

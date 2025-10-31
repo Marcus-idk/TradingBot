@@ -34,7 +34,7 @@ async def get_json_with_retry(
             if response.status_code == 200:
                 try:
                     return response.json()  # Parse and return JSON data
-                except (ValueError, TypeError, httpx.DecodingError) as exc:
+                except ValueError as exc:
                     # JSON parsing failed - this is a server/data problem, don't retry
                     raise DataSourceError(f"Invalid JSON response from {url}: {exc}") from exc
 

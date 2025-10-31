@@ -15,76 +15,99 @@ class TestNotNullConstraints:
     def test_news_items_required_fields(self, temp_db):
         """Test NOT NULL constraints on news_items table."""
         with _cursor_context(temp_db) as cursor:
-            # Test symbol NOT NULL
-            with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
-                cursor.execute("""
-                    INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                    VALUES (NULL, 'http://test.com', 'Test', '2024-01-01T10:00:00Z', 'test')
-                """)
-
             # Test url NOT NULL
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
                 cursor.execute("""
-                    INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                    VALUES ('AAPL', NULL, 'Test', '2024-01-01T10:00:00Z', 'test')
+                    INSERT INTO news_items (url, headline, published_iso, source, news_type)
+                    VALUES (NULL, 'Test', '2024-01-01T10:00:00Z', 'test', 'macro')
                 """)
 
             # Test headline NOT NULL
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
                 cursor.execute("""
-                    INSERT INTO news_items (symbol, url, headline, published_iso, source)
-                    VALUES ('AAPL', 'http://test.com', NULL, '2024-01-01T10:00:00Z', 'test')
+                    INSERT INTO news_items (url, headline, published_iso, source, news_type)
+                    VALUES ('http://test.com', NULL, '2024-01-01T10:00:00Z', 'test', 'macro')
                 """)
 
-    def test_news_labels_required_fields(self, temp_db):
-        """Test NOT NULL constraints on news_labels table."""
+            # Test published_iso NOT NULL
+            with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
+                cursor.execute("""
+                    INSERT INTO news_items (url, headline, published_iso, source, news_type)
+                    VALUES ('http://test.com', 'Test', NULL, 'test', 'macro')
+                """)
+
+            # Test source NOT NULL
+            with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
+                cursor.execute("""
+                    INSERT INTO news_items (url, headline, published_iso, source, news_type)
+                    VALUES ('http://test.com', 'Test', '2024-01-01T10:00:00Z', NULL, 'macro')
+                """)
+
+            # Test news_type NOT NULL
+            with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
+                cursor.execute("""
+                    INSERT INTO news_items (url, headline, published_iso, source, news_type)
+                    VALUES ('http://test.com', 'Test', '2024-01-01T10:00:00Z', 'test', NULL)
+                """)
+
+    def test_news_symbols_required_fields(self, temp_db):
+        """Test NOT NULL constraints on news_symbols table."""
         with _cursor_context(temp_db) as cursor:
             # Prepare backing news rows for FK
             cursor.execute(
                 """
-                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                INSERT INTO news_items (url, headline, published_iso, source, news_type)
                 VALUES (
-                    'AAPL', 'http://example.com/labels-symbol', 'Label Test',
-                    '2024-01-01T10:00:00Z', 'test'
+                    'http://example.com/labels-symbol',
+                    'Label Test',
+                    '2024-01-01T10:00:00Z',
+                    'test',
+                    'macro'
                 )
                 """
             )
             cursor.execute(
                 """
-                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                INSERT INTO news_items (url, headline, published_iso, source, news_type)
                 VALUES (
-                    'AAPL', 'http://example.com/labels-url', 'Label Test',
-                    '2024-01-01T10:05:00Z', 'test'
+                    'http://example.com/labels-symbol2',
+                    'Label Test',
+                    '2024-01-01T10:05:00Z',
+                    'test',
+                    'macro'
                 )
                 """
             )
             cursor.execute(
                 """
-                INSERT INTO news_items (symbol, url, headline, published_iso, source)
+                INSERT INTO news_items (url, headline, published_iso, source, news_type)
                 VALUES (
-                    'AAPL', 'http://example.com/labels-type', 'Label Test',
-                    '2024-01-01T10:10:00Z', 'test'
+                    'http://example.com/labels-type',
+                    'Label Test',
+                    '2024-01-01T10:10:00Z',
+                    'test',
+                    'macro'
                 )
                 """
             )
 
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
                 cursor.execute("""
-                    INSERT INTO news_labels (symbol, url, label)
-                    VALUES (NULL, 'http://example.com/labels-symbol', 'Company')
+                    INSERT INTO news_symbols (url, symbol, is_important)
+                    VALUES ('http://example.com/labels-symbol', NULL, 1)
                 """)
 
             with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
                 cursor.execute("""
-                    INSERT INTO news_labels (symbol, url, label)
-                    VALUES ('AAPL', NULL, 'Company')
+                    INSERT INTO news_symbols (url, symbol, is_important)
+                    VALUES (NULL, 'AAPL', 1)
                 """)
 
-            with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
-                cursor.execute("""
-                    INSERT INTO news_labels (symbol, url, label)
-                    VALUES ('AAPL', 'http://example.com/labels-type', NULL)
-                """)
+            # is_important may be NULL, verify insert succeeds
+            cursor.execute("""
+                INSERT INTO news_symbols (url, symbol, is_important)
+                VALUES ('http://example.com/labels-type', 'AAPL', NULL)
+            """)
 
     def test_price_data_required_fields(self, temp_db):
         """Test NOT NULL constraints on price_data table."""

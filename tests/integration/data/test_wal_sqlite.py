@@ -10,7 +10,16 @@ import time
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from data.models import AnalysisResult, AnalysisType, NewsItem, PriceData, Session, Stance
+from data.models import (
+    AnalysisResult,
+    AnalysisType,
+    NewsEntry,
+    NewsItem,
+    NewsType,
+    PriceData,
+    Session,
+    Stance,
+)
 from data.storage import (
     connect,
     get_analysis_results,
@@ -26,6 +35,27 @@ from data.storage.db_context import _cursor_context
 class TestWALSqlite:
     """Test WAL mode functionality and concurrent operations"""
 
+    @staticmethod
+    def _make_news_entry(
+        *,
+        symbol: str,
+        url: str,
+        headline: str,
+        source: str,
+        published: datetime,
+        content: str | None = None,
+        news_type: NewsType = NewsType.COMPANY_SPECIFIC,
+    ) -> NewsEntry:
+        article = NewsItem(
+            url=url,
+            headline=headline,
+            content=content,
+            published=published,
+            source=source,
+            news_type=news_type,
+        )
+        return NewsEntry(article=article, symbol=symbol, is_important=None)
+
     def test_wal_mode_functionality(self, temp_db):
         """
         Test that WAL mode is properly enabled and functional with file-backed database.
@@ -40,7 +70,7 @@ class TestWALSqlite:
         # Test that WAL files are created during operations
         # Store some data to trigger WAL file creation
         test_news = [
-            NewsItem(
+            self._make_news_entry(
                 symbol="TEST",
                 url="https://example.com/test",
                 headline="WAL Test",
@@ -120,7 +150,7 @@ class TestWALSqlite:
             """Simulate news data polling from different sources"""
             for i, symbol in enumerate(symbol_batch):
                 news_items = [
-                    NewsItem(
+                    self._make_news_entry(
                         symbol=symbol,
                         url=f"https://newsapi.com/{symbol.lower()}-news-{thread_id}-{i}",
                         headline=f"{symbol} Market Update from Source {thread_id}",

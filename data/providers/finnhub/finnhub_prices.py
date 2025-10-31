@@ -1,7 +1,11 @@
 """Price provider implementation."""
 
 import logging
-from datetime import UTC, datetime, timezone  # noqa: F401 - used by tests via monkeypatch
+from datetime import (
+    UTC,
+    datetime,
+    timezone,  # noqa: F401 - used by tests via monkeypatch
+)
 from decimal import Decimal, InvalidOperation
 from typing import Any
 

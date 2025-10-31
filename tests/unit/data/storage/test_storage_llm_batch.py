@@ -6,291 +6,190 @@ import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from data.models import NewsItem, NewsLabel, NewsLabelType, PriceData, Session
+from data.models import NewsEntry, NewsItem, NewsType, PriceData, Session
 from data.storage import (
     commit_llm_batch,
     get_last_seen,
-    get_news_labels,
     get_news_since,
+    get_news_symbols,
     get_price_data_since,
     store_news_items,
-    store_news_labels,
+    store_price_data,
 )
 from data.storage.db_context import _cursor_context
-from data.storage.storage_utils import _datetime_to_iso, _iso_to_datetime
+from data.storage.storage_utils import _datetime_to_iso, _iso_to_datetime, _normalize_url
+
+
+def _make_entry(
+    *,
+    symbol: str,
+    url_suffix: str,
+    headline: str,
+    is_important: bool | None,
+    news_type: NewsType = NewsType.COMPANY_SPECIFIC,
+) -> NewsEntry:
+    article = NewsItem(
+        url=f"https://example.com/news{url_suffix}",
+        headline=headline,
+        source="Source",
+        published=datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
+        news_type=news_type,
+        content=None,
+    )
+    return NewsEntry(article=article, symbol=symbol, is_important=is_important)
+
+
+def _get_created_at(temp_db: str, url: str) -> datetime:
+    normalized_url = _normalize_url(url)
+    with _cursor_context(temp_db, commit=False) as cursor:
+        cursor.execute("SELECT created_at_iso FROM news_items WHERE url = ?", (normalized_url,))
+        row = cursor.fetchone()
+        assert row is not None, f"No news_items row for {normalized_url}"
+        return _iso_to_datetime(row[0])
 
 
 class TestBatchOperations:
-    """Test batch operations like commit_llm_batch and finalize_database"""
+    """Tests for commit_llm_batch behavior."""
 
     def test_commit_llm_batch_atomic_transaction(self, temp_db):
-        """Test commit_llm_batch performs atomic transaction with correct deletions"""
+        """commit_llm_batch prunes rows <= cutoff and returns counts."""
         base_time = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
-        # Insert news items with different created_at times
-        news1 = NewsItem(
+        entry1 = _make_entry(
             symbol="AAPL",
-            url="https://example.com/news1",
+            url_suffix="1",
             headline="News 1",
-            source="Reuters",
-            published=base_time,
+            is_important=True,
         )
-        store_news_items(temp_db, [news1])
-        store_news_labels(
+        store_news_items(temp_db, [entry1])
+        store_price_data(
             temp_db,
             [
-                NewsLabel(
-                    symbol=news1.symbol,
-                    url=news1.url,
-                    label=NewsLabelType.COMPANY,
-                    created_at=base_time,
+                PriceData(
+                    symbol="AAPL",
+                    timestamp=base_time,
+                    price=Decimal("150.00"),
+                    session=Session.REG,
                 )
             ],
         )
         time.sleep(1)
 
-        news2 = NewsItem(
+        entry2 = _make_entry(
             symbol="TSLA",
-            url="https://example.com/news2",
+            url_suffix="2",
             headline="News 2",
-            source="Bloomberg",
-            published=base_time,
+            is_important=False,
         )
-        store_news_items(temp_db, [news2])
-        store_news_labels(
+        store_news_items(temp_db, [entry2])
+        store_price_data(
             temp_db,
             [
-                NewsLabel(
-                    symbol=news2.symbol,
-                    url=news2.url,
-                    label=NewsLabelType.MARKET_WITH_MENTION,
-                    created_at=base_time + timedelta(minutes=1),
+                PriceData(
+                    symbol="TSLA",
+                    timestamp=base_time,
+                    price=Decimal("200.00"),
+                    session=Session.PRE,
                 )
             ],
         )
 
-        # Record cutoff between items 2 and 3
         cutoff = datetime.now(UTC)
         time.sleep(1)
 
-        news3 = NewsItem(
+        entry3 = _make_entry(
             symbol="GOOGL",
-            url="https://example.com/news3",
+            url_suffix="3",
             headline="News 3",
-            source="Yahoo",
-            published=base_time,
+            is_important=None,
         )
-        store_news_items(temp_db, [news3])
-        store_news_labels(
+        store_news_items(temp_db, [entry3])
+        store_price_data(
             temp_db,
             [
-                NewsLabel(
-                    symbol=news3.symbol,
-                    url=news3.url,
-                    label=NewsLabelType.PEOPLE,
-                    created_at=base_time + timedelta(minutes=2),
+                PriceData(
+                    symbol="GOOGL",
+                    timestamp=base_time,
+                    price=Decimal("100.00"),
+                    session=Session.POST,
                 )
             ],
         )
 
-        # Also insert price data with similar timing
-        price1 = PriceData(
-            symbol="AAPL", timestamp=base_time, price=Decimal("150.00"), session=Session.REG
-        )
-        price2 = PriceData(
-            symbol="TSLA", timestamp=base_time, price=Decimal("200.00"), session=Session.PRE
-        )
-        price3 = PriceData(
-            symbol="GOOGL", timestamp=base_time, price=Decimal("100.00"), session=Session.POST
-        )
-
-        # Store price data (using existing created_at from news for simplicity)
-        with _cursor_context(temp_db) as cursor:
-            # Insert prices with specific created_at times matching news items
-            cursor.execute(
-                """
-                INSERT INTO price_data (symbol, timestamp_iso, price, session, created_at_iso)
-                SELECT ?, ?, ?, ?, created_at_iso
-                FROM news_items WHERE symbol = ?
-            """,
-                ("AAPL", _datetime_to_iso(base_time), str(price1.price), "REG", "AAPL"),
-            )
-
-            cursor.execute(
-                """
-                INSERT INTO price_data (symbol, timestamp_iso, price, session, created_at_iso)
-                SELECT ?, ?, ?, ?, created_at_iso
-                FROM news_items WHERE symbol = ?
-            """,
-                ("TSLA", _datetime_to_iso(base_time), str(price2.price), "PRE", "TSLA"),
-            )
-
-            cursor.execute(
-                """
-                INSERT INTO price_data (symbol, timestamp_iso, price, session, created_at_iso)
-                SELECT ?, ?, ?, ?, created_at_iso
-                FROM news_items WHERE symbol = ?
-            """,
-                ("GOOGL", _datetime_to_iso(base_time), str(price3.price), "POST", "GOOGL"),
-            )
-
-        # Execute commit_llm_batch
         result = commit_llm_batch(temp_db, cutoff)
 
-        # Verify return value
-        assert result["labels_deleted"] == 2, (
-            f"Expected 2 labels deleted, got {result['labels_deleted']}"
-        )
-        assert result["news_deleted"] == 2, f"Expected 2 news deleted, got {result['news_deleted']}"
-        assert result["prices_deleted"] == 2, (
-            f"Expected 2 prices deleted, got {result['prices_deleted']}"
-        )
+        assert result["symbols_deleted"] == 2
+        assert result["news_deleted"] == 2
+        assert result["prices_deleted"] == 2
 
-        # Verify remaining data
         remaining_news = get_news_since(temp_db, datetime(2020, 1, 1, tzinfo=UTC))
-        assert len(remaining_news) == 1, (
-            f"Expected 1 news item remaining, got {len(remaining_news)}"
-        )
-        assert remaining_news[0].headline == "News 3"
+        assert len(remaining_news) == 1
+        remaining_entry = remaining_news[0]
+        assert remaining_entry.symbol == "GOOGL"
+        assert remaining_entry.headline == "News 3"
+
+        remaining_symbols = get_news_symbols(temp_db)
+        assert [(link.symbol, link.is_important) for link in remaining_symbols] == [("GOOGL", None)]
 
         remaining_prices = get_price_data_since(temp_db, datetime(2020, 1, 1, tzinfo=UTC))
-        assert len(remaining_prices) == 1, (
-            f"Expected 1 price remaining, got {len(remaining_prices)}"
-        )
+        assert len(remaining_prices) == 1
         assert remaining_prices[0].symbol == "GOOGL"
 
-        remaining_labels = get_news_labels(temp_db)
-        assert len(remaining_labels) == 1
-        assert remaining_labels[0].symbol == "GOOGL"
-        assert remaining_labels[0].label is NewsLabelType.PEOPLE
-
-        # Verify last_seen watermark was set
         assert get_last_seen(temp_db, "llm_last_run_iso") == _datetime_to_iso(cutoff)
 
     def test_commit_llm_batch_empty_database(self, temp_db):
-        """Test commit_llm_batch on empty database"""
+        """Empty database should still set watermark and delete nothing."""
         cutoff = datetime.now(UTC)
 
-        # Execute on empty database
         result = commit_llm_batch(temp_db, cutoff)
 
-        # Should delete nothing
-        assert result["labels_deleted"] == 0
-        assert result["news_deleted"] == 0
-        assert result["prices_deleted"] == 0
-
-        # Should still set the watermark
+        assert result == {"symbols_deleted": 0, "news_deleted": 0, "prices_deleted": 0}
         assert get_last_seen(temp_db, "llm_last_run_iso") == _datetime_to_iso(cutoff)
 
     def test_commit_llm_batch_boundary_conditions(self, temp_db):
-        """Test commit_llm_batch with exact timestamp boundary"""
-        base_time = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-
-        # Insert two items
-        news1 = NewsItem(
+        """Rows with created_at <= cutoff are deleted (inclusive boundary)."""
+        entry1 = _make_entry(
             symbol="AAPL",
-            url="https://example.com/news1",
+            url_suffix="1",
             headline="News 1",
-            source="Reuters",
-            published=base_time,
+            is_important=True,
         )
-        store_news_items(temp_db, [news1])
-        store_news_labels(
-            temp_db,
-            [
-                NewsLabel(
-                    symbol=news1.symbol,
-                    url=news1.url,
-                    label=NewsLabelType.COMPANY,
-                    created_at=base_time,
-                )
-            ],
-        )
+        store_news_items(temp_db, [entry1])
         time.sleep(1)
 
-        # Get exact timestamp of second item
-        news2 = NewsItem(
+        entry2 = _make_entry(
             symbol="TSLA",
-            url="https://example.com/news2",
+            url_suffix="2",
             headline="News 2",
-            source="Bloomberg",
-            published=base_time,
+            is_important=False,
         )
-        store_news_items(temp_db, [news2])
-        store_news_labels(
-            temp_db,
-            [
-                NewsLabel(
-                    symbol=news2.symbol,
-                    url=news2.url,
-                    label=NewsLabelType.PEOPLE,
-                    created_at=base_time + timedelta(minutes=1),
-                )
-            ],
-        )
+        store_news_items(temp_db, [entry2])
 
-        # Get the exact created_at of the second item
-        with _cursor_context(temp_db, commit=False) as cursor:
-            cursor.execute("SELECT created_at_iso FROM news_items WHERE symbol = 'TSLA'")
-            exact_timestamp_iso = cursor.fetchone()[0]
+        exact_cutoff = _get_created_at(temp_db, entry2.url)
 
-        exact_cutoff = _iso_to_datetime(exact_timestamp_iso)
-
-        # Commit with exact timestamp (should delete both due to <=)
         result = commit_llm_batch(temp_db, exact_cutoff)
 
-        assert result["labels_deleted"] == 2, (
-            f"Expected 2 labels deleted with <= boundary, got {result['labels_deleted']}"
-        )
-        assert result["news_deleted"] == 2, (
-            f"Expected 2 deleted with <= boundary, got {result['news_deleted']}"
-        )
-
-        # Verify all deleted
-        remaining_news = get_news_since(temp_db, datetime(2020, 1, 1, tzinfo=UTC))
-        assert len(remaining_news) == 0, f"Expected 0 items remaining, got {len(remaining_news)}"
-        remaining_labels = get_news_labels(temp_db)
-        assert len(remaining_labels) == 0, (
-            f"Expected 0 labels remaining, got {len(remaining_labels)}"
-        )
+        assert result["symbols_deleted"] == 2
+        assert result["news_deleted"] == 2
+        assert get_news_since(temp_db, datetime(2020, 1, 1, tzinfo=UTC)) == []
+        assert get_news_symbols(temp_db) == []
 
     def test_commit_llm_batch_idempotency(self, temp_db):
-        """Test commit_llm_batch can be called multiple times with same cutoff"""
-        base_time = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-
-        # Insert test data
-        news = NewsItem(
+        """Repeated calls with same cutoff delete only once."""
+        entry = _make_entry(
             symbol="AAPL",
-            url="https://example.com/news",
+            url_suffix="1",
             headline="Test News",
-            source="Reuters",
-            published=base_time,
+            is_important=True,
         )
-        store_news_items(temp_db, [news])
-        store_news_labels(
-            temp_db,
-            [
-                NewsLabel(
-                    symbol=news.symbol,
-                    url=news.url,
-                    label=NewsLabelType.COMPANY,
-                    created_at=base_time,
-                )
-            ],
-        )
+        store_news_items(temp_db, [entry])
 
         cutoff = datetime.now(UTC) + timedelta(seconds=1)
 
-        # First call should delete the item
         result1 = commit_llm_batch(temp_db, cutoff)
-        assert result1["labels_deleted"] == 1
+        assert result1["symbols_deleted"] == 1
         assert result1["news_deleted"] == 1
 
-        # Second call with same cutoff should delete nothing
         result2 = commit_llm_batch(temp_db, cutoff)
-        assert result2["labels_deleted"] == 0
-        assert result2["news_deleted"] == 0
-        assert result2["prices_deleted"] == 0
-
-        # Watermark should still be updated
+        assert result2 == {"symbols_deleted": 0, "news_deleted": 0, "prices_deleted": 0}
         assert get_last_seen(temp_db, "llm_last_run_iso") == _datetime_to_iso(cutoff)

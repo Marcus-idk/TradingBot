@@ -64,3 +64,9 @@ class TestParseSymbols:
         assert any(
             "Unexpected TEST entry format: 123" in record.message for record in caplog.records
         )
+
+    def test_share_class_and_suffix_symbols_allowed(self):
+        """Share-class suffixes (dot/dash) and digits after first char should be accepted."""
+        result = parse_symbols("BRK.B,BF-B,PSA.P,GOOG1")
+
+        assert result == ["BRK.B", "BF-B", "PSA.P", "GOOG1"]

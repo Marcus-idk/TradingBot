@@ -28,7 +28,7 @@ def setup_logging() -> None:
     """
     # Get configuration from environment
     level = os.getenv("LOG_LEVEL", "INFO")
-    format = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    fmt = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # Always include console handler
     handlers = [logging.StreamHandler(sys.stdout)]
@@ -41,7 +41,7 @@ def setup_logging() -> None:
     # Configure root logger
     logging.basicConfig(
         level=level.upper(),
-        format=format,
+        format=fmt,
         handlers=handlers,
         force=True,  # Override any existing configuration
     )

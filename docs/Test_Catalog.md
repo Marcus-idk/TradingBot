@@ -129,8 +129,8 @@ The detailed inventory starts below this line (to be populated and maintained).
 ### `tests/unit/analysis/test_news_classifier.py`
 - Purpose: News classification stub behavior
 - Tests:
-  - `test_classify_returns_company_for_all` - Returns Company labels for all items
-  - `test_classify_empty_list` - Handles empty input list
+  - `test_classify_returns_empty_list_for_any_input` - Stub returns empty list for any entries
+  - `test_classify_handles_empty_list` - Handles empty input list
 
 ### `tests/unit/analysis/test_urgency_detector.py`
 - Purpose: Urgency detector stub behavior
@@ -231,11 +231,11 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_validate_connection_success` - validate_connection returns True
   - `test_validate_connection_failure` - validate_connection raises on error
   - `test_maps_related_symbols` - Maps related symbols to watchlist
-  - `test_falls_back_to_all_when_no_related` - Falls back to ALL when none related
+  - `test_falls_back_to_market_when_no_related` - Falls back to market when none related
   - `test_filters_buffer_time_when_bootstrap` - Applies bootstrap buffer
   - `test_invalid_articles_are_skipped` - Skips invalid articles
   - `test_structural_error_raises` - Raises on malformed response type
-  - `test_empty_watchlist_falls_back_to_all` - Empty watchlist => ALL
+  - `test_empty_watchlist_falls_back_to_market` - Empty watchlist => market
 
 ### `tests/unit/data/providers/shared/test_prices_shared.py`
 - Purpose: Price providers shared behaviors
@@ -310,7 +310,7 @@ The detailed inventory starts below this line (to be populated and maintained).
   **TestDefaultValues**
   - `test_session_default_reg` - Defaults session to REG
   - `test_timestamp_defaults` - Default timestamps
-  - `test_news_labels_timestamp_default` - Label timestamp default
+  - `test_news_symbols_timestamp_default` - news_symbols created_at default
   **TestTableStructure**
   - `test_without_rowid_optimization` - WITHOUT ROWID optimization
 
@@ -321,13 +321,14 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_session_enum_values_unchanged` - Locks Session values
   - `test_stance_enum_values_unchanged` - Locks Stance values
   - `test_analysis_type_enum_values_unchanged` - Locks AnalysisType values
-  - `test_news_label_enum_values_unchanged` - Locks NewsLabelType values
+  - `test_news_type_enum_values_unchanged` - Locks NewsType values
   - `test_urgency_enum_values_unchanged` - Locks Urgency values
   **TestEnumConstraints**
   - `test_session_enum_values` - Enforces session constraint
   - `test_stance_enum_values` - Enforces stance constraint
   - `test_analysis_type_enum_values` - Enforces analysis_type constraint
-  - `test_news_label_enum_values` - Enforces news label constraint
+  - `test_news_type_enum_values` - Enforces news_type constraint
+  - `test_news_symbols_is_important_constraint` - `news_symbols.is_important` allows NULL/0/1 only
 
 ### `tests/unit/data/schema/test_schema_financial_values.py`
 - Purpose: Decimal/numeric constraints
@@ -353,7 +354,7 @@ The detailed inventory starts below this line (to be populated and maintained).
 - Tests:
   **TestNotNullConstraints**
   - `test_news_items_required_fields` - News required fields
-  - `test_news_labels_required_fields` - Label required fields
+  - `test_news_symbols_required_fields` - news_symbols required fields
   - `test_price_data_required_fields` - Price required fields
   - `test_analysis_results_required_fields` - Analysis required fields
   - `test_holdings_required_fields` - Holdings required fields
@@ -362,8 +363,8 @@ The detailed inventory starts below this line (to be populated and maintained).
 - Purpose: Primary key constraints
 - Tests:
   **TestPrimaryKeyConstraints**
-  - `test_news_items_composite_key` - (symbol, url) composite key
-  - `test_news_labels_composite_key` - (symbol, url) composite key
+  - `test_news_items_primary_key` - url primary key
+  - `test_news_symbols_composite_key` - (url, symbol) composite key
   - `test_price_data_composite_key` - (symbol, timestamp_iso) composite key
   - `test_analysis_results_composite_key` - (symbol, analysis_type) composite key
   - `test_holdings_single_key` - symbol primary key
@@ -448,16 +449,15 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_commit_llm_batch_idempotency` - Idempotent repeated calls
 
 ### `tests/unit/data/storage/test_storage_news.py`
-- Purpose: News storage and labels
+- Purpose: News storage and symbol links
 - Tests:
   **TestNewsItemStorage**
   - `test_store_news_deduplication_insert_or_ignore` - Dedup via normalized URL
   - `test_store_news_empty_list_no_error` - Empty list no-op
-  **TestNewsLabelStorage**
-  - `test_store_and_get_news_labels` - Stores and retrieves labels
-  - `test_store_news_labels_upsert_updates_existing_label` - Upserts label
-  - `test_news_labels_cascade_on_news_deletion` - Cascades on news delete
-  - `test_get_news_labels_filters_by_symbol` - Filters by symbol
+  **TestNewsSymbolsStorage**
+  - `test_store_and_get_news_symbols` - Stores and retrieves news_symbols links
+  - `test_news_symbols_cascade_on_news_deletion` - Cascades on news delete
+  - `test_get_news_symbols_filters_by_symbol` - Filters by symbol
 
 ### `tests/unit/data/storage/test_storage_prices.py`
 - Purpose: Price storage validation
@@ -504,9 +504,9 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_parse_rfc3339_raises_for_non_string` - Type error for non-string
   - `test_parse_rfc3339_invalid_format_raises` - Invalid format raises
   **TestRowMappers**
-  - `test_row_to_news_item_maps_fields` - Map row → NewsItem
-  - `test_row_to_news_label_handles_optional_created_at` - Optional created_at
-  - `test_row_to_news_label_parses_created_at` - Parse created_at
+  - `test_row_to_news_item_maps_fields_and_type` - Map row → NewsItem (includes news_type)
+  - `test_row_to_news_symbol_maps_fields_and_nullable_is_important` - Nullable importance handled
+  - `test_row_to_news_entry_maps_joined_row` - Joined row → NewsEntry
   - `test_row_to_price_data_maps_decimal_and_session` - Decimal and session mapping
   - `test_row_to_analysis_result_builds_model` - Build AnalysisResult
   - `test_row_to_holdings_parses_decimals` - Parse Decimal fields
@@ -537,8 +537,17 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_newsitem_valid_creation` - Valid creation
   - `test_newsitem_url_validation` - URL validation
   - `test_newsitem_empty_field_validation` - Empty field rejection
-  - `test_newsitem_symbol_uppercasing` - Symbol uppercased
+  - `test_newsitem_news_type_variants` - Accepts enum or exact string values
   - `test_newsitem_timezone_normalization` - UTC normalization
+  **TestNewsEntry**
+  - `test_newsentry_symbol_uppercasing_and_passthrough` - Symbol uppercased; article passthrough
+  - `test_newsentry_is_important_accepts_bool_or_none` - Bool/None accepted
+  - `test_newsentry_requires_non_empty_symbol` - Rejects empty symbol
+  - `test_newsentry_invalid_is_important_value` - Rejects non-bool importance
+  **TestNewsSymbol**
+  - `test_newssymbol_valid_creation` - Valid link object
+  - `test_newssymbol_importance_bool_conversion` - Bool conversion
+  - `test_newssymbol_invalid_inputs_raise` - URL/symbol/importance validation
   **TestPriceData**
   - `test_pricedata_symbol_uppercasing` - Symbol uppercased
   - `test_pricedata_price_must_be_positive` - Positive price only
@@ -637,6 +646,7 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_validation_toggle_true_skips_false_keeps` - Validation toggle behavior
   - `test_empty_input_returns_empty_list` - Empty input returns []
   - `test_mixed_valid_invalid_tokens_logs_when_validate_true` - Logs on invalid tokens
+  - `test_share_class_and_suffix_symbols_allowed` - Accepts share-class suffixes and digits
 
 ### `tests/unit/workflows/test_poller.py`
 - Purpose: DataPoller orchestration
@@ -648,6 +658,5 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_poll_once_no_data_no_watermark` - No data keeps watermark None
   - `test_poller_quick_shutdown` - Stops quickly on stop()
   - `test_poller_custom_poll_interval` - Accepts custom intervals
-  - `test_macro_provider_receives_min_id_and_results_routed` - Routes macro/company and updates min_id
+  - `test_macro_provider_min_id_passed_and_watermark_updated` - Macro provider uses min_id and updates watermark
   - `test_updates_news_since_iso_and_macro_min_id_independently` - Updates both watermarks
-  - `test_macro_news_skips_classification_company_only_called` - Skips classification for macro

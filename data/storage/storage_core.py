@@ -55,8 +55,8 @@ def init_database(db_path: str) -> None:
         if not _check_json1_support(conn):
             raise RuntimeError(
                 "SQLite JSON1 extension required but not available. "
-                "Please use Python 3.8+ or install pysqlite3-binary. "
-                "To install: pip install pysqlite3-binary"
+                "Install a SQLite build with JSON1 support (e.g., the 'pysqlite3-binary' package) "
+                "or use a Python distribution that bundles JSON1."
             )
 
     # Read schema file using importlib.resources (works in packages)
