@@ -47,6 +47,7 @@ class TestNewsMacroShared:
         assert all(isinstance(item, NewsEntry) for item in results)
         assert {item.symbol for item in results} == {"AAPL", "MSFT"}
         assert {item.news_type for item in results} == {NewsType.MACRO}
+        assert all(item.is_important is None for item in results)
 
     async def test_falls_back_to_market_when_no_related(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT"])
@@ -62,6 +63,7 @@ class TestNewsMacroShared:
         assert isinstance(fallback, NewsEntry)
         assert fallback.symbol == "MARKET"
         assert fallback.news_type is NewsType.MACRO
+        assert fallback.is_important is None
 
     async def test_filters_buffer_time_when_bootstrap(self, provider_spec_macro, monkeypatch):
         provider = provider_spec_macro.make_provider()
@@ -97,6 +99,7 @@ class TestNewsMacroShared:
         entry = results[0]
         assert entry.published == datetime.fromtimestamp(inside_epoch, tz=UTC)
         assert entry.news_type is NewsType.MACRO
+        assert entry.is_important is None
 
     async def test_invalid_articles_are_skipped(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
@@ -120,6 +123,7 @@ class TestNewsMacroShared:
         entry = results[0]
         assert entry.headline == good_article[headline_field]
         assert entry.news_type is NewsType.MACRO
+        assert entry.is_important is None
 
     async def test_structural_error_raises(self, provider_spec_macro):
         provider = provider_spec_macro.make_provider()
@@ -146,3 +150,4 @@ class TestNewsMacroShared:
         assert isinstance(fallback, NewsEntry)
         assert fallback.symbol == "MARKET"
         assert fallback.news_type is NewsType.MACRO
+        assert fallback.is_important is None

@@ -10,6 +10,23 @@ Note: For a complete inventory of all tests (files and test functions), see `doc
 
 ---
 
+## Test Style Guide — Consistency Checks
+
+Use these rules across all tests to keep the suite readable and uniform.
+
+- Assertions
+  - ✅ Prefer plain `assert` without custom failure strings — pytest shows values/diffs.
+  - ❌ Do not add messages to simple assertions; reserve for non-obvious, multi-step checks.
+  - ➕ For complex context, a brief message is OK.
+
+- Exceptions
+  - Use `pytest.raises(ExpectedError, match=...)` when asserting both type and message.
+
+- Comments and docstrings
+  - Keep intent-focused one-liners; avoid banners and numbered narratives that restate obvious code.
+
+---
+
 ## LIMITS & FRAMEWORK
 - **Max file size**: 600 lines (target: ~400)
 - **Max test class**: ~200-250 lines
@@ -39,47 +56,18 @@ When several providers share the same live workflow, keep files workflow-named a
 
 ---
 
-
----
-
 ## Markers: integration, network, asyncio
 
 - Integration tests: set once per package.
   - tests/integration/conftest.py
-    ```python
-    import pytest
-    pytestmark = pytest.mark.integration
-    ```
   - Keep `pytest.mark.network` only on modules that really hit the network.
 
 - Async-heavy tests: mark the module.
   - Put this at the top of async-heavy files (e.g., provider shared tests):
-    ```python
-    import pytest
-    pytestmark = pytest.mark.asyncio
-    ```
   - This is the simplest, explicit approach. It avoids repeating `@pytest.mark.asyncio` on every test.
-
-- Advanced (optional): directory-wide asyncio via a conftest hook.
-  - Use only if an entire folder is async and you want zero per-file marks.
-  - tests/unit/data/providers/shared/conftest.py
-    ```python
-    import pytest
-
-    def pytest_collection_modifyitems(config, items):
-        for item in items:
-            if 'tests/unit/data/providers/shared' in str(item.fspath):
-                item.add_marker(pytest.mark.asyncio)
-    ```
-  - Note: a plain `pytestmark = pytest.mark.asyncio` inside a conftest.py does not auto-apply to other modules; use the hook above if you need folder-wide behavior.
 
 - Network mark: keep it local.
   - Only on tests that perform real HTTP calls: `pytestmark = [pytest.mark.network]` (module-level) or `@pytest.mark.network` (function-level).
-
-- Examples in repo:
-  - Package integration mark: `tests/integration/conftest.py`
-  - Module asyncio mark: `tests/unit/data/providers/shared/test_prices_shared.py`
-  - Network modules: `tests/integration/llm/shared/test_llm_connection_shared.py`# UNIT TEST ORGANIZATION RULES
 
 ## Decision Tree for Unit Tests
 ```
@@ -114,9 +102,6 @@ class TestFinnhubPriceProvider:
 class TestFinnhubMacroProviderSpecific:
     ...
 ```
-✅ Easy to find: "Where's the Finnhub client test?" → TestClientShared  
-❌ Bad: TestFinnhubStuff, TestNewsFeatures
-
 ## Rule 2: Functions Get Feature Groups
 ```python
 # Source: data/storage/storage_crud.py (25+ functions)
@@ -136,8 +121,6 @@ class TestNewsStorage:
 class TestPriceStorage:
     def test_store_price_data_valid(): ...
 ```
-✅ Files stay under 400 lines, organized by function  
-❌ Bad: One giant 1200-line file
 
 ## Rule 3: Mixed Files Get Both
 ```python
@@ -199,124 +182,6 @@ When multiple similar classes share identical behavior, use shared behavior test
 - ✅ **Shared validation logic**: All providers validate connections the same way
 - ❌ **Provider-specific quirks**: Pagination details, endpoint paths (keep separate)
 
-### Pattern
-```python
-# tests/unit/data/providers/conftest.py
-@pytest.fixture
-def provider_specs():
-    """Specs for all news providers"""
-    return [
-        ProviderSpec(
-            name='finnhub',
-            provider_cls=FinnhubNewsProvider,
-            settings=FinnhubSettings(api_key='test_key'),
-            symbols=['AAPL'],
-            make_valid_article=lambda: {
-                'headline': 'Breaking News',
-                'url': 'https://example.com/news',
-                'datetime': 1705320000,  # Epoch
-                'source': 'Reuters',
-                'summary': 'Article content'
-            },
-            make_missing_headline=lambda: {
-                'url': 'https://example.com/news',
-                'datetime': 1705320000
-            }
-        ),
-        ProviderSpec(
-            name='polygon',
-            provider_cls=PolygonNewsProvider,
-            settings=PolygonSettings(api_key='test_key'),
-            symbols=['AAPL'],
-            make_valid_article=lambda: {
-                'title': 'Breaking News',  # Different field name
-                'article_url': 'https://example.com/news',
-                'published_utc': '2024-01-15T12:00:00Z',  # RFC3339
-                'publisher': {'name': 'Reuters'},
-                'description': 'Article content'
-            },
-            make_missing_headline=lambda: {
-                'article_url': 'https://example.com/news',
-                'published_utc': '2024-01-15T12:00:00Z'
-            }
-        )
-    ]
-
-# tests/unit/data/providers/shared/test_news_company_shared.py
-class TestNewsCompanyShared:
-    """Shared behavior tests for all company news providers"""
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("spec", provider_specs())
-    async def test_skips_missing_headline(self, spec):
-        """All providers skip articles without headlines"""
-        provider = spec.provider_cls(spec.settings, spec.symbols)
-
-        # Mock provider's client with spec-specific data format
-        async def mock_get(path, params=None):
-            return [spec.make_missing_headline()]
-
-        provider.client.get = mock_get
-
-        # Behavior is identical across providers
-        results = await provider.fetch_incremental()
-        assert len(results) == 0
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("spec", provider_specs())
-    async def test_parses_valid_article(self, spec):
-        """All providers parse valid articles correctly"""
-        provider = spec.provider_cls(spec.settings, spec.symbols)
-
-        async def mock_get(path, params=None):
-            return [spec.make_valid_article()]
-
-        provider.client.get = mock_get
-
-        results = await provider.fetch_incremental()
-        assert len(results) == 1
-        assert results[0].symbol == 'AAPL'
-        assert results[0].headline == 'Breaking News'
-        assert results[0].url == 'https://example.com/news'
-```
-
-### What Goes Where
-
-**Shared behavior** → `tests/unit/data/providers/shared/test_*.py`
-- Skips missing headlines (same logic, different data format)
-- Filters old articles with 2-minute buffer
-- Validation success/failure
-- Structural error handling (non-list response)
-
-**Provider-specific** → `tests/unit/data/providers/test_<provider>_*.py`
-- Polygon cursor pagination
-- Finnhub minId tracking
-- Endpoint paths and URL construction
-- Provider-specific field extraction quirks
-
-### ProviderSpec Structure
-```python
-@dataclass
-class ProviderSpec:
-    """Specification for parametrizing provider shared behavior tests"""
-    name: str                           # 'finnhub', 'polygon'
-    provider_cls: type                  # FinnhubNewsProvider
-    settings: Any                       # FinnhubSettings instance
-    symbols: list[str]                  # ['AAPL', 'MSFT']
-
-    # Factory methods for test data in provider's format
-    make_valid_article: callable        # Returns dict in provider's API format
-    make_missing_headline: callable     # Missing required field
-    make_invalid_timestamp: callable    # Invalid timestamp format
-    # ... other edge case factories
-```
-
-### Benefits
-✅ **Write once, test all**: Shared behavior tested across all providers automatically
-✅ **Add provider easily**: New provider = add spec, get all shared tests free
-✅ **Clear separation**: See what's shared vs unique at a glance
-✅ **Less duplication**: No copy-pasting identical tests
-
 ### References
 - Data ABC contract tests: `tests/unit/data/test_data_base.py`
 - LLM ABC contract tests: `tests/unit/llm/test_llm_base.py`
@@ -340,120 +205,14 @@ tests/integration/
     ├── test_llm_code_execution.py
     └── test_llm_web_search.py
 ```
-*Illustrative structure - use as pattern, not exact inventory*
 
 ## Integration Test Rules
 - Organize by FEATURE/WORKFLOW, not source structure
 - Always mark with `@pytest.mark.integration`
-- Live/network tests also use `@pytest.mark.network`
 - Can use real databases, APIs (in integration only!)
 - Test complete workflows, not individual functions
 
-## Networked Live Tests
-```python
-# Required environment variables
-FINNHUB_API_KEY     # Finnhub live checks
-OPENAI_API_KEY      # OpenAI provider tests
-GEMINI_API_KEY      # Gemini provider tests
-
-# Skip gracefully when missing
-@pytest.mark.skipif(
-    not os.getenv("FINNHUB_API_KEY"),
-    reason="FINNHUB_API_KEY not set"
-)
-def test_finnhub_live():
-    ...
-```
-
 ---
-
-# TEST PATTERNS
-
-## FOLLOW_SIMILAR_TESTS → Study existing tests before writing new ones
-When writing tests for similar functionality, find and study the existing test implementation. Follow its structure, patterns, and conventions—including test naming, mock setup, assertion style, and organization—but don't blindly copy tests that don't apply to your use case.
-
-**Pattern:**
-1. Find similar test file (e.g., testing PolygonClient? → look at shared/test_client_shared.py)
-2. Study its structure: class names, test method names, mock patterns, assertions
-3. Copy what applies: naming conventions, mock setup patterns, assertion patterns
-4. Adapt what doesn't: API differences, different behaviors, different error types
-
-**Example:**
-```python
-# SCENARIO: Writing tests for PolygonNewsProvider
-# STEP 1: Find similar tests → test_finnhub_news.py exists
-
-# STEP 2: Study test structure
-# From test_finnhub_news.py:
-class TestFinnhubNewsProvider:
-    async def test_parses_valid_article(self):
-        news_fixture = [{
-            'headline': 'Tesla Stock Rises',
-            'url': 'https://example.com/tesla-news',
-            'datetime': 1705320000,  # Epoch
-            'source': 'Reuters',
-            'summary': 'Tesla stock rose 5% today.'
-        }]
-        # ... rest of test
-
-# STEP 3: Copy structure and naming for Polygon tests
-# ✅ Copy: test class name pattern (TestPolygonNewsProvider)
-# ✅ Copy: test method name pattern (test_parses_valid_article)
-# ✅ Copy: mock setup pattern (provider.client.get = AsyncMock(...))
-# ✅ Copy: assertion style (assert result.symbol == 'AAPL')
-# ❌ Don't copy: Field names (Polygon uses 'title' not 'headline')
-# ❌ Don't copy: Timestamp format (Polygon uses RFC3339 not epoch)
-
-class TestPolygonNewsProvider:
-    async def test_parse_article_valid(self):  # Same naming pattern
-        article = {
-            'title': 'Apple Announces iPhone',      # Polygon field name
-            'article_url': 'https://example.com/1', # Polygon field name
-            'published_utc': '2024-01-15T12:00:00Z', # RFC3339, not epoch
-            'publisher': {'name': 'TechCrunch'},
-            'description': 'Apple unveils...'
-        }
-        # Same assertion pattern as Finnhub tests
-        assert result.symbol == 'AAPL'
-        assert result.headline == 'Apple Announces iPhone'
-```
-
-**Key Benefits:**
-- Consistent test style across similar modules
-- Faster test development (copy proven patterns)
-- Easier code review (reviewers recognize patterns)
-- Reduced bugs (proven test patterns work)
-
-**When to Study Similar Tests:**
-- ✅ Writing provider tests → Study other provider tests
-- ✅ Writing storage tests → Study other storage tests
-- ✅ Writing LLM tests → Study existing LLM tests
-- ✅ Adding new test to existing file → Match that file's style
-
-**References:**
-- Provider tests: `tests/unit/data/providers/shared/test_client_shared.py`, `tests/unit/data/providers/test_finnhub_prices.py`, `tests/unit/data/providers/test_finnhub_news.py`, `tests/unit/data/providers/test_finnhub_macro.py`
-- Storage tests: `test_storage_news.py`, `test_storage_prices.py`
-- LLM tests: `test_openai_provider.py`, `test_gemini_provider.py`
-
----
-
-## Testing Retry Logic
-Mock HTTP client with response sequences, not the retry wrapper.
-```python
-# ✅ CORRECT: Mock HTTP responses, verify retry behavior
-responses = [
-    Mock(status_code=429),
-    Mock(status_code=429),
-    Mock(status_code=200, json=lambda: {"data": "success"})
-]
-mock_http_client(mock_get_function)
-assert call_count == 3  # Verify retries happened
-
-# ❌ WRONG: Mock retry wrapper only tests delegation
-monkeypatch.setattr('get_json_with_retry', mock_success)
-assert call_count == 1  # Doesn't test retries!
-```
-Reference: `tests/unit/utils/test_http.py::test_429_numeric_retry_after`
 
 ## SQLite Helper Usage
 Prefer `_cursor_context` for all operations.
@@ -525,23 +284,6 @@ async def test_provider():
     result = await provider.fetch_incremental()  # Uses mocked version
 ```
 
-### Why This Matters
-```python
-# ✅ CORRECT: Patch where symbol is looked up
-monkeypatch.setattr("data.providers.finnhub.requests.get", mock_get)
-
-# ❌ WRONG: Patching facade module (won't work)
-monkeypatch.setattr("data.providers.requests.get", mock_get)
-
-# ✅ CORRECT: Direct assignment when you have the instance
-provider.client.get = mock_get
-
-# ❌ WRONG: Monkeypatching instance methods (unnecessarily complex)
-monkeypatch.setattr("provider.client.get", mock_get)
-```
-
-**Reference**: See `tests/unit/data/providers/test_polygon_macro_news.py` (monkeypatch) vs `tests/unit/data/providers/test_finnhub_news.py` (direct assignment)
-
 ## Current Timestamps vs Frozen Time
 Choose the right clock setup for each test.
 
@@ -556,22 +298,6 @@ Shared behavior tests such as `tests/unit/data/providers/shared/test_news_compan
 ### When to freeze time
 Provider-specific tests like `tests/unit/data/providers/test_finnhub_macro.py` or `tests/unit/data/providers/test_polygon_macro_news.py` freeze `datetime.now()` before calling the provider. That makes date math (e.g., buffer windows) deterministic.
 
-### Quick reference
-
-| Test Type | Timestamp Approach | Why |
-|-----------|-------------------|-----|
-| **Shared behavior tests** | Real `datetime.now()` unless the test asserts window edges | Keeps articles inside provider freshness filters |
-| **Provider-specific tests** (date logic) | Frozen time via clock fixture/monkeypatch | Validates exact ranges, ids, and buffer math |
-| **Live/integration tests** | Real time | Exercises the real service end-to-end |
-
-## Testing Best Practices
-- Prefer explicit clock helpers/fixture defaults over monkeypatching time/datetime
-- Unnecessary patches add global side effects without increasing coverage
-- Follow project testing conventions
-- Mark slower integration/network tests
-- Avoid duplicate assertions across layers (e.g., DB defaults live in schema tests only)
-- Prefer small, focused tests with minimal examples and clear names
-
 ### No Forced Passes
 - Tests must fail on real regressions; do not hide failures.
 - Do not catch broad exceptions in tests; assert specific errors with `pytest.raises`.
@@ -582,71 +308,6 @@ Provider-specific tests like `tests/unit/data/providers/test_finnhub_macro.py` o
 ### Shared Test Setup
 Initialize shared objects at the class/fixture level, not in every test method. Avoid repeating initialization code.
 
-**Using pytest fixtures (Recommended):**
-```python
-# ✅ GOOD: Shared setup via fixture
-@pytest.fixture
-def provider():
-    """Create provider once, use in all tests"""
-    settings = FinnhubSettings(api_key='test_key')
-    return FinnhubNewsProvider(settings, ['AAPL', 'MSFT'])
-
-class TestFinnhubNewsProvider:
-    def test_validates_connection(self, provider):
-        # provider is injected, no setup needed
-        assert provider.symbols == ['AAPL', 'MSFT']
-
-    def test_fetches_news(self, provider):
-        # Same provider instance (or fresh if fixture has default scope)
-        async def mock_get(path, params=None):
-            return [...]
-        provider.client.get = mock_get
-        # ... test logic
-
-# ❌ BAD: Repeating initialization
-class TestFinnhubNewsProvider:
-    def test_validates_connection(self):
-        settings = FinnhubSettings(api_key='test_key')  # Repeated!
-        provider = FinnhubNewsProvider(settings, ['AAPL', 'MSFT'])
-        assert provider.symbols == ['AAPL', 'MSFT']
-
-    def test_fetches_news(self):
-        settings = FinnhubSettings(api_key='test_key')  # Repeated!
-        provider = FinnhubNewsProvider(settings, ['AAPL', 'MSFT'])
-        # ... test logic
-```
-
-**Using class-level setup (Alternative):**
-```python
-# ✅ GOOD: Setup method runs before each test
-class TestFinnhubNewsProvider:
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Runs automatically before each test"""
-        settings = FinnhubSettings(api_key='test_key')
-        self.provider = FinnhubNewsProvider(settings, ['AAPL'])
-
-    def test_validates_connection(self):
-        assert self.provider.symbols == ['AAPL']  # Use self.provider
-
-    def test_fetches_news(self):
-        self.provider.client.get = mock_get  # Use self.provider
-```
-
-**When to share vs duplicate:**
-- ✅ **Share**: Immutable setup (settings, constants, simple objects)
-- ✅ **Share**: Expensive creation (database connections, API clients)
-- ❌ **Don't share**: Mutable state that tests modify
-- ❌ **Don't share**: Test-specific configurations (use parametrize instead)
-
-**Fixture scope options:**
-```python
-@pytest.fixture(scope='function')  # Default: new instance per test
-@pytest.fixture(scope='class')     # One instance per test class
-@pytest.fixture(scope='module')    # One instance per test file
-@pytest.fixture(scope='session')   # One instance for entire test run
-```
-
 **Reference**: See `tests/conftest.py` for project-wide fixtures like `temp_db_path`
 
 ---
@@ -655,24 +316,6 @@ class TestFinnhubNewsProvider:
 
 ## When to Split
 - File exceeds 600 lines → MUST split
-
-## Naming Conventions
-
-```python
-# Unit tests
-test_<module>.py                # Single module
-test_<module>_<feature>.py      # Feature within module
-
-# Integration tests
-test_<workflow>.py               # Complete workflow
-```
-
-### Test Classes
-```python
-TestClassName        # For 1:1 mapping
-TestFeatureName      # For features
-TestModuleErrors     # For errors
-```
 
 ### Test Methods
 ```python
@@ -684,22 +327,6 @@ def test_price_validation_rejects_negative_values():
 def test_1():
 def test_stuff():
 ```
-
----
-
-# WHAT NOT TO DO
-
-### ❌ DON'T: Create one giant test file
-If exceeds 600 lines, split by feature/responsibility.
-
-### ❌ DON'T: Forget to test enums
-Enum values stored in DB - changing breaks existing data.
-
-### ❌ DON'T: Mix patterns randomly
-Classes get 1:1, functions get feature grouping.
-
-### ❌ DON'T: Use vague test names
-`test_1()` → `test_store_news_with_duplicate_url_skips()`
 
 ---
 
@@ -726,32 +353,9 @@ Classes get 1:1, functions get feature grouping.
 - [ ] Integration tests marked correctly?
 - [ ] Following similar test patterns? (studied existing tests first?)
 - [ ] Updated `docs/Test_Catalog.md` (added/removed files, tests listed with one-line descriptions)
-
-## When in Doubt
-1. **Make it obvious** where to find/add tests
-2. **Keep files small** enough to understand quickly
-3. **Follow the pattern** for that type of module
-4. **Ask yourself:** "Will someone new understand this in 6 months?"
+- [ ] Simple asserts have no custom message strings
+- [ ] Complex assertions use brief messages only when needed
+- [ ] Exception tests use `pytest.raises(..., match=...)` when message matters
+- [ ] Repeated setup factored into helpers/fixtures
 
 ---
-
-# EXAMPLE PATTERNS REFERENCE
-
-**Use these as templates when writing similar tests (see FOLLOW_SIMILAR_TESTS above)**
-
-- **1:1 Class Mapping**: Source `data/providers/finnhub/client.py` → Test `tests/unit/data/providers/test_finnhub.py` has `TestFinnhubClient`
-  - Copy for: Polygon providers, new data providers
-
-- **Shared Behavior Tests (Repeated Behavior)**: Multiple providers → Shared behavior test parametrized by ProviderSpec
-  - When: FinnhubNewsProvider and PolygonNewsProvider share same behavior (skip missing headline, parse valid article)
-  - Use for: Avoiding duplicate tests across similar implementations
-
-- **Feature-Based Functions**: Source `data/storage/storage_crud.py` → Tests split into `test_storage_news.py`, `test_storage_prices.py`
-  - Copy for: New storage operations, utility modules
-
-- **Integration Test**: `tests/integration/data/test_dedup_news.py`, `test_roundtrip_e2e.py`, `test_timezone_pipeline.py`
-  - Copy for: New workflows, E2E validation
-
-- **Retry Logic**: `tests/unit/utils/test_http.py::test_429_numeric_retry_after`
-  - Copy for: HTTP clients, retry wrappers
-

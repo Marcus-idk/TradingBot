@@ -456,8 +456,9 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_store_news_empty_list_no_error` - Empty list no-op
   **TestNewsSymbolsStorage**
   - `test_store_and_get_news_symbols` - Stores and retrieves news_symbols links
+  - `test_get_news_symbols_filters_by_symbol` - get facade filters by symbol
   - `test_news_symbols_cascade_on_news_deletion` - Cascades on news delete
-  - `test_get_news_symbols_filters_by_symbol` - Filters by symbol
+  - `test_store_news_symbols_conflict_updates_is_important` - Conflict update flips importance flag
 
 ### `tests/unit/data/storage/test_storage_prices.py`
 - Purpose: Price storage validation

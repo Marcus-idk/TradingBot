@@ -68,6 +68,7 @@ class TestNewsCompanyShared:
         assert item.source == "Reuters"
         assert item.published == datetime.fromtimestamp(now_epoch, tz=UTC)
         assert item.news_type is NewsType.COMPANY_SPECIFIC
+        assert item.is_important is True
 
     async def test_skips_missing_headline(self, provider_spec_company):
         provider = provider_spec_company.make_provider()
@@ -137,6 +138,7 @@ class TestNewsCompanyShared:
             datetime.fromtimestamp(buffer_epoch + 30, tz=UTC),
             datetime.fromtimestamp(buffer_epoch + 600, tz=UTC),
         ]
+        assert all(item.is_important is True for item in results)
 
     async def test_date_window_params_with_since(self, provider_spec_company, monkeypatch):
         provider = provider_spec_company.make_provider()
@@ -240,6 +242,7 @@ class TestNewsCompanyShared:
 
         assert len(results) == 1
         assert results[0].content == "Earnings beat expectations"
+        assert results[0].is_important is True
 
     async def test_per_symbol_error_isolation(self, provider_spec_company):
         provider = provider_spec_company.make_provider(symbols=["AAPL", "TSLA", "GOOG"])
@@ -256,6 +259,7 @@ class TestNewsCompanyShared:
 
         assert len(results) == 2
         assert {item.symbol for item in results} == {"AAPL", "GOOG"}
+        assert all(item.is_important is True for item in results)
 
     async def test_structural_error_raises(self, provider_spec_company):
         provider = provider_spec_company.make_provider()

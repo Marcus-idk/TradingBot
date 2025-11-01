@@ -185,3 +185,69 @@ class TestNewsSymbolsStorage:
         assert {(link.symbol, link.url) for link in remaining} == {
             ("TSLA", _normalize_url("https://example.com/news/keep")),
         }
+
+    def test_store_news_symbols_conflict_updates_is_important(self, temp_db):
+        """Conflict updates mutate importance flags without duplicating rows."""
+        url = "https://example.com/news/priority"
+        symbol = "AAPL"
+        initial_entry = _make_entry(
+            symbol=symbol,
+            url=url,
+            is_important=True,
+            headline="Initial headline",
+        )
+
+        store_news_items(temp_db, [initial_entry])
+
+        normalized_url = _normalize_url(url)
+        with _cursor_context(temp_db, commit=False) as cursor:
+            cursor.execute("SELECT COUNT(*) FROM news_items WHERE url = ?", (normalized_url,))
+            assert cursor.fetchone()[0] == 1
+            cursor.execute(
+                """
+                SELECT symbol, is_important
+                FROM news_symbols
+                WHERE url = ?
+            """,
+                (normalized_url,),
+            )
+            row = cursor.fetchone()
+            assert row["symbol"] == symbol
+            assert row["is_important"] == 1
+
+        updated_entry = _make_entry(
+            symbol=symbol,
+            url="https://example.com/news/priority?utm_source=ignored",
+            is_important=False,
+            headline="Updated headline",
+        )
+        store_news_items(temp_db, [updated_entry])
+
+        with _cursor_context(temp_db, commit=False) as cursor:
+            cursor.execute("SELECT COUNT(*) FROM news_items WHERE url = ?", (normalized_url,))
+            assert cursor.fetchone()[0] == 1
+            cursor.execute(
+                """
+                SELECT symbol, is_important
+                FROM news_symbols
+                WHERE url = ?
+            """,
+                (normalized_url,),
+            )
+            row = cursor.fetchone()
+            assert row["symbol"] == symbol
+            assert row["is_important"] == 0
+
+        cleared_entry = _make_entry(
+            symbol=symbol,
+            url=url,
+            is_important=None,
+            headline="Cleared importance",
+        )
+        store_news_items(temp_db, [cleared_entry])
+
+        links = get_news_symbols(temp_db, symbol=symbol)
+        assert len(links) == 1
+        link = links[0]
+        assert link.url == normalized_url
+        assert link.is_important is None

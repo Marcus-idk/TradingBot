@@ -33,76 +33,14 @@ One clear responsibility per module/function.
 
 ### FOLLOW_SIMILAR_CODE
 When implementing similar functionality, find and study the existing implementation. Follow its structure, patterns, and conventions—including variable naming, comments, and code style—but don't blindly copy code that doesn't apply to your use case.
-```python
-# SCENARIO: Implementing PolygonNewsProvider
-# STEP 1: Find similar code → FinnhubNewsProvider exists
-# STEP 2: Study its structure
-#   ✅ Copy: class structure, method signatures, error handling patterns
-#   ✅ Copy: logging approach (debug for skips, warning for failures)
-#   ✅ Copy: buffer_time logic, symbol iteration, NewsItem construction
-#   ✅ Copy: variable names (use `articles` not `results` if similar code uses `articles`)
-#   ✅ Copy: comment style ("# Parse articles" matches existing pattern)
-#   ✅ Copy: log message format ("Failed to parse macro news article" for consistency)
-#   ❌ Don't blindly copy: min_id parameter (Finnhub macro uses ID-based cursor, Polygon uses time-based)
-#   ❌ Don't blindly copy: MAX_PAGES constant (different pagination approach)
-
-# ✅ GOOD: Thoughtful consistency (matches variable names, comments, style)
-class PolygonNewsProvider(NewsDataSource):
-    async def fetch_incremental(self, *, since: datetime | None = None):
-        # Polygon only needs time-based filtering
-        buffer_time = since - timedelta(minutes=2)
-        published_gt = _datetime_to_iso(buffer_time)
-
-        articles = response.get("results", [])  # Use 'articles' like Finnhub does
-        # Parse articles  # Same comment style
-        for article in articles:
-            # ... follows Finnhub's error handling and logging patterns
-
-# ❌ BAD: Blind copying
-class PolygonNewsProvider(NewsDataSource):
-    async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
-        # Copied min_id from Finnhub but never use it - WRONG!
-        # Polygon API doesn't support ID-based cursors
-
-        results = response.get("results", [])  # Inconsistent naming
-        for article in results:  # Different variable name than similar code
-```
 
 ### DRY_PRINCIPLE
 Avoid duplication when abstraction is real. Avoid premature abstraction.
-```python
-# ✅ _datetime_to_iso() used 10+ times - good abstraction
-# ❌ extract_number() used once - premature
-```
 
 ### NO_DEAD_CODE
 Remove unused variables, imports, and functions. Implementations should only
 declare the cursor parameters they actually support, and orchestrators must
 invoke providers with the matching keyword arguments.
-```python
-# ✅ GOOD: Time-based provider declares just the cursor it needs
-async def fetch_incremental(self, *, since: datetime | None = None):
-    if since is None:
-        since = datetime.now(timezone.utc) - timedelta(days=2)
-    ...
-
-# ✅ GOOD: ID-based provider declares min_id cursor
-async def fetch_incremental(self, *, min_id: int | None = None):
-    if min_id is not None:
-        params["minId"] = min_id
-    ...
-
-# ❌ BAD: Accepting unused cursor arguments
-async def fetch_incremental(self, *, since: datetime | None = None, min_id: int | None = None):
-    # Never reads min_id → violates NO_DEAD_CODE
-    ...
-
-# ❌ BAD: Unused imports
-import json  # Never used
-from typing import Dict  # Never used
-
-# Remove unused code entirely—if it is not defensive or functional, delete it.
-```
 
 ### LINTER_SUPPRESSION
 Use `# noqa` comments sparingly and only when the linter is wrong. Always specify the rule code.
@@ -121,12 +59,6 @@ result = complex_function()  # noqa
 
 # Default: Fix the code instead of suppressing warnings
 ```
-
-Common `noqa` codes:
-- `F401` - Unused import
-- `E501` - Line too long
-- `B008` - Mutable default argument
-- Use `# noqa: <code>` for specific rule, avoid blanket `# noqa`
 
 Defensive checks for external contracts must log a warning or raise when triggered; otherwise remove them.
 
@@ -198,13 +130,6 @@ def parse_retry_after(value: str | float | int | None) -> float | None:
     return None
 ```
 
-### ORCHESTRATOR_TIMEOUTS
-Polling loops must log normal timeout or cancellation signals instead of silently swallowing them.
-```python
-except asyncio.TimeoutError:
-    logger.debug("Poll wait timeout; continuing")
-```
-
 ### CLEANUP_SHUTDOWN
 Before escalating from graceful shutdown to forceful termination, emit a `WARNING` with the cause.
 ```python
@@ -215,32 +140,13 @@ except Exception as exc:
 
 ### PER_ITEM_CATCHES
 Per-item parsing loops should catch explicit data issues (`ValueError`, `TypeError`, `KeyError`, `AttributeError`, and provider-domain errors) instead of `except Exception`.
-```python
-except (ValueError, TypeError, KeyError, AttributeError, DataSourceError) as exc:
-    logger.debug(f"Skipping malformed item: {exc}")
-```
 
 ### CAUSE_CHAINING
 When wrapping exceptions, use `raise ... from exc` so upstream callers retain the original traceback.
-```python
-except SDKError as exc:
-    raise DataSourceError("Provider failed") from exc
-```
 
 ### CENTRALIZE_CONCERNS
 Centralize I/O, HTTP, retries/backoff, timezones, data normalization, logging.
 **ALWAYS check `utils/` and `data/storage/storage_utils.py` for existing helpers before writing new code.**
-```python
-# ✅ GOOD: Use existing utilities
-from utils.http import get_json_with_retry  # Don't reimplement retry logic
-from data.models import _normalize_to_utc  # Don't reimplement TZ handling
-from data.storage.storage_utils import _datetime_to_iso  # Don't manually format ISO strings
-from utils.market_sessions import classify_us_session  # Don't reimplement session logic
-
-# ❌ BAD: Reimplementing existing utilities
-published_gt = buffer_time.isoformat().replace("+00:00", "Z")  # _datetime_to_iso exists!
-# Custom retry logic with exponential backoff  # get_json_with_retry exists!
-```
 
 Timestamp parsing: prefer shared helpers for RFC3339/ISO conversions; don’t duplicate parsing across providers.
 
@@ -251,12 +157,6 @@ published = _parse_rfc3339(ts_str)
 published_iso = _datetime_to_iso(published)
 
 # ❌ BAD: Repeating multi-branch parsing logic inline in providers
-```
-
-### BOUNDARIES_CLEAN
-Keep layers clean. Avoid circular dependencies.
-```
-Configuration → Adapters/Clients → Models/Storage → Services/Workflows
 ```
 
 ### EXTENSION_POINTS
@@ -308,15 +208,6 @@ def process():
 ### FACADES_THIN
 Keep `__init__.py` thin, side-effect free, explicit `__all__`.
 - **Never re-export `_private` helpers** - import them from the defining module when needed
-```python
-"""Data providers package."""
-from data.providers.finnhub import FinnhubNewsProvider
-
-__all__ = ["FinnhubNewsProvider"]  # Only public names, no _private exports
-
-# When you need a private helper:
-# from data.storage.db_context import _cursor_context  # Import from source
-```
 
 ### NAMING_CONVENTIONS
 - Modules/functions: `snake_case`
@@ -334,12 +225,6 @@ def process(items: list[str]) -> dict[str, int | None]:
 
 ### KEYWORD_ONLY_ARGS
 Use `*` for clarity when needed.
-```python
-# Use when: 4+ optional params, similar types, boolean flags, multiple cursors
-def fetch(url, *, timeout=30, max_retries=3, validate=True):
-    ...
-# Don't use for: simple 1-3 params, obvious order, dataclasses
-```
 
 ### DATETIME_HANDLING
 Always UTC timezone-aware. Never format timestamps by hand.
@@ -352,37 +237,14 @@ class NewsItem:
         self.published = _normalize_to_utc(published)  # Always normalize
 ```
 
-### MARKET_SESSIONS
-Use standard classifier for US sessions.
-```python
-from utils.market_sessions import classify_us_session
-session = classify_us_session(timestamp)  # Returns PRE/REG/POST/CLOSED
-# Handles NYSE holidays, early closes, UTC→ET conversion
-```
-
 ### MONEY_PRECISION
 Use Decimal for money. Avoid binary floats.
-```python
-from decimal import Decimal
-price = Decimal("150.25")  # Never float for money
-```
 
 ### PERSISTENCE
 Validate at write boundaries. Choose stable representations. Version schemas clearly.
 
 ### DATABASE_SQLITE
 Always use `_cursor_context` for all operations.
-```python
-from data.storage.db_context import _cursor_context
-
-with _cursor_context(db_path) as cursor:
-    cursor.execute("INSERT INTO items VALUES (?)", (data,))
-# Auto-commit, foreign keys, row factory, cleanup
-
-# Exceptions: Only direct connect() for:
-# - init_database() / finalize_database()
-# - Connection-level PRAGMAs (document why)
-```
 
 ### ASYNC_PATTERNS
 Use async for I/O. Never block in async paths.
@@ -412,35 +274,7 @@ logger.exception("Workflow failed")  # In except blocks for stack trace
 # Use logger.exception() instead of logger.error(..., exc_info=True) for clarity
 ```
 
-### TESTING_REQUIRED
-Add/adjust tests for every change.
-- Prefer explicit clock helpers over monkeypatching time/datetime
-- Follow project testing conventions
-- Mark slower integration/network tests
-- Monkeypatch where symbol is looked up (module under test), not facades
-
-### DOCUMENTATION
-Update docs when public APIs, schemas, or test structure change.
-- Brief comments explain "why" not "what"
-- Keep README links valid
-- Prefer small, focused tests with clear names
-
----
-
 # SHOULD-FOLLOW RULES
-
-### REUSE_FIRST
-Will this be reused soon? If yes, follow existing interfaces. If no, keep local and simple.
-
-### COMMENTS_BRIEF
-```python
-# Batch size of 100 to stay under API rate limits
-BATCH_SIZE = 100
-
-# Import here to avoid circular dependency with models
-from data.models import NewsItem
-```
-
 ---
 
 # CODE REVIEW CHECKLIST
@@ -471,28 +305,12 @@ from data.models import NewsItem
 
 ---
 
-# QUICK REFERENCE
-
 ## Import Decision Tree
 ```
 Public API? → facade import
 Private (_)? → import from source module
 Circular dep? → function-level with comment
 Optional dep? → function-level with try/except
-```
-
-## Type Conversion Table
-| Old typing | New built-in |
-|------------|--------------|
-| List[str] | list[str] |
-| Dict[str, Any] | dict[str, Any] |
-| Optional[int] | int \| None |
-| Union[str, int] | str \| int |
-| Tuple[...] | tuple[...] |
-
-## Datetime Flow
-```
-Input → _normalize_to_utc() → _datetime_to_iso() → SQLite ISO+Z
 ```
 
 ## Logging Levels

@@ -75,6 +75,7 @@ class TestPolygonNewsProvider:
 
         assert len(result) == 2
         assert call_count["n"] == 2
+        assert all(item.is_important is True for item in result)
 
     @pytest.mark.parametrize(
         "next_url,expected",
