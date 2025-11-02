@@ -1,0 +1,29 @@
+{
+  "threshold": 0,
+  "reporters": [
+    "console"
+  ],
+  "ignore": [
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/pytest_cache/**",
+    "**/.mypy_cache/**",
+    "**/.ruff_cache/**",
+    "**/.hypothesis/**",
+    "**/.venv/**",
+    "**/.claude/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/.vscode/**",
+    "**/docs/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/*.egg-info/**",
+    "**/tempfiles/**"
+  ],
+  "minLines": 5,
+  "minTokens": 50,
+  "format": [
+    "python"
+  ]
+}

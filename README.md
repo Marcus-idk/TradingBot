@@ -58,22 +58,27 @@ pre-commit install
 
 **Run Ruff (linter + formatter):**
 ```bash
-# Lint with auto-fix (runs first)
+# Lint with auto-fix
 ruff check --fix .
 
-# Format code (runs second)
+# Format code
 ruff format .
 ```
 
-**Run Pylint (duplicate code detection):**
+**Run Pylint (cyclic import detection):**
 ```bash
-# Scan entire codebase for duplicates (uses all CPU cores)
-pylint . -j 0
-
-# Or scan specific areas
-pylint tests/ -j 0
-pylint data/providers/ -j 0
+# Check for circular imports
+pylint .
 ```
 
-**Note**: Pre-commit hooks automatically run `ruff check --fix` and `ruff format` before each commit. Run Pylint manually for periodic cleanup (weekly/monthly).
+**Run jscpd (duplicate code detection):**
+```bash
+# Install (requires Node.js)
+npm install -g jscpd
+
+# Scan for duplicates
+jscpd .
+```
+
+**Note**: Pre-commit hooks automatically run `ruff check --fix`, `ruff format`, and `pylint` before each commit. Run jscpd manually for periodic cleanup.
 
