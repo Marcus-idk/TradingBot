@@ -216,6 +216,9 @@ __marimo__/
 
 tempFiles/
 
+# jscpd reports
+report/
+
 # Trading Bot Database Files
 *trading_bot.db
 *trading_bot.db-wal

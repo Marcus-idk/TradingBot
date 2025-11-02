@@ -1,7 +1,7 @@
 {
   "threshold": 0,
   "reporters": [
-    "console"
+    "json"
   ],
   "ignore": [
     "**/__pycache__/**",
@@ -22,7 +22,7 @@
     "**/tempfiles/**"
   ],
   "minLines": 5,
-  "minTokens": 50,
+  "minTokens": 30,
   "format": [
     "python"
   ]
