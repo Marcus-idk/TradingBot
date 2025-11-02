@@ -9,7 +9,9 @@
     "**/.venv": true,
     "**/.claude": true,
     "**/*.pyc": true,
-    "**/*.pyo": true
+    "**/*.pyo": true,
+    "**/.coverage": true,
+    "**/htmlcov": true
   },
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {

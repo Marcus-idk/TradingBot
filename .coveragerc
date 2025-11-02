@@ -1,0 +1,35 @@
+[run]
+branch = True
+source =
+    analysis
+    config
+    data
+    llm
+    ui
+    utils
+    workflows
+relative_files = True
+
+[report]
+fail_under = 85
+show_missing = True
+skip_covered = True
+include_namespace_packages = True
+
+# Common patterns to exclude from reporting
+omit =
+    tests/*
+    **/__init__.py
+    run_poller.py
+    **/.venv/*
+    .tox/*
+
+# Lines to exclude from consideration (keeps noise down)
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+
+[xml]
+# Optional: customize destination; default is "coverage.xml"
+# output = coverage.xml

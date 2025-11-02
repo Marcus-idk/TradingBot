@@ -8,8 +8,6 @@ import pytest
 
 from utils.retry import RetryableError, parse_retry_after, retry_and_call
 
-pytestmark = pytest.mark.asyncio
-
 
 class TestParseRetryAfter:
     """Test parse_retry_after function"""
@@ -86,6 +84,7 @@ class TestParseRetryAfter:
         assert not any("Invalid Retry-After" in record.message for record in caplog.records)
 
 
+@pytest.mark.asyncio
 class TestRetryAndCall:
     """Test retry_and_call function"""
 

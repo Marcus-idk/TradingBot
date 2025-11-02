@@ -82,3 +82,20 @@ jscpd .
 
 **Note**: Pre-commit hooks automatically run `ruff check --fix`, `ruff format`, and `pylint` before each commit. Run jscpd manually for periodic cleanup.
 
+## Testing
+
+**Run all tests:**
+```bash
+pytest
+```
+
+**Run unit tests only (skip integration/network tests):**
+```bash
+pytest -m "not integration and not network"
+```
+
+**Coverage reports:**
+- Coverage is automatically measured when running pytest
+- Terminal shows missing lines for files under 100%
+- Coverage must be ≥85% (configured in `.coveragerc`)
+
