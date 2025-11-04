@@ -151,3 +151,114 @@ class TestNewsMacroShared:
         assert fallback.symbol == "MARKET"
         assert fallback.news_type is NewsType.MACRO
         assert fallback.is_important is None
+
+    async def test_structural_error_non_dict_response(self, provider_spec_macro):
+        provider = provider_spec_macro.make_provider()
+        provider.client.get = AsyncMock(return_value="unexpected-type")
+
+        with pytest.raises(DataSourceError):
+            if "finnhub" in provider_spec_macro.name:
+                await provider.fetch_incremental(min_id=None)
+            else:
+                await provider.fetch_incremental(since=None)
+
+    async def test_parse_exception_skips_article_and_continues(self, provider_spec_macro):
+        provider = provider_spec_macro.make_provider(symbols=["AAPL"])
+        malformed = provider_spec_macro.article_factory(headline=None)
+        valid = provider_spec_macro.article_factory(symbols="AAPL")
+        payload = provider_spec_macro.wrap_response([malformed, valid])
+        provider.client.get = AsyncMock(return_value=payload)
+
+        if "finnhub" in provider_spec_macro.name:
+            results = await provider.fetch_incremental(min_id=None)
+            headline_field = "headline"
+        else:
+            results = await provider.fetch_incremental(since=None)
+            headline_field = "title"
+
+        assert len(results) == 1
+        entry = results[0]
+        assert entry.headline == valid[headline_field]
+        assert entry.news_type is NewsType.MACRO
+        assert entry.is_important is None
+
+    async def test_invalid_timestamp_skips_article(self, provider_spec_macro, monkeypatch):
+        provider = provider_spec_macro.make_provider(symbols=["AAPL"])
+        article = provider_spec_macro.article_factory(symbols="AAPL")
+
+        if "finnhub" in provider_spec_macro.name:
+            article["datetime"] = 1234567890
+
+            class BadDatetime:
+                @staticmethod
+                def now(tz):
+                    return datetime.now(tz)
+
+                @staticmethod
+                def fromtimestamp(ts, tz):
+                    raise ValueError("bad timestamp")
+
+            monkeypatch.setattr(
+                "data.providers.finnhub.finnhub_macro_news.datetime",
+                BadDatetime,
+            )
+        else:
+            article["published_utc"] = "not-a-timestamp"
+
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
+
+        if "finnhub" in provider_spec_macro.name:
+            results = await provider.fetch_incremental(min_id=None)
+        else:
+            results = await provider.fetch_incremental(since=None)
+
+        assert results == []
+
+    async def test_newsitem_validation_failure_skips_article(self, provider_spec_macro):
+        provider = provider_spec_macro.make_provider(symbols=["AAPL"])
+        article = provider_spec_macro.article_factory(symbols="AAPL")
+
+        if "finnhub" in provider_spec_macro.name:
+            article["url"] = "ftp://invalid"
+        else:
+            article["article_url"] = "ftp://invalid"
+
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
+
+        if "finnhub" in provider_spec_macro.name:
+            results = await provider.fetch_incremental(min_id=None)
+        else:
+            results = await provider.fetch_incremental(since=None)
+
+        assert results == []
+
+    async def test_newsentry_validation_failure_skips_symbol(
+        self, provider_spec_macro, monkeypatch
+    ):
+        provider = provider_spec_macro.make_provider(symbols=["AAPL"])
+        article = provider_spec_macro.article_factory(symbols="AAPL")
+
+        if "finnhub" in provider_spec_macro.name:
+            monkeypatch.setattr(
+                provider,
+                "_extract_symbols_from_related",
+                lambda related: ["", "AAPL"],
+            )
+            fetch_kwargs = {"min_id": None}
+        else:
+            monkeypatch.setattr(
+                provider,
+                "_extract_symbols_from_tickers",
+                lambda tickers: ["", "AAPL"],
+            )
+            fetch_kwargs = {"since": None}
+
+        provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
+
+        results = await provider.fetch_incremental(**fetch_kwargs)
+
+        assert len(results) == 1
+        entry = results[0]
+        assert entry.symbol == "AAPL"
+        assert entry.news_type is NewsType.MACRO
+        assert entry.is_important is None

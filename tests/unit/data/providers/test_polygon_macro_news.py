@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -80,6 +81,83 @@ class TestPolygonMacroNewsProvider:
         assert call_count["n"] == 2
         assert all(item.is_important is None for item in result)
 
+    async def test_since_buffer_applied(self):
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        captured: dict[str, dict] = {}
+
+        async def mock_get(path: str, params: dict | None = None):
+            captured["params"] = dict(params or {})
+            return {"results": []}
+
+        provider.client.get = mock_get
+
+        since = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
+        await provider.fetch_incremental(since=since)
+
+        expected_cutoff = _datetime_to_iso(since - timedelta(minutes=2))
+        assert captured["params"]["published_utc.gt"] == expected_cutoff
+
+    async def test_empty_results_stops_pagination(self):
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        call_count = {"n": 0}
+
+        async def mock_get(path: str, params: dict | None = None):
+            call_count["n"] += 1
+            return {"results": []}
+
+        provider.client.get = mock_get
+
+        result = await provider.fetch_incremental()
+
+        assert result == []
+        assert call_count["n"] == 1
+
+    async def test_next_url_without_cursor_stops_pagination(self, monkeypatch):
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
+
+        class MockDatetime:
+            @staticmethod
+            def now(tz):
+                return fixed_now
+
+            @staticmethod
+            def fromtimestamp(ts, tz):
+                return datetime.fromtimestamp(ts, tz)
+
+        monkeypatch.setattr(
+            "data.providers.polygon.polygon_macro_news.datetime",
+            MockDatetime,
+        )
+
+        now_iso = _datetime_to_iso(fixed_now)
+        page = {
+            "results": [
+                {
+                    "title": "A",
+                    "article_url": "https://example.com/a",
+                    "published_utc": now_iso,
+                    "tickers": ["AAPL"],
+                    "publisher": {"name": "SourceA"},
+                    "description": "Desc A",
+                }
+            ],
+            "next_url": "https://api.polygon.io/v2/reference/news?nocursor",
+        }
+
+        provider.client.get = AsyncMock(return_value=page)
+
+        result = await provider.fetch_incremental()
+
+        assert len(result) == 1
+        provider.client.get.assert_awaited_once()
+
     @pytest.mark.parametrize(
         "next_url,expected",
         [
@@ -98,3 +176,31 @@ class TestPolygonMacroNewsProvider:
 
         cursor = provider._extract_cursor(next_url)
         assert cursor == expected
+
+    async def test_extract_cursor_exception_returns_none(self):
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        result = provider._extract_cursor(None)  # type: ignore[arg-type]
+        assert result is None
+
+    async def test_non_dict_publisher_defaults_to_polygon(self):
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        published_iso = _datetime_to_iso(datetime(2024, 1, 15, 12, 0, tzinfo=UTC))
+        article = {
+            "id": 1,
+            "title": "Headline",
+            "article_url": "https://example.com/macro",
+            "published_utc": published_iso,
+            "tickers": ["AAPL"],
+            "publisher": "Not a dict",
+            "description": "Desc",
+        }
+
+        entries = provider._parse_article(article, buffer_time=None)
+
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.source == "Polygon"

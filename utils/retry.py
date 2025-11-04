@@ -32,7 +32,7 @@ def parse_retry_after(value: str | float | int | None) -> float | None:
         return max(0.0, seconds)
     except (ValueError, TypeError, AttributeError) as e:
         # Parsing failed completely, fall back to exponential backoff
-        logger.debug(f"Invalid Retry-After header {value!r}: {e}")
+        logger.warning(f"Invalid Retry-After header {value!r}: {e}")
         return None
 
 

@@ -1,0 +1,32 @@
+# Normalize line endings to LF across platforms
+* text=auto eol=lf
+
+# Keep CRLF for Windows batch files
+*.bat eol=crlf
+*.cmd eol=crlf
+
+# Treat common binary formats as binary (no EOL conversion)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.xz binary
+*.7z binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pkl binary
+*.db binary
+*.sqlite binary
+
+# Scripts and data explicitly as text
+*.sh text eol=lf
+*.ps1 text eol=lf
+*.sql text eol=lf
+*.md  text eol=lf
+*.py  text eol=lf

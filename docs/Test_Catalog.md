@@ -236,6 +236,11 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_invalid_articles_are_skipped` - Skips invalid articles
   - `test_structural_error_raises` - Raises on malformed response type
   - `test_empty_watchlist_falls_back_to_market` - Empty watchlist => market
+  - `test_structural_error_non_dict_response` - Non-dict API response raises DataSourceError
+  - `test_parse_exception_skips_article_and_continues` - Skips malformed article; processes remaining
+  - `test_invalid_timestamp_skips_article` - Invalid timestamp causes skip
+  - `test_newsitem_validation_failure_skips_article` - Invalid article URL rejected
+  - `test_newsentry_validation_failure_skips_symbol` - Drops invalid symbol; keeps valid
 
 ### `tests/unit/data/providers/shared/test_prices_shared.py`
 - Purpose: Price providers shared behaviors
@@ -292,7 +297,12 @@ The detailed inventory starts below this line (to be populated and maintained).
 - Tests:
   **TestPolygonMacroNewsProvider**
   - `test_fetch_incremental_handles_pagination` - Handles next_url pagination
-  - `test_extract_cursor_from_next_url` - Extracts cursor from next_url
+  - `test_since_buffer_applied` - Applies 2‑minute since buffer
+  - `test_empty_results_stops_pagination` - Stops on empty results
+  - `test_next_url_without_cursor_stops_pagination` - Halts when next_url lacks cursor
+  - `test_extract_cursor_from_next_url` - Extracts cursor value
+  - `test_extract_cursor_exception_returns_none` - Returns None on invalid next_url
+  - `test_non_dict_publisher_defaults_to_polygon` - Defaults publisher to "Polygon"
 
 ### `tests/unit/data/schema/test_schema_confidence_and_json.py`
 - Purpose: JSON fields and confidence constraints
