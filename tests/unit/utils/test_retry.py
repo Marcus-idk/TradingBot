@@ -18,6 +18,11 @@ class TestParseRetryAfter:
         assert parse_retry_after("0") == 0.0
         assert parse_retry_after("5.5") == 5.5
 
+    def test_numeric_zero_values(self):
+        """Numeric zero inputs should be honored, not treated as missing"""
+        assert parse_retry_after(0) == 0.0
+        assert parse_retry_after(0.0) == 0.0
+
     def test_numeric_negative_floored(self):
         """Test negative values are floored to 0"""
         assert parse_retry_after("-10") == 0.0
@@ -44,6 +49,7 @@ class TestParseRetryAfter:
         """Test invalid header returns None"""
         assert parse_retry_after("garbage") is None
         assert parse_retry_after("") is None
+        assert parse_retry_after("   ") is None
         assert parse_retry_after(None) is None
         assert parse_retry_after("not-a-number-or-date") is None
 

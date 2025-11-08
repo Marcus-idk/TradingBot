@@ -265,7 +265,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `_fetch_all_data()` - Concurrently fetch news and prices; return company/macro news and per‑provider prices with errors
     - `_log_urgent_items()` - Log urgent news items to console
     - `_process_news()` - Store news (NewsEntry split to tables), detect urgency, update watermarks
-    - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only (framework complete; currently single provider: Finnhub)
+    - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only; skips symbols missing from primary (intentional design, not a bug)
     - `_read_watermarks()` - Read last_news_time and last_macro_min_id from database
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown

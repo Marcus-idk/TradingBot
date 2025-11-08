@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-from data.base import DataSourceError
+from data import DataSourceError
 from utils.http import get_json_with_retry
 from utils.retry import RetryableError, parse_retry_after
 
@@ -111,6 +111,31 @@ class TestGetJsonWithRetry:
         with pytest.raises(DataSourceError, match="Client error \(status 404\)"):
             await get_json_with_retry("https://example.com/api", timeout=10, max_retries=3)
         assert call_count == 1  # No retries for client errors
+
+    async def test_408_request_timeout_is_retryable(self, mock_http_client):
+        """HTTP 408 should be treated as retryable and honor Retry-After"""
+        responses = [
+            Mock(status_code=408, headers={"Retry-After": "0"}),
+            Mock(status_code=200, json=Mock(return_value={"ok": True})),
+        ]
+
+        call_count = 0
+
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            response = responses[call_count]
+            call_count += 1
+            return response
+
+        mock_http_client(mock_get)
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            result = await get_json_with_retry("https://example.com/api", timeout=10, max_retries=3)
+
+        assert result == {"ok": True}
+        assert call_count == 2  # Initial attempt + retry
+        assert mock_sleep.await_count == 1
+        assert mock_sleep.call_args[0][0] == pytest.approx(0.0)
 
     async def test_429_numeric_retry_after(self, mock_http_client):
         """Test 429 with numeric Retry-After header"""

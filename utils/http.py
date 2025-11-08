@@ -22,6 +22,18 @@ async def get_json_with_retry(
     Only handles: GET, query params, 200/204, 4xx/5xx, Retry-After, and network timeouts.
     Uses native async HTTP client for non-blocking requests.
     """
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("url must be a non-empty string")
+    if timeout <= 0:
+        raise ValueError("timeout must be > 0")
+    if max_retries < 0:
+        raise ValueError("max_retries must be >= 0")
+    if base <= 0:
+        raise ValueError("base must be > 0")
+    if mult < 1.0:
+        raise ValueError("mult must be >= 1.0")
+    if jitter < 0:
+        raise ValueError("jitter must be >= 0")
 
     async def _op() -> Any:
         """Single HTTP attempt - will be called by retry_and_call up to max_retries+1 times."""
@@ -46,13 +58,13 @@ async def get_json_with_retry(
                 # Auth failure - retrying won't help, API key is invalid
                 raise DataSourceError(f"Authentication failed (status {response.status_code})")
 
-            if 400 <= response.status_code < 500 and response.status_code != 429:
+            if 400 <= response.status_code < 500 and response.status_code not in (408, 429):
                 # Other 4xx errors - bad request, not found, etc. Don't retry.
                 raise DataSourceError(f"Client error (status {response.status_code})")
 
             # RETRYABLE ERRORS (server problems or rate limits)
-            if response.status_code == 429 or response.status_code >= 500:
-                # Rate limit (429) or server error (5xx) - these can be temporary
+            if response.status_code in (408, 429) or response.status_code >= 500:
+                # Request timeout (408), rate limit (429), or server error (5xx) - retryable
                 retry_after = parse_retry_after(response.headers.get("Retry-After"))
                 raise RetryableError(
                     f"Transient error (status {response.status_code})",

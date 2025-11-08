@@ -656,6 +656,7 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_204_no_content` - 204 returns None
   - `test_401_403_auth_errors` - Auth errors raise without retry
   - `test_other_4xx_errors` - Other 4xx raise without retry
+  - `test_408_request_timeout_is_retryable` - 408 treated as retryable and honors Retry-After
   - `test_429_numeric_retry_after` - 429 respects numeric Retry-After
   - `test_429_http_date_retry_after` - 429 respects HTTP-date Retry-After
   - `test_5xx_server_errors` - Retries on 5xx
@@ -684,6 +685,7 @@ The detailed inventory starts below this line (to be populated and maintained).
 - Tests:
   **TestParseRetryAfter**
   - `test_numeric_seconds` - Parses numeric seconds
+  - `test_numeric_zero_values` - Honors zero Retry-After inputs
   - `test_numeric_negative_floored` - Floors negatives to 0
   - `test_http_date_future` - Parses future HTTP-date
   - `test_http_date_past` - Past HTTP-date floors to 0

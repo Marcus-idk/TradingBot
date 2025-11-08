@@ -13,8 +13,13 @@ def parse_retry_after(value: str | float | int | None) -> float | None:
 
     Returns seconds to wait (floored at 0.0), or None if parsing fails.
     """
-    if not value:
+    if value is None:
         return None
+
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
 
     try:
         # Try parsing as numeric seconds (most common: "120")
@@ -55,6 +60,15 @@ async def retry_and_call[T](
     Retries on RetryableError up to `attempts` times. Sleeps between attempts
     using delay = retry_after (if provided) else base * (mult ** attempt) ± jitter.
     """
+    if attempts < 1:
+        raise ValueError("attempts must be >= 1")
+    if base <= 0:
+        raise ValueError("base must be > 0")
+    if mult < 1.0:
+        raise ValueError("mult must be >= 1.0")
+    if jitter < 0:
+        raise ValueError("jitter must be >= 0")
+
     last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
