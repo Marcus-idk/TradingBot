@@ -1,6 +1,7 @@
 """DataPoller orchestrator: one-cycle behavior and watermarks."""
 
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -15,7 +16,9 @@ from data.storage import (
     get_news_since,
     get_price_data_since,
     set_last_macro_min_id,
+    set_last_news_time,
 )
+from llm.base import LLMError
 from tests.factories import make_news_entry, make_price_data
 from workflows.poller import DataPoller
 
@@ -47,6 +50,24 @@ class StubPrice(PriceDataSource):
 
     def __init__(self, items: list[PriceData]):
         super().__init__("StubPrice")
+        self._items = items
+
+    async def validate_connection(self) -> bool:
+        return True
+
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+    ) -> list[PriceData]:
+        return self._items
+
+
+class SecondaryStubPrice(PriceDataSource):
+    """Secondary stub price provider."""
+
+    def __init__(self, items: list[PriceData]):
+        super().__init__("SecondaryStubPrice")
         self._items = items
 
     async def validate_connection(self) -> bool:
@@ -197,7 +218,7 @@ class TestDataPoller:
 
         # Verify it stopped quickly (within 2 seconds, not 300)
         elapsed = time.time() - start_time
-        assert elapsed < 2.0, f"Shutdown took {elapsed:.1f}s, expected < 2s"
+        assert elapsed < 2.0
 
     async def test_poller_custom_poll_interval(self, temp_db):
         """Verify poll interval is set correctly."""
@@ -335,3 +356,477 @@ class TestDataPoller:
 
         # Verify macro_news_min_id advanced independently to 150
         assert get_last_macro_min_id(temp_db) == 150
+
+    async def test_poll_once_collects_price_provider_errors(self, temp_db):
+        """Price provider failures are reported without aborting the cycle."""
+
+        class ErrPrice(PriceDataSource):
+            def __init__(self) -> None:
+                super().__init__("ErrPrice")
+
+            async def validate_connection(self) -> bool:
+                return True
+
+            async def fetch_incremental(
+                self,
+                *,
+                since: datetime | None = None,
+            ) -> list[PriceData]:
+                raise RuntimeError("price boom")
+
+        poller = DataPoller(temp_db, [StubNews([])], [ErrPrice()], poll_interval=300)
+
+        stats = await poller.poll_once()
+
+        assert stats["prices"] == 0
+        assert any("ErrPrice" in message for message in stats["errors"])
+
+    async def test_poll_once_logs_since_when_watermark_present(self, temp_db, caplog, monkeypatch):
+        """Existing watermark is logged before fetching."""
+        watermark = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+        set_last_news_time(temp_db, watermark)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+
+        async def fake_fetch_all(self, last_news_time, last_macro_min_id):
+            assert last_news_time == watermark
+            return {
+                "company_news": [],
+                "macro_news": [],
+                "prices": {},
+                "errors": [],
+            }
+
+        monkeypatch.setattr(DataPoller, "_fetch_all_data", fake_fetch_all)
+        caplog.set_level(logging.INFO)
+
+        stats = await poller.poll_once()
+
+        assert stats == {"news": 0, "prices": 0, "errors": []}
+        assert "Fetching news since" in caplog.text
+
+    async def test_poll_once_logs_no_price_data(self, temp_db, caplog, monkeypatch):
+        """Empty price payload logs a notice."""
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+
+        async def fake_fetch_all(self, last_news_time, last_macro_min_id):
+            return {
+                "company_news": [],
+                "macro_news": [],
+                "prices": {},
+                "errors": [],
+            }
+
+        monkeypatch.setattr(DataPoller, "_fetch_all_data", fake_fetch_all)
+        caplog.set_level(logging.INFO)
+
+        await poller.poll_once()
+
+        assert "No price data fetched" in caplog.text
+
+    async def test_poll_once_catches_cycle_error_and_appends(self, temp_db, caplog, monkeypatch):
+        """Top-level exceptions are caught and surfaced via stats."""
+
+        async def boom_fetch(*_args, **_kwargs):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(DataPoller, "_fetch_all_data", boom_fetch)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+        caplog.set_level(logging.ERROR)
+
+        stats = await poller.poll_once()
+
+        assert stats == {"news": 0, "prices": 0, "errors": ["Cycle error: boom"]}
+        assert "Poll cycle failed with error: boom" in caplog.text
+
+
+class TestDataPollerProcessPrices:
+    """Focused tests for price deduplication paths."""
+
+    async def test_process_prices_returns_zero_on_empty_input(self, temp_db, monkeypatch):
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+
+        result = await poller._process_prices({})
+
+        assert result == 0
+        assert stored == []
+
+    async def test_process_prices_primary_missing_symbol_warns_and_skips(
+        self, temp_db, monkeypatch, caplog
+    ):
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [StubPrice([]), SecondaryStubPrice([])],
+            poll_interval=300,
+        )
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        caplog.set_level(logging.WARNING)
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+
+        secondary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.00"),
+            session=Session.REG,
+        )
+        primary_provider, secondary_provider = poller.price_providers
+
+        result = await poller._process_prices(
+            {
+                primary_provider: {},
+                secondary_provider: {"AAPL": secondary_price},
+            }
+        )
+
+        assert result == 0
+        assert stored == []
+        assert "StubPrice missing price for AAPL" in caplog.text
+
+    async def test_process_prices_missing_secondary_provider_is_ignored(self, temp_db, monkeypatch):
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [StubPrice([]), SecondaryStubPrice([])],
+            poll_interval=300,
+        )
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+
+        primary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.00"),
+            session=Session.REG,
+        )
+        primary_provider = poller.price_providers[0]
+
+        result = await poller._process_prices({primary_provider: {"AAPL": primary_price}})
+
+        assert result == 1
+        assert stored == [primary_price]
+
+    async def test_process_prices_secondary_missing_symbol_warns(
+        self, temp_db, monkeypatch, caplog
+    ):
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [StubPrice([]), SecondaryStubPrice([])],
+            poll_interval=300,
+        )
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        caplog.set_level(logging.WARNING)
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+
+        primary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.00"),
+            session=Session.REG,
+        )
+        primary_provider, secondary_provider = poller.price_providers
+
+        result = await poller._process_prices(
+            {
+                primary_provider: {"AAPL": primary_price},
+                secondary_provider: {},
+            }
+        )
+
+        assert result == 1
+        assert stored == [primary_price]
+        assert "SecondaryStubPrice missing price for AAPL" in caplog.text
+
+    async def test_process_prices_mismatch_logs_error_and_keeps_primary(
+        self, temp_db, monkeypatch, caplog
+    ):
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [StubPrice([]), SecondaryStubPrice([])],
+            poll_interval=300,
+        )
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        caplog.set_level(logging.ERROR)
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+
+        primary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.00"),
+            session=Session.REG,
+        )
+        secondary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.02"),
+            session=Session.REG,
+        )
+        primary_provider, secondary_provider = poller.price_providers
+
+        result = await poller._process_prices(
+            {
+                primary_provider: {"AAPL": primary_price},
+                secondary_provider: {"AAPL": secondary_price},
+            }
+        )
+
+        assert result == 1
+        assert stored == [primary_price]
+        assert "Price mismatch for AAPL" in caplog.text
+
+    async def test_process_prices_handles_duplicate_class_instances(
+        self, temp_db, monkeypatch, caplog
+    ):
+        primary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.00"),
+            session=Session.REG,
+        )
+        secondary_price = make_price_data(
+            symbol="AAPL",
+            timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
+            price=Decimal("10.02"),
+            session=Session.REG,
+        )
+
+        primary_provider = StubPrice([])
+        secondary_provider = StubPrice([])
+
+        poller = DataPoller(
+            temp_db,
+            [StubNews([])],
+            [primary_provider, secondary_provider],
+            poll_interval=300,
+        )
+
+        stored: list[PriceData] = []
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def fake_store(_db_path, prices):
+            stored.extend(prices)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.store_price_data", fake_store)
+        caplog.set_level(logging.ERROR)
+
+        result = await poller._process_prices(
+            {
+                primary_provider: {"AAPL": primary_price},
+                secondary_provider: {"AAPL": secondary_price},
+            }
+        )
+
+        assert result == 1
+        assert stored == [primary_price]
+        assert "Price mismatch for AAPL" in caplog.text
+
+
+class TestDataPollerNewsProcessing:
+    """News storage, urgency, and watermark handling."""
+
+    def test_log_urgent_items_logs_summary(self, temp_db, caplog):
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+        caplog.set_level(logging.WARNING)
+        urgent_items = [
+            make_news_entry(
+                symbol=f"SYM{i}",
+                url=f"https://example.com/urgent-{i}",
+                headline=f"Urgent headline {i}",
+                source="StubSource",
+                published=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+            )
+            for i in range(11)
+        ]
+
+        poller._log_urgent_items(urgent_items)
+
+        assert "Found 11 URGENT news items requiring attention" in caplog.text
+        assert "... 1 more" in caplog.text
+
+    async def test_process_news_urgency_detection_failure_is_logged(
+        self, temp_db, monkeypatch, caplog
+    ):
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+        news_item = make_news_entry(
+            symbol="AAPL",
+            url="https://example.com/aapl",
+            headline="AAPL update",
+            source="StubSource",
+            published=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        )
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        def raising_detect(_entries):
+            raise LLMError("urgency boom")
+
+        caplog.set_level(logging.ERROR)
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.detect_urgency", raising_detect)
+
+        count = await poller._process_news([news_item], [])
+
+        assert count == 1
+        assert "Urgency detection failed" in caplog.text
+
+    async def test_process_news_no_items_logs(self, temp_db, monkeypatch, caplog):
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        caplog.set_level(logging.INFO)
+
+        count = await poller._process_news([], [])
+
+        assert count == 0
+        assert "No news items to process" in caplog.text
+
+    async def test_process_news_updates_macro_watermark(self, temp_db, monkeypatch):
+        published = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+        macro_news = [
+            make_news_entry(
+                symbol="MARKET",
+                url="https://example.com/macro",
+                headline="Macro headline",
+                source="StubSource",
+                published=published,
+            )
+        ]
+        macro_provider = StubMacroNews(macro_news)
+        macro_provider.last_fetched_max_id = 150
+        poller = DataPoller(temp_db, [macro_provider], [StubPrice([])], poll_interval=300)
+        poller._finnhub_macro_providers = {macro_provider}
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr("workflows.poller.detect_urgency", lambda entries: [])
+
+        await poller._process_news([], macro_news)
+
+        assert get_last_news_time(temp_db) == published
+        assert get_last_macro_min_id(temp_db) == 150
+
+
+class TestDataPollerRunLoop:
+    """Exercise run-loop control flow branches."""
+
+    async def test_run_logs_completed_with_errors(self, temp_db, monkeypatch, caplog):
+        async def fake_poll_once(self):
+            self.stop()
+            return {"news": 0, "prices": 0, "errors": ["boom"]}
+
+        caplog.set_level(logging.WARNING)
+        monkeypatch.setattr(DataPoller, "poll_once", fake_poll_once)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=5)
+
+        await poller.run()
+
+        assert "Cycle #1 completed with errors" in caplog.text
+
+    async def test_run_skips_wait_when_sleep_time_zero(self, temp_db, monkeypatch, caplog):
+        call_count = 0
+
+        async def fake_poll_once(self):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                self.stop()
+            return {"news": 0, "prices": 0, "errors": []}
+
+        caplog.set_level(logging.INFO)
+        monkeypatch.setattr(DataPoller, "poll_once", fake_poll_once)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=0)
+
+        await poller.run()
+
+        assert "Next poll in" not in caplog.text
+        assert call_count >= 2
+
+    async def test_run_handles_wait_timeout(self, temp_db, monkeypatch, caplog):
+        call_count = 0
+
+        async def fake_poll_once(self):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                self.stop()
+            return {"news": 0, "prices": 0, "errors": []}
+
+        async def fake_wait_for(_awaitable, timeout):
+            raise TimeoutError
+
+        caplog.set_level(logging.DEBUG)
+        monkeypatch.setattr(DataPoller, "poll_once", fake_poll_once)
+        monkeypatch.setattr(asyncio, "wait_for", fake_wait_for)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=1)
+
+        await poller.run()
+
+        assert "Poll wait timeout; continuing to next cycle" in caplog.text
+
+    async def test_run_handles_wait_cancelled(self, temp_db, monkeypatch, caplog):
+        async def fake_poll_once(self):
+            return {"news": 0, "prices": 0, "errors": []}
+
+        async def fake_wait_for(_awaitable, timeout):
+            raise asyncio.CancelledError
+
+        caplog.set_level(logging.INFO)
+        monkeypatch.setattr(DataPoller, "poll_once", fake_poll_once)
+        monkeypatch.setattr(asyncio, "wait_for", fake_wait_for)
+        poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=1)
+
+        await poller.run()
+
+        assert "Wait cancelled, exiting..." in caplog.text

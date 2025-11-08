@@ -35,7 +35,7 @@ class DataBatch(TypedDict):
 
     company_news: list[NewsEntry]
     macro_news: list[NewsEntry]
-    prices: dict[str, dict[str, PriceData]]  # {provider_name: {symbol: PriceData}}
+    prices: dict[PriceDataSource, dict[str, PriceData]]  # {provider: {symbol: PriceData}}
     errors: list[str]
 
 
@@ -105,7 +105,7 @@ class DataPoller:
         # Separate results by provider type
         company_news: list[NewsEntry] = []
         macro_news: list[NewsEntry] = []
-        prices_by_provider: dict[str, dict[str, PriceData]] = {}
+        prices_by_provider: dict[PriceDataSource, dict[str, PriceData]] = {}
         errors = []
 
         # Start both news and price fetches concurrently (don't await yet)
@@ -130,9 +130,9 @@ class DataPoller:
 
         # Process news results - zip keeps provider and result matched
         for provider, result in zip(self.news_providers, news_results, strict=True):
+            provider_name = getattr(provider, "source_name", provider.__class__.__name__)
             if isinstance(result, Exception):
-                provider_name = provider.__class__.__name__
-                logger.error(f"{provider_name} news fetch failed: {result}")
+                logger.debug(f"{provider_name} news fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
             else:
                 if provider in self._finnhub_macro_providers:
@@ -142,13 +142,13 @@ class DataPoller:
 
         # Process price results - keep providers separate
         for provider, result in zip(self.price_providers, price_results, strict=True):
-            provider_name = provider.__class__.__name__
+            provider_name = getattr(provider, "source_name", provider.__class__.__name__)
             if isinstance(result, Exception):
-                logger.error(f"{provider_name} price fetch failed: {result}")
+                logger.debug(f"{provider_name} price fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
             else:
                 # Convert list to dict keyed by symbol
-                prices_by_provider[provider_name] = {p.symbol: p for p in result}
+                prices_by_provider[provider] = {p.symbol: p for p in result}
 
         return DataBatch(
             company_news=company_news,
@@ -157,7 +157,9 @@ class DataPoller:
             errors=errors,
         )
 
-    async def _process_prices(self, prices_by_provider: dict[str, dict[str, PriceData]]) -> int:
+    async def _process_prices(
+        self, prices_by_provider: dict[PriceDataSource, dict[str, PriceData]]
+    ) -> int:
         """
         Deduplicate and store price data from multiple providers.
 
@@ -174,8 +176,11 @@ class DataPoller:
             return 0
 
         # Primary provider = first in configured order
-        provider_order = [p.__class__.__name__ for p in self.price_providers]
+        provider_order = list(self.price_providers)
         primary_provider = provider_order[0]
+        primary_provider_name = getattr(
+            primary_provider, "source_name", primary_provider.__class__.__name__
+        )
 
         # Get primary provider's prices (or empty dict if failed)
         primary_prices = prices_by_provider.get(primary_provider, {})
@@ -191,7 +196,7 @@ class DataPoller:
             # Get primary provider's price
             primary_price_data = primary_prices.get(symbol)
             if primary_price_data is None:
-                logger.warning(f"{primary_provider} missing price for {symbol}")
+                logger.warning(f"{primary_provider_name} missing price for {symbol}")
                 continue
 
             # Always store primary provider's price
@@ -201,11 +206,13 @@ class DataPoller:
             if len(provider_order) == 1:
                 continue
 
-            for provider_name in provider_order[1:]:
-                if provider_name not in prices_by_provider:
+            for provider in provider_order[1:]:
+                provider_prices = prices_by_provider.get(provider)
+                provider_name = getattr(provider, "source_name", provider.__class__.__name__)
+                if provider_prices is None:
                     continue
 
-                other_price_data = prices_by_provider[provider_name].get(symbol)
+                other_price_data = provider_prices.get(symbol)
                 if other_price_data is None:
                     logger.warning(f"{provider_name} missing price for {symbol}")
                     continue
@@ -215,7 +222,7 @@ class DataPoller:
                 if diff >= Decimal("0.01"):
                     logger.error(
                         f"Price mismatch for {symbol}: "
-                        f"{primary_provider}=${primary_price_data.price} vs "
+                        f"{primary_provider_name}=${primary_price_data.price} vs "
                         f"{provider_name}=${other_price_data.price} (diff=${diff})"
                     )
 
@@ -358,7 +365,7 @@ class DataPoller:
         # Run first poll immediately
         cycle_count = 0
 
-        while self.running:
+        while self.running:  # pragma: no cover - run() sets running True before loop
             cycle_count += 1
             logger.info(f"Starting poll cycle #{cycle_count}")
             start_time = asyncio.get_running_loop().time()

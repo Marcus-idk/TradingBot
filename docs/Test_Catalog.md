@@ -386,6 +386,16 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_upsert_analysis_conflict_resolution` - Upsert conflict handling
   - `test_upsert_analysis_auto_created_at` - Auto created_at behavior
 
+### `tests/unit/data/storage/test_storage_core.py`
+- Purpose: Edge-case coverage for SQLite lifecycle helpers and JSON1 checks
+- Tests:
+  - `test_connect_logs_when_foreign_keys_pragma_fails` - Logs when foreign_keys pragma fails
+  - `test_connect_logs_when_busy_timeout_pragma_fails` - Logs when busy_timeout pragma fails
+  - `test_check_json1_support_returns_false_when_extension_missing` - Returns False and logs when JSON1 missing
+  - `test_init_database_raises_when_json1_missing` - Raises when JSON1 support is unavailable
+  - `test_finalize_database_raises_when_path_missing` - Raises FileNotFoundError for missing DB path
+  - `test_finalize_database_switches_to_delete_mode` - Journal mode switches to DELETE after finalize
+
 ### `tests/unit/data/storage/test_storage_cutoff.py`
 - Purpose: Time-based cutoff handling
 - Tests:
@@ -711,3 +721,27 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_poller_custom_poll_interval` - Accepts custom intervals
   - `test_macro_provider_min_id_passed_and_watermark_updated` - Macro provider uses min_id and updates watermark
   - `test_updates_news_since_iso_and_macro_min_id_independently` - Updates both watermarks
+  - `test_poll_once_collects_price_provider_errors` - Reports price provider failures without aborting
+  - `test_poll_once_logs_since_when_watermark_present` - Logs existing watermark before fetching
+  - `test_poll_once_logs_no_price_data` - Logs when no price data is fetched
+  - `test_poll_once_catches_cycle_error_and_appends` - Catches cycle error and appends to stats
+
+  **TestDataPollerProcessPrices**
+  - `test_process_prices_returns_zero_on_empty_input` - Returns 0 and stores nothing on empty input
+  - `test_process_prices_primary_missing_symbol_warns_and_skips` - Warns and skips when primary lacks symbol
+  - `test_process_prices_missing_secondary_provider_is_ignored` - Stores primary; missing secondary ignored
+  - `test_process_prices_secondary_missing_symbol_warns` - Warns when secondary lacks symbol; primary stored
+  - `test_process_prices_mismatch_logs_error_and_keeps_primary` - Logs mismatch (≥ $0.01); stores primary only
+  - `test_process_prices_handles_duplicate_class_instances` - Handles duplicate class instances; primary stored; mismatch logged
+
+  **TestDataPollerNewsProcessing**
+  - `test_log_urgent_items_logs_summary` - Logs bounded urgent-items summary with ellipsis
+  - `test_process_news_urgency_detection_failure_is_logged` - Logs when urgency detection raises; count still returned
+  - `test_process_news_no_items_logs` - Logs when there are no news items to process
+  - `test_process_news_updates_macro_watermark` - Updates `last_news_time` and macro min_id
+
+  **TestDataPollerRunLoop**
+  - `test_run_logs_completed_with_errors` - Logs "completed with errors" when errors present
+  - `test_run_skips_wait_when_sleep_time_zero` - Skips wait when interval yields zero sleep
+  - `test_run_handles_wait_timeout` - Handles wait timeout and continues
+  - `test_run_handles_wait_cancelled` - Handles cancelled wait and exits

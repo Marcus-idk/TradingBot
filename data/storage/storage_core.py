@@ -6,6 +6,7 @@ Handles database initialization, connections, and finalization.
 import logging
 import os
 import sqlite3
+from contextlib import closing
 from importlib.resources import files
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,8 @@ def init_database(db_path: str) -> None:
     schema_sql = files("data").joinpath("schema.sql").read_text()
 
     # Execute schema
-    with connect(db_path) as conn:
+    # Use closing to ensure the connection releases WAL locks on Windows.
+    with closing(connect(db_path)) as conn:
         conn.executescript(schema_sql)
         conn.commit()
 
