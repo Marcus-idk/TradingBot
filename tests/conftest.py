@@ -6,6 +6,7 @@ import gc
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -22,7 +23,8 @@ def cleanup_sqlite_artifacts(db_path: str):
     gc.collect()
 
     try:
-        with connect(db_path) as conn:
+        # Use closing() to ensure connection is properly closed
+        with closing(connect(db_path)) as conn:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")  # Merge WAL→main DB
             conn.execute("PRAGMA journal_mode=DELETE")  # Exit WAL mode (key for Windows)
             conn.commit()
@@ -57,7 +59,7 @@ def temp_db_path():
 def temp_db(temp_db_path):
     """Provides initialized temporary database with automatic cleanup"""
     init_database(temp_db_path)
-    return temp_db_path
+    yield temp_db_path
 
 
 @pytest.fixture

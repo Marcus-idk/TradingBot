@@ -14,6 +14,7 @@ from tests.integration.llm.helpers import (
 pytestmark = [pytest.mark.network, pytest.mark.asyncio]
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=1)
 async def test_web_search_enabled_returns_expected_title(provider_spec):
     provider = provider_spec.make_provider_for_search(enabled=True)
     yesterday_utc = (datetime.now(UTC) - timedelta(days=1)).date()

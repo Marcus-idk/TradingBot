@@ -55,9 +55,23 @@ class GeminiProvider(LLMProvider):
                 "any": "ANY",
             }.get(str(self.tool_choice).lower())
             if mode:
+                # Check if tools contain function_declarations
+                has_function_declarations = any(
+                    "function_declarations" in tool for tool in (self.tools or [])
+                )
+
                 # Guard: "any" mode requires tools to be provided
                 if mode == "ANY" and not self.tools:
                     raise ValueError("tool_choice='any' requires tools to be provided")
+
+                # Guard: tool_choice requires function_declarations
+                if not has_function_declarations:
+                    raise ValueError(
+                        "tool_choice requires function_declarations in tools. "
+                        "Built-in tools like code_execution, google_search, and url_context "
+                        "do not support tool_choice."
+                    )
+
                 cfg["tool_config"] = {"function_calling_config": {"mode": mode}}
 
         if self.thinking_config:

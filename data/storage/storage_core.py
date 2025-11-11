@@ -52,7 +52,8 @@ def init_database(db_path: str) -> None:
     """
     # Check JSON1 support at startup - fail fast if missing
     # In-memory connection is acceptable for capability checks; no disk access occurs.
-    with sqlite3.connect(":memory:") as conn:
+    # sqlite3 connection context managers don't close the connection, so wrap with closing
+    with closing(sqlite3.connect(":memory:")) as conn:
         if not _check_json1_support(conn):
             raise RuntimeError(
                 "SQLite JSON1 extension required but not available. "
@@ -88,7 +89,8 @@ def finalize_database(db_path: str) -> None:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found: {db_path}")
 
-    with connect(db_path) as conn:
+    # Use closing() to ensure connection is properly closed
+    with closing(connect(db_path)) as conn:
         # Force all WAL transactions into main database
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 

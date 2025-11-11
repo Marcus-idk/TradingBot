@@ -12,14 +12,16 @@
 - **`temperature: float | None`** — randomness control; `0` = deterministic, higher = more diverse.  
   `OpenAIProvider(..., temperature=0.2, ...)`
 
-- **`reasoning: dict | None`** — reasoning effort.  
-  Allowed: `{"effort": "minimal" | "low" | "medium" | "high"}`  
-  Defaults: If omitted, the provider sets `{"effort":"low"}` to balance cost with tool compatibility.  
+- **`reasoning: dict | None`** — reasoning effort.
+  Allowed: `{"effort": "low" | "medium" | "high"}` for most OpenAI reasoning-capable models.
+  **Note:** `"minimal"` is **GPT-5-only** and not broadly documented across earlier models. Prefer `low|medium|high` unless you specifically target GPT-5.
+  Defaults: If omitted, the provider sets `{"effort":"low"}` to balance cost with tool compatibility.
   `OpenAIProvider(..., reasoning={"effort":"medium"}, ...)`
 
 - **`tools: list[dict] | None`** — enable built-ins or custom function tools.
-  - **`{"type":"web_search_preview"}`** — search the live web and return cited results.
-    `tools=[{"type":"web_search_preview"}]`
+  - **`{"type":"web_search"}`** — search the live web and return cited results.
+    `tools=[{"type":"web_search"}]`
+    **Note:** Some SDKs still expose preview types like `web_search_preview`; if your SDK lacks `web_search`, use the preview name.
   - **`{"type":"file_search"}`** — retrieve answers from uploaded files/vector stores.  
     `tools=[{"type":"file_search"}]`
   - **`{"type":"code_interpreter"}`** — run Python for calculations, parsing, plots, file ops.  
@@ -29,13 +31,14 @@
   - **Function tool** — call your own function with JSON arguments you define.  
     `tools=[{"type":"function","function":{"name":"save","description":"...","parameters":{...}}}]`
 
-- **`tool_choice: str | dict | None`** — control tool usage.  
-  - **`"auto"`** — model decides if/when to call any allowed tool.  
+- **`tool_choice: str | dict | None`** — control tool usage.
+  - **`"auto"`** — model decides if/when to call any allowed tool.
     `tool_choice="auto"`
-  - **`"none"`** — disable all tool calls.  
+  - **`"none"`** — disable all tool calls.
     `tool_choice="none"`
-  - **Force specific tool** — only call the one you specify.  
+  - **Force specific tool** — only call the one you specify.
     `tool_choice={"type":"function","function":{"name":"save"}}`
+  - **GPT-5 caveat:** Many GPT-5 models currently support only `tool_choice="auto"`. Officially supported choices are `"auto"`, `"none"`, and (in some flows) `"required"`. The provider automatically coerces string values like `"none"` or `"required"` to `"auto"` for GPT-5 models.
 
 - **`**kwargs -> self.config`** — extra params for `responses.create(...)`.
   - `max_output_tokens: int` — max tokens in output.
@@ -63,9 +66,8 @@
 - **`tools: list | None`** — declare capabilities (dict forms shown).
   - **Code execution** — run Python for math, data wrangling, small files.
     `tools=[{"code_execution":{}}]`
-  - **Google search** — search the web to inform responses (no citations).
+  - **Google search** — search the web and return structured citation metadata.
     `tools=[{"google_search":{}}]`
-    Note: For grounded search with source citations, use `{"google_search_retrieval":{}}` instead.
   - **URL context** — fetch and read content from given URLs.  
     `tools=[{"url_context":{}}]`
   - **Function declarations** — expose callable functions; you handle execution.  
@@ -85,12 +87,11 @@
   Defaults: If omitted, the provider sets a small budget (`{"thinking_budget": 128}`) to enable lightweight reasoning while limiting cost.  
   `GeminiProvider(..., thinking_config={"thinking_budget":2048,"include_thoughts":False}, ...)`
 
-- **`**kwargs -> self.config`** — passed into `GenerateContentConfig(...)`.  
-  - `candidate_count: int` — number of completions to return.  
-    `..., candidate_count=1`  
-  - **Function-calling control:**  
-    `tool_config={"function_calling_config":{"mode":"ANY" | "NONE"}}`  
-    `automatic_function_calling={"disable": True | False}`  
+- **`**kwargs -> self.config`** — passed into `GenerateContentConfig(...)`.
+  - `candidate_count: int` — number of completions to return.
+    `..., candidate_count=1`
+  - **Function-calling control:**
+    `tool_config={"function_calling_config":{"mode":"ANY" | "NONE"}}`
     Note: Only applies when you pass `function_declarations` in `tools`. If you use only `{"code_execution":{}}`, leave `tool_choice` unset; setting it can cause INVALID_ARGUMENT.
   - **Structured output:**  
     `response_mime_type="application/json"`  
@@ -143,7 +144,7 @@ text = await gemini.generate("Summarize feature X in 5 bullets.")
 Both providers support strict JSON output with schema validation. Use these when you need the model to return structured data that conforms to a specific format.
 
 ### OpenAI JSON Schema
-Use `text.format.json_schema` to enforce a JSON schema:
+Use `text.format.json_schema` to enforce a JSON schema (or `response_format` depending on SDK):
 
 ```python
 from config.llm.openai import OpenAISettings

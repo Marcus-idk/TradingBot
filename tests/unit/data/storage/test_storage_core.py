@@ -1,6 +1,7 @@
 """Edge-case coverage for data.storage.storage_core."""
 
 import sqlite3
+from typing import cast
 
 import pytest
 
@@ -53,8 +54,6 @@ def test_check_json1_support_returns_false_when_extension_missing(caplog):
 
     caplog.set_level("DEBUG")
 
-    from typing import cast
-
     assert _check_json1_support(cast(sqlite3.Connection, JsonLessConnection())) is False
     assert "SQLite JSON1 extension not available" in caplog.text
 
@@ -66,6 +65,9 @@ def test_init_database_raises_when_json1_missing(monkeypatch, tmp_path):
 
         def __exit__(self, exc_type, exc, tb):
             return False
+
+        def close(self):
+            pass
 
     monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: ContextlessConnection())
     monkeypatch.setattr("data.storage.storage_core._check_json1_support", lambda conn: False)

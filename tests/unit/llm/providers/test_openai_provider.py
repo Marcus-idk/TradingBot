@@ -16,11 +16,9 @@ from llm.providers import openai as openai_module
 from llm.providers.openai import OpenAIProvider
 from utils.retry import RetryableError
 
-pytestmark = [pytest.mark.asyncio]
-
 
 def _make_provider(
-    monkeypatch: pytest.MonkeyPatch, **provider_kwargs
+    monkeypatch: pytest.MonkeyPatch, model_name: str = "test-model", **provider_kwargs
 ) -> tuple[OpenAIProvider, AsyncMock]:
     client = AsyncMock()
     client.responses = SimpleNamespace(
@@ -30,7 +28,7 @@ def _make_provider(
     monkeypatch.setattr(openai_module, "AsyncOpenAI", lambda **_: client)
 
     settings = OpenAISettings(api_key="test-key")
-    provider = OpenAIProvider(settings, "test-model", **provider_kwargs)
+    provider = OpenAIProvider(settings, model_name, **provider_kwargs)
     return provider, client
 
 
@@ -43,6 +41,7 @@ def _status_response(code: int, headers: dict[str, str] | None = None) -> httpx.
 
 
 class TestOpenAIProvider:
+    @pytest.mark.asyncio
     async def test_generate_passes_expected_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
         tools = [{"type": "code"}]
         provider, client = _make_provider(
@@ -66,6 +65,7 @@ class TestOpenAIProvider:
         assert kwargs["tool_choice"] == "auto"
         assert kwargs["extra_option"] is True
 
+    @pytest.mark.asyncio
     async def test_generate_respects_custom_reasoning(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -80,6 +80,28 @@ class TestOpenAIProvider:
         _, kwargs = client.responses.create.call_args
         assert "temperature" not in kwargs
         assert kwargs["reasoning"] == {"effort": "medium"}
+
+    @pytest.mark.parametrize("tool_choice_input", ["required", "none"])
+    @pytest.mark.asyncio
+    async def test_generate_coerces_gpt5_tool_choice_to_auto(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        tool_choice_input: str,
+    ) -> None:
+        provider, client = _make_provider(
+            monkeypatch,
+            model_name="gpt-5-preview",
+            tool_choice=tool_choice_input,
+            tools=[{"type": "code"}],
+        )
+
+        await provider.generate("test prompt")
+
+        _, kwargs = client.responses.create.call_args
+        assert kwargs["tool_choice"] == "auto"
+        assert "not supported by gpt-5-preview" in caplog.text
+        assert "coercing to 'auto'" in caplog.text
 
     def test_classify_rate_limit_with_retry_after(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, _ = _make_provider(monkeypatch)
@@ -192,6 +214,7 @@ class TestOpenAIProvider:
         assert isinstance(mapped, LLMError)
         assert "Unexpected error" in str(mapped)
 
+    @pytest.mark.asyncio
     async def test_validate_connection_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, client = _make_provider(monkeypatch)
         client.models.list.side_effect = openai_module.APIConnectionError(

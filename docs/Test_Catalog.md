@@ -609,11 +609,12 @@ The detailed inventory starts below this line (to be populated and maintained).
 ### `tests/unit/llm/providers/test_openai_provider.py`
 - Purpose: Unit coverage for OpenAI provider argument passing and error mapping
 - Tags: [async]
-- Fixtures: `monkeypatch`
+- Fixtures: `monkeypatch`, `caplog`
 - Tests:
   **TestOpenAIProvider**
   - `test_generate_passes_expected_args` - Forwards args (model, input, temp, reasoning, tools, tool_choice)
   - `test_generate_respects_custom_reasoning` - Uses custom reasoning; omits temperature when None
+  - `test_generate_coerces_gpt5_tool_choice_to_auto` - Coerces non-`auto` tool_choice to `auto` for GPT-5 and logs warning
   - `test_classify_rate_limit_with_retry_after` - Rate limit uses Retry-After header
   - `test_classify_rate_limit_without_retry_after` - Rate limit without Retry-After
   - `test_classify_retryable_errors` - Timeout/connection/conflict mapped retryable
@@ -632,6 +633,7 @@ The detailed inventory starts below this line (to be populated and maintained).
   **TestGeminiProvider**
   - `test_generate_maps_tool_choice` - Maps tool_choice to NONE/AUTO/ANY modes
   - `test_generate_requires_tools_for_any` - Enforces tools when tool_choice="any"
+  - `test_generate_rejects_tool_choice_without_function_declarations` - Raises ValueError when tool_choice is set without function_declarations (built-ins only)
   - `test_generate_uses_default_thinking` - Applies default thinking budget
   - `test_generate_uses_custom_thinking` - Applies custom thinking config
   - `test_generate_raises_when_no_candidates` - Raises when response has no candidates

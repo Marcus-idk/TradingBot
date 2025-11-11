@@ -3,6 +3,7 @@
 import concurrent.futures
 import threading
 import time
+from contextlib import closing
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -276,5 +277,6 @@ class TestWALSqlite:
         assert aapl_price.volume is not None and aapl_price.volume > 0
 
         # Force a WAL checkpoint at the end to ensure pending data flushes cleanly
-        with connect(temp_db) as conn:
+        # Use closing() to ensure connection is properly closed
+        with closing(connect(temp_db)) as conn:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")

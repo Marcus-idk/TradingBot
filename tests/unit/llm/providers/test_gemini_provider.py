@@ -16,8 +16,6 @@ from llm.providers import gemini as gemini_module
 from llm.providers.gemini import GeminiProvider
 from utils.retry import RetryableError
 
-pytestmark = [pytest.mark.asyncio]
-
 
 def _make_provider(
     monkeypatch: pytest.MonkeyPatch,
@@ -130,10 +128,24 @@ class TestGeminiProvider:
             ("any", "ANY"),
         ],
     )
+    @pytest.mark.asyncio
     async def test_generate_maps_tool_choice(
         self, monkeypatch: pytest.MonkeyPatch, tool_choice: str, expected_mode: str
     ) -> None:
-        tools = [{"code_execution": {}}]
+        tools = [
+            {
+                "function_declarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get weather for a location",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"location": {"type": "string"}},
+                        },
+                    }
+                ]
+            }
+        ]
         provider, client, recorded = _make_provider(
             monkeypatch,
             tools=tools,
@@ -149,12 +161,26 @@ class TestGeminiProvider:
         if expected_mode == "ANY":
             assert config_kwargs["tools"] == tools
 
+    @pytest.mark.asyncio
     async def test_generate_requires_tools_for_any(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, _, _ = _make_provider(monkeypatch, tools=None, tool_choice="any")
 
         with pytest.raises(ValueError, match="tool_choice='any' requires tools"):
             await provider.generate("prompt")
 
+    @pytest.mark.asyncio
+    async def test_generate_rejects_tool_choice_without_function_declarations(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """tool_choice with only built-in tools (code_execution) should raise ValueError."""
+        provider, _, _ = _make_provider(
+            monkeypatch, tools=[{"code_execution": {}}], tool_choice="auto"
+        )
+
+        with pytest.raises(ValueError, match="tool_choice requires function_declarations in tools"):
+            await provider.generate("prompt")
+
+    @pytest.mark.asyncio
     async def test_generate_uses_default_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, client, recorded = _make_provider(monkeypatch)
 
@@ -164,6 +190,7 @@ class TestGeminiProvider:
         assert recorded["config"][0]["candidate_count"] == 1
         assert client.aio.models.generate_content.await_count == 1
 
+    @pytest.mark.asyncio
     async def test_generate_uses_custom_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
         custom = {"thinking_budget": 64, "think_limit": 5}
         provider, _, recorded = _make_provider(
@@ -175,6 +202,7 @@ class TestGeminiProvider:
 
         assert recorded["thinking"][0] == custom
 
+    @pytest.mark.asyncio
     async def test_generate_raises_when_no_candidates(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -187,6 +215,7 @@ class TestGeminiProvider:
         with pytest.raises(LLMError, match="No candidates"):
             await provider.generate("prompt")
 
+    @pytest.mark.asyncio
     async def test_generate_combines_text_and_code_outputs(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -208,6 +237,7 @@ class TestGeminiProvider:
 
         assert result == "part 1\ncode"
 
+    @pytest.mark.asyncio
     async def test_generate_handles_none_code_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.generate_content.return_value = SimpleNamespace(
@@ -226,6 +256,7 @@ class TestGeminiProvider:
 
         assert result == ""
 
+    @pytest.mark.asyncio
     async def test_validate_connection_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.list.side_effect = _server_error("offline")

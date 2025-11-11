@@ -5,4 +5,5 @@ pre-commit~=4.3
 pylint>=4,<5
 pyright==1.1.407
 pytest-cov==7.0.0
+pytest-rerunfailures>=15.0
 coverage>=7.10.6

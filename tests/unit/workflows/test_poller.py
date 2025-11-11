@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from contextlib import suppress
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -21,8 +22,6 @@ from data.storage import (
 from llm.base import LLMError
 from tests.factories import make_news_entry, make_price_data
 from workflows.poller import DataPoller
-
-pytestmark = pytest.mark.asyncio
 
 
 class StubNews(NewsDataSource):
@@ -107,6 +106,8 @@ class StubMacroNews(NewsDataSource):
 
 class TestDataPoller:
     """Tests for the DataPoller orchestrator."""
+
+    pytestmark = pytest.mark.asyncio
 
     async def test_poll_once_stores_and_updates_watermark(self, temp_db):
         """Stores news/prices and sets watermark to max published."""
@@ -442,6 +443,8 @@ class TestDataPoller:
 class TestDataPollerProcessPrices:
     """Focused tests for price deduplication paths."""
 
+    pytestmark = pytest.mark.asyncio
+
     async def test_process_prices_returns_zero_on_empty_input(self, temp_db, monkeypatch):
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
         stored: list[PriceData] = []
@@ -689,6 +692,7 @@ class TestDataPollerNewsProcessing:
         assert "Found 11 URGENT news items requiring attention" in caplog.text
         assert "... 1 more" in caplog.text
 
+    @pytest.mark.asyncio
     async def test_process_news_urgency_detection_failure_is_logged(
         self, temp_db, monkeypatch, caplog
     ):
@@ -716,6 +720,7 @@ class TestDataPollerNewsProcessing:
         assert count == 1
         assert "Urgency detection failed" in caplog.text
 
+    @pytest.mark.asyncio
     async def test_process_news_no_items_logs(self, temp_db, monkeypatch, caplog):
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
 
@@ -730,6 +735,7 @@ class TestDataPollerNewsProcessing:
         assert count == 0
         assert "No news items to process" in caplog.text
 
+    @pytest.mark.asyncio
     async def test_process_news_updates_macro_watermark(self, temp_db, monkeypatch):
         published = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
         macro_news = [
@@ -760,6 +766,8 @@ class TestDataPollerNewsProcessing:
 
 class TestDataPollerRunLoop:
     """Exercise run-loop control flow branches."""
+
+    pytestmark = pytest.mark.asyncio
 
     async def test_run_logs_completed_with_errors(self, temp_db, monkeypatch, caplog):
         async def fake_poll_once(self):
@@ -803,7 +811,11 @@ class TestDataPollerRunLoop:
                 self.stop()
             return {"news": 0, "prices": 0, "errors": []}
 
-        async def fake_wait_for(_awaitable, timeout):
+        async def fake_wait_for(awaitable, timeout):
+            task = asyncio.create_task(awaitable)
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
             raise TimeoutError
 
         caplog.set_level(logging.DEBUG)
@@ -819,7 +831,11 @@ class TestDataPollerRunLoop:
         async def fake_poll_once(self):
             return {"news": 0, "prices": 0, "errors": []}
 
-        async def fake_wait_for(_awaitable, timeout):
+        async def fake_wait_for(awaitable, timeout):
+            task = asyncio.create_task(awaitable)
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
             raise asyncio.CancelledError
 
         caplog.set_level(logging.INFO)
