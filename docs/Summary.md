@@ -96,9 +96,10 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `DataSource` - Base class for all data sources
   - `DataSourceError` - Exception for data source failures
   - `NewsDataSource` - Abstract class for news providers
-    - `fetch_incremental(*, since: datetime | None = None, min_id: int | None = None) -> list[NewsEntry]` — unified cursor interface
+    - `fetch_incremental(*, since: datetime | None = None, min_id: int | None = None, symbol_since_map: dict[str, datetime | None] | None = None) -> list[NewsEntry]` — unified cursor interface
       - Date-based providers use `since` (ignore `min_id`)
       - ID-based providers use `min_id` (ignore `since`)
+      - `symbol_since_map` allows per-symbol cursors that override the global `since` where supported
   - `PriceDataSource` - Abstract class for price providers
     - `fetch_incremental(since: datetime | None = None)` — price fetch (since unused for quotes)
 
@@ -140,10 +141,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - **Query**: `get_news_since()` (returns list[NewsEntry]), `get_news_symbols()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
     - **Upsert**: `upsert_analysis_result()`, `upsert_holdings()`
 
-  - `storage_batch.py` - Batch operations and watermarks
-    - **Batch queries**: `get_news_before()`, `get_prices_before()` (for LLM processing)
-    - **Batch operations**: `commit_llm_batch()` - Set `llm_last_run_iso` and prune processed rows across news_symbols/news_items/price_data
-    - **Watermarks**: `get_last_seen()`, `set_last_seen()`, `get_last_news_time()`, `set_last_news_time()`, `get_last_macro_min_id()`, `set_last_macro_min_id()`
+  - `storage_batch.py` - Batch operations for LLM processing
+    - **Batch queries**: `get_news_before()` and `get_prices_before()` - Read news and prices created at or before a cutoff
+    - **Batch operations**: `commit_llm_batch()` - Atomically prune processed rows from `news_symbols`, `news_items`, and `price_data` up to a cutoff
+
+  - `storage_watermark.py` - Typed watermark helpers for provider/stream state
+    - **Helpers**: `get_last_seen_timestamp()`, `set_last_seen_timestamp()`, `get_last_seen_id()`, `set_last_seen_id()` - Read/write timestamp and ID cursors using strongly-typed enums for provider, stream, and scope
 
   - `storage_utils.py` - Utilities and type converters
     - **Helpers**: `_datetime_to_iso()`, `_decimal_to_text()`, `_iso_to_datetime()`, `_normalize_url()`, `_parse_rfc3339()`
@@ -157,15 +160,15 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
       - `__init__()` - Initialize with settings
       - `get()` - Make authenticated GET request with retry logic (path, optional params)
       - `validate_connection()` - Centralized API validation used by providers
-    - `FinnhubNewsProvider` - Company news fetching implementation
+    - `FinnhubNewsProvider` - Company news fetching implementation (per-symbol cursors)
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(*, since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer
+      - `fetch_incremental(*, since=..., symbol_since_map=...) -> list[NewsEntry]` - Date-based; applies a configurable overlap window (minutes) and first-run lookback (days) from `FinnhubSettings`
       - `_parse_article()` - Convert API response to NewsEntry (article `news_type=company_specific`, `is_important=True` stub)
-    - `FinnhubMacroNewsProvider` - Market-wide macro news fetching implementation
+    - `FinnhubMacroNewsProvider` - Market-wide macro news fetching implementation (ID-based cursor)
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(*, min_id=...) -> list[NewsEntry]` - ID-based; uses Finnhub `minId`; tracks `last_fetched_max_id`
+      - `fetch_incremental(*, min_id=...) -> list[NewsEntry]` - ID-based; uses Finnhub `minId` with configurable first-run lookback (days); tracks `last_fetched_max_id`
       - `_parse_article()` - Convert API response to NewsEntry list per watchlist symbol; fall back to 'MARKET' when none match
       - `_extract_symbols_from_related()` - Filter `related` field against watchlist; if nothing survives, fallback to ['MARKET'] for market-wide coverage
       - `last_fetched_max_id` - Stores latest article ID for watermark updates
@@ -179,20 +182,25 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
       - `__init__()` - Initialize with settings
       - `get()` - Make authenticated GET request with retry logic (path, optional params)
       - `validate_connection()` - API validation using market status endpoint
-    - `PolygonNewsProvider` - Company news fetching implementation
+    - `PolygonNewsProvider` - Company news fetching implementation (global cursor with symbol overrides)
       - `__init__()` - Initialize with settings and symbols
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer
+      - `fetch_incremental(since=..., symbol_since_map=...) -> list[NewsEntry]` - Date-based; uses a global timestamp cursor with configurable overlap/first-run windows and optional per-symbol bootstrap overrides
       - `_fetch_symbol_news()` - Fetch news for single symbol with pagination until complete
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
       - `_parse_article()` - Convert API response to NewsEntry; parses RFC3339 timestamps; article `news_type=company_specific`, `is_important=True` stub
-    - `PolygonMacroNewsProvider` - Market-wide macro news fetching implementation
+    - `PolygonMacroNewsProvider` - Market-wide macro news fetching implementation (global timestamp cursor)
       - `__init__()` - Initialize with settings and symbols (watchlist for filtering)
       - `validate_connection()` - Delegates to client
-      - `fetch_incremental(since=...) -> list[NewsEntry]` - Date-based; applies 2‑min buffer; handles pagination
+      - `fetch_incremental(since=...) -> list[NewsEntry]` - Date-based; uses configurable overlap/first-run windows and handles pagination
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
       - `_parse_article()` - Convert API response to NewsEntry list per watchlist symbol; default to 'MARKET' when none match
       - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['MARKET'] for market-wide coverage
+
+- `data/storage/state_enums.py` - Enums for watermark provider/stream/scope
+  - `Provider` - Values: `FINNHUB`, `POLYGON`
+  - `Stream` - Values: `COMPANY`, `MACRO`
+  - `Scope` - Values: `GLOBAL`, `SYMBOL`
 
 ### `llm/` — LLM provider abstractions
 **Purpose**: Base classes and provider implementations for LLM interactions
@@ -266,12 +274,17 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `_log_urgent_items()` - Log urgent news items to console
     - `_process_news()` - Store news (NewsEntry split to tables), detect urgency, update watermarks
     - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only; skips symbols missing from primary (intentional design, not a bug)
-    - `_read_watermarks()` - Read last_news_time and last_macro_min_id from database
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
-  - `DataBatch` (TypedDict) - Batch result with `company_news`, `macro_news`, `prices: dict[str, dict[str, PriceData]]` (provider → {symbol → PriceData}), `errors`
+  - `DataBatch` (TypedDict) - Batch result with `company_news`, `macro_news`, `prices: dict[PriceDataSource, dict[str, PriceData]]` (provider → {symbol → PriceData}), `errors`
   - `PollStats` (TypedDict) - Per-cycle stats with `news`, `prices`, `errors`
+
+- `workflows/watermarks.py` - Watermark planning and persistence for news providers
+  - `CursorPlan` - Dataclass describing cursor kwargs (`since`, `min_id`, optional `symbol_since_map`) passed to provider `fetch_incremental` methods
+  - `CURSOR_RULES` - Mapping from provider types to cursor rules (provider/stream/scope, cursor kind, bootstrap behavior, overlap family)
+  - `WatermarkEngine` - Builds per-provider cursor plans from `last_seen_state` and committed data, and writes back updated timestamp/ID watermarks after processing
+  - `is_macro_stream(provider)` - Helper to identify macro streams for routing news into `macro_news` vs `company_news`
 
 ### `analysis/` — Business logic and classification
 **Purpose**: Stubs for news labeling and urgency analysis (LLM-backed flow planned for v0.5)
@@ -305,12 +318,12 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 See `docs/Test_Catalog.md` for the complete test inventory. This summary focuses on source modules and architecture.
 
 ## Database Schema
-Tables (WITHOUT ROWID):
+Tables:
 - `news_items(url, headline, content, published_iso, source, news_type, created_at_iso)` — PK: url
 - `news_symbols(url, symbol, is_important, created_at_iso)` — PK: (url, symbol); FK → news_items(url) ON DELETE CASCADE
 - `price_data(symbol, timestamp_iso, price TEXT, volume, session, created_at_iso)` — PK: (symbol, timestamp_iso)
 - `analysis_results(symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json, created_at_iso)` — PK: (symbol, analysis_type)
 - `holdings(symbol, quantity TEXT, break_even_price TEXT, total_cost TEXT, notes, created_at_iso, updated_at_iso)` — PK: symbol
-- `last_seen(key, value)` — Watermarks (`news_since_iso`, `llm_last_run_iso`, `macro_news_min_id`)
+- `last_seen_state(provider, stream, scope, symbol, timestamp, id)` — Watermarks keyed by provider/stream/scope/symbol; `scope` constrained to `GLOBAL`/`SYMBOL`, timestamps stored as ISO text, IDs as integers
 
 Constraints: NOT NULL on required fields, CHECK constraints for positive values, enum validations, JSON object validation for JSON columns

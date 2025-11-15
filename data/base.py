@@ -42,6 +42,7 @@ class NewsDataSource(DataSource):
         *,
         since: datetime | None = None,
         min_id: int | None = None,
+        symbol_since_map: dict[str, datetime | None] | None = None,
     ) -> list[NewsEntry]:
         """
         Fetch new news items using incremental cursors.
@@ -49,6 +50,7 @@ class NewsDataSource(DataSource):
         Keyword Args:
             since: Fetch items published after this timestamp (time-based providers).
             min_id: Fetch items with ID greater than this value (ID-based providers).
+            symbol_since_map: Map of per-symbol cursors overriding global timestamps.
 
         Returns:
             List of :class:`NewsEntry` instances.
@@ -58,7 +60,7 @@ class NewsDataSource(DataSource):
         """
         raise NotImplementedError(
             "fetch_incremental must be implemented by subclasses "
-            f"(since={since!r}, min_id={min_id!r})"
+            f"(since={since!r}, min_id={min_id!r}, symbol_since_map={symbol_since_map!r})"
         )
 
 

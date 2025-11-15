@@ -16,6 +16,10 @@ class FinnhubSettings:
     api_key: str
     base_url: str = "https://finnhub.io/api/v1"
     retry_config: DataRetryConfig = DEFAULT_DATA_RETRY
+    company_news_overlap_minutes: int = 2
+    company_news_first_run_days: int = 7
+    macro_news_overlap_minutes: int = 0
+    macro_news_first_run_days: int = 2
 
     @staticmethod
     def from_env(env: Mapping[str, str] | None = None) -> "FinnhubSettings":

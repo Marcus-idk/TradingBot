@@ -37,6 +37,7 @@ class PolygonMacroNewsProvider(NewsDataSource):
         self, settings: PolygonSettings, symbols: list[str], source_name: str = "Polygon Macro"
     ) -> None:
         super().__init__(source_name)
+        self.settings = settings
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = PolygonClient(settings)
 
@@ -50,13 +51,21 @@ class PolygonMacroNewsProvider(NewsDataSource):
     ) -> list[NewsEntry]:
         now_utc = datetime.now(UTC)
 
-        # Calculate time filter
-        if since is not None:
-            buffer_time = since - timedelta(minutes=2)
-        else:
-            buffer_time = now_utc - timedelta(days=2)
+        overlap_delta = timedelta(minutes=self.settings.macro_news_overlap_minutes)
+        bootstrap_delta = timedelta(days=self.settings.macro_news_first_run_days)
 
-        published_gt = _datetime_to_iso(buffer_time)
+        buffer_time: datetime | None
+        if since is not None:
+            start_time = since - overlap_delta
+            buffer_time = since
+        else:
+            start_time = now_utc - bootstrap_delta
+            buffer_time = None
+
+        if start_time > now_utc:
+            start_time = now_utc
+
+        published_gt = _datetime_to_iso(start_time)
 
         news_entries: list[NewsEntry] = []
         cursor: str | None = None

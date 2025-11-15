@@ -32,6 +32,7 @@ class PolygonNewsProvider(NewsDataSource):
         self, settings: PolygonSettings, symbols: list[str], source_name: str = "Polygon"
     ) -> None:
         super().__init__(source_name)
+        self.settings = settings
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = PolygonClient(settings)
 
@@ -42,23 +43,31 @@ class PolygonNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
+        symbol_since_map: dict[str, datetime | None] | None = None,
     ) -> list[NewsEntry]:
         if not self.symbols:
             return []
 
         now_utc = datetime.now(UTC)
-
-        if since is not None:
-            buffer_time = since - timedelta(minutes=2)
-        else:
-            buffer_time = now_utc - timedelta(days=2)
-
-        published_gt = _datetime_to_iso(buffer_time)
+        overlap_delta = timedelta(minutes=self.settings.company_news_overlap_minutes)
+        bootstrap_delta = timedelta(days=self.settings.company_news_first_run_days)
 
         news_entries: list[NewsEntry] = []
 
         for symbol in self.symbols:
             try:
+                symbol_cursor = self._resolve_symbol_cursor(symbol, symbol_since_map, since)
+                if symbol_cursor is not None:
+                    start_time = symbol_cursor - overlap_delta
+                    buffer_time = symbol_cursor
+                else:
+                    start_time = now_utc - bootstrap_delta
+                    buffer_time = None
+
+                if start_time > now_utc:
+                    start_time = now_utc
+
+                published_gt = _datetime_to_iso(start_time)
                 symbol_news = await self._fetch_symbol_news(symbol, published_gt, buffer_time)
                 news_entries.extend(symbol_news)
             except (RetryableError, ValueError, TypeError, KeyError, AttributeError) as exc:
@@ -66,6 +75,16 @@ class PolygonNewsProvider(NewsDataSource):
                 continue
 
         return news_entries
+
+    def _resolve_symbol_cursor(
+        self,
+        symbol: str,
+        symbol_since_map: dict[str, datetime | None] | None,
+        global_since: datetime | None,
+    ) -> datetime | None:
+        if symbol_since_map is not None and symbol in symbol_since_map:
+            return symbol_since_map[symbol]
+        return global_since
 
     async def _fetch_symbol_news(
         self,

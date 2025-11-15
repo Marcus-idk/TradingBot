@@ -26,6 +26,7 @@ class FinnhubNewsProvider(NewsDataSource):
         self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub"
     ) -> None:
         super().__init__(source_name)
+        self.settings = settings
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
 
@@ -36,23 +37,29 @@ class FinnhubNewsProvider(NewsDataSource):
         self,
         *,
         since: datetime | None = None,
+        symbol_since_map: dict[str, datetime | None] | None = None,
     ) -> list[NewsEntry]:
         if not self.symbols:
             return []
 
         now_utc = datetime.now(UTC)
-
-        if since is not None:
-            buffer_time = since - timedelta(minutes=2)
-            from_date = buffer_time.date()
-        else:
-            from_date = (now_utc - timedelta(days=2)).date()
-            buffer_time = None
-
+        overlap_delta = timedelta(minutes=self.settings.company_news_overlap_minutes)
+        bootstrap_delta = timedelta(days=self.settings.company_news_first_run_days)
         to_date = now_utc.date()
         news_entries: list[NewsEntry] = []
 
         for symbol in self.symbols:
+            symbol_cursor = self._resolve_symbol_cursor(symbol, symbol_since_map, since)
+            if symbol_cursor is not None:
+                start_time = symbol_cursor - overlap_delta
+                if start_time > now_utc:
+                    start_time = now_utc
+                buffer_time = symbol_cursor
+            else:
+                start_time = now_utc - bootstrap_delta
+                buffer_time = None
+
+            from_date = start_time.date()
             try:
                 params = {
                     "symbol": symbol,
@@ -69,7 +76,7 @@ class FinnhubNewsProvider(NewsDataSource):
 
                 for article in articles:
                     try:
-                        entry = self._parse_article(article, symbol, buffer_time if since else None)
+                        entry = self._parse_article(article, symbol, buffer_time)
                         if entry:
                             news_entries.append(entry)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
@@ -82,6 +89,16 @@ class FinnhubNewsProvider(NewsDataSource):
                 continue
 
         return news_entries
+
+    def _resolve_symbol_cursor(
+        self,
+        symbol: str,
+        symbol_since_map: dict[str, datetime | None] | None,
+        global_since: datetime | None,
+    ) -> datetime | None:
+        if symbol_since_map is not None and symbol in symbol_since_map:
+            return symbol_since_map[symbol]
+        return global_since
 
     def _parse_article(
         self,

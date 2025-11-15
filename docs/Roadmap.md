@@ -81,15 +81,12 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Notes**:
 - Watermark system:
-  - State table: `last_seen(key PRIMARY KEY, value)`
-  - `news_since_iso`: Track last fetched news publish time (incremental)
-  - `llm_last_run_iso`: Track LLM cutoff for cleanup (prep for v0.5)
-  - Two-clock design: Fetch by publish time; cleanup by insert time (handles late arrivals)
-  - 2‑minute safety buffer for clock skew (implemented via `FinnhubNewsProvider.fetch_incremental()`)
+  - Normalized state table: `last_seen_state(provider, stream, scope, symbol, timestamp, id)` keyed by provider/stream/scope/symbol
+  - Enums: provider (`FINNHUB`), stream (`COMPANY`/`MACRO`), scope (`GLOBAL`/`SYMBOL`) keep cursor identities stable
+  - Two-clock design: Fetch by publish/published time; cleanup by insert time via batch pruning (handles late arrivals)
 - Data flow:
-  - 5‑min loop: Read watermark → Fetch incremental → Store → Update watermark
-  - Cleanup prep: cutoff = T − 2min, process rows where `created_at_iso ≤ cutoff`
-  - One global `news_since_iso` acceptable (per‑provider later)
+  - 5‑min loop: Build cursor plans from `last_seen_state` → Fetch incremental data from providers → Store → Commit updated watermarks
+  - Cleanup prep: choose a cutoff and prune rows where `created_at_iso ≤ cutoff` using batch helpers
  
 
 ### v0.3.2 — Database UI ✅
@@ -110,7 +107,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 
 **Achieves**:
 - Finnhub macro news via `/news?category=general` with `minId` cursor
-- Independent watermark `macro_news_min_id` tracked in `last_seen`
+- Independent global ID-based watermark tracked in `last_seen_state` for Finnhub macro stream
 - Poller integrates macro news alongside company news in the 5‑min loop
 - Urgency detection stub logs cycle stats but returns no flagged items (empty list); LLM-based detection deferred to v0.5
 
@@ -214,31 +211,18 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Startup
   - Loads `.env` and logging; parses `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, `DATABASE_PATH` (default `data/trading_bot.db`). If `-v`, also uses `STREAMLIT_PORT`. Initializes SQLite (JSON1 required).
   - Launches optional Streamlit viewer if requested (`-v`) before provider validation.
-  - Creates Finnhub providers (company, macro, price) and validates API connections.
+  - Creates configured providers (Finnhub company/macro/price; Polygon news) and validates API connections.
 - Every poll (interval = `POLL_INTERVAL`, e.g., 300s; first cycle runs immediately)
-  - Read watermarks: `news_since_iso` (company/macro published time), `macro_news_min_id` (macro minId).
-  - Fetch company news (`/company-news` per symbol)
-    - If `news_since_iso` missing: use from = UTC date 2 days ago, to = today.
-    - Else: use from = date(since − 2 minutes), to = today; then ignore articles published ≤ (since − 2 minutes). Articles at exactly the watermark are kept.
-  - Fetch macro news (`/news?category=general`)
-    - If `macro_news_min_id` missing: no `minId` param; keep only articles published in the last 2 days.
-    - Else: pass `minId = macro_news_min_id`; keep only articles with id > minId. Track `last_fetched_max_id`.
+  - Watermark planning:
+    - `WatermarkEngine` builds per-provider cursor plans from `last_seen_state` using typed rules (timestamp vs ID, global vs per-symbol scope, and configurable overlap/first-run windows from provider settings).
+  - Fetch company and macro news:
+    - Finnhub company: per-symbol timestamp cursors with overlap; first run uses a lookback window from settings.
+    - Finnhub macro: global ID cursor via `minId`; first run uses a lookback window and tracks `last_fetched_max_id`.
+    - Polygon company/macro: global timestamp cursors with optional per-symbol bootstrap overrides; apply configured overlap/first-run windows and follow pagination.
   - Fetch prices (`/quote` per symbol) and classify session (REG/PRE/POST/CLOSED) from ET.
   - Store results
     - `store_news_items` writes articles once by URL (`news_items`) and per-symbol links (`news_symbols`), preserving per-symbol `is_important` flags.
     - Run urgency detector (stub; returns none; no urgent headlines logged).
-    - Advance `news_since_iso` to the max published timestamp across all news fetched.
-    - If present, advance `macro_news_min_id` to provider `last_fetched_max_id`.
+    - `DataPoller._process_prices` deduplicates per symbol across providers, logs mismatches, and stores primary prices.
+    - `WatermarkEngine.commit_updates` advances timestamp/ID watermarks in `last_seen_state` based on the data actually stored.
   - Sleep until next cycle.
-
-Example timeline (first run, no watermarks)
-- Now = 2024-01-15T12:00:00Z
-- Company news: from=2024-01-13, to=2024-01-15 (last 2 UTC days) for each symbol.
-- Macro news: no `minId`; keep only items with published > 2024-01-13T12:00:00Z.
-- Prices: fetch current `/quote` for each symbol; store with session classification.
-- After storing, set `news_since_iso` to the latest news.publish time (e.g., 2024-01-15T11:58:00Z) and set `macro_news_min_id` to the highest macro id seen (e.g., 123456789).
-
-Next cycle (e.g., 2024-01-15T12:05:00Z)
-- Company news: from = date(2024-01-15T11:56:00Z), filter out articles published ≤ 11:56:00Z; items at 11:58:00Z and later are included.
-- Macro news: pass `minId=123456789`; keep only articles with id > 123456789.
-- Prices: fetch current quotes; store.

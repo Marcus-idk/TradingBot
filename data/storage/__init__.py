@@ -4,14 +4,8 @@
 # Batch operations and watermarks
 from data.storage.storage_batch import (
     commit_llm_batch,
-    get_last_macro_min_id,
-    get_last_news_time,
-    get_last_seen,
     get_news_before,
     get_prices_before,
-    set_last_macro_min_id,
-    set_last_news_time,
-    set_last_seen,
 )
 from data.storage.storage_core import (
     connect,
@@ -31,6 +25,12 @@ from data.storage.storage_crud import (
     upsert_analysis_result,
     upsert_holdings,
 )
+from data.storage.storage_watermark import (
+    get_last_seen_id,
+    get_last_seen_timestamp,
+    set_last_seen_id,
+    set_last_seen_timestamp,
+)
 
 # All public functions (for backward compatibility)
 __all__ = [
@@ -48,14 +48,12 @@ __all__ = [
     "get_analysis_results",
     "upsert_analysis_result",
     "upsert_holdings",
-    # Batch and watermarks
-    "get_last_seen",
-    "set_last_seen",
-    "get_last_news_time",
-    "set_last_news_time",
-    "get_last_macro_min_id",
-    "set_last_macro_min_id",
+    # Batch operations
     "get_news_before",
     "get_prices_before",
     "commit_llm_batch",
+    "get_last_seen_timestamp",
+    "set_last_seen_timestamp",
+    "get_last_seen_id",
+    "set_last_seen_id",
 ]

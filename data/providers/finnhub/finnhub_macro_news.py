@@ -35,6 +35,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         self, settings: FinnhubSettings, symbols: list[str], source_name: str = "Finnhub Macro"
     ) -> None:
         super().__init__(source_name)
+        self.settings = settings
         self.symbols = [s.strip().upper() for s in symbols if s.strip()]
         self.client = FinnhubClient(settings)
         self.last_fetched_max_id: int | None = None
@@ -48,52 +49,89 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         min_id: int | None = None,
     ) -> list[NewsEntry]:
         now_utc = datetime.now(UTC)
+        bootstrap_delta = timedelta(days=self.settings.macro_news_first_run_days)
 
         if min_id is None:
-            buffer_time = now_utc - timedelta(days=2)
+            buffer_time = now_utc - bootstrap_delta
         else:
             buffer_time = None
 
         news_entries: list[NewsEntry] = []
-        params: dict[str, Any] = {"category": "general"}
+        base_params: dict[str, Any] = {"category": "general"}
+        current_min_id = min_id
+        overall_max_id: int | None = None
+        reached_buffer_cutoff = False
 
-        if min_id is not None:
-            params["minId"] = min_id
+        while True:
+            params = base_params.copy()
+            if current_min_id is not None:
+                params["minId"] = current_min_id
 
-        articles = await self.client.get("/news", params)
+            articles = await self.client.get("/news", params)
 
-        if not isinstance(articles, list):
-            raise DataSourceError(f"Finnhub API returned {type(articles).__name__} instead of list")
-
-        if min_id is not None:
-            filtered_articles = [
-                article
-                for article in articles
-                if isinstance(article.get("id"), int) and article["id"] > min_id
-            ]
-            if len(filtered_articles) < len(articles):
-                logger.debug(
-                    f"Filtered {len(articles) - len(filtered_articles)} articles "
-                    f"with id <= {min_id}"
+            if not isinstance(articles, list):
+                raise DataSourceError(
+                    f"Finnhub API returned {type(articles).__name__} instead of list"
                 )
-            articles = filtered_articles
 
-        for article in articles:
-            try:
-                items = self._parse_article(article, buffer_time)
-                news_entries.extend(items)
-            except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                logger.debug(
-                    f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
-                )
-                continue
+            if current_min_id is not None:
+                filtered_articles = [
+                    article
+                    for article in articles
+                    if isinstance(article.get("id"), int) and article["id"] > current_min_id
+                ]
+                if len(filtered_articles) < len(articles):
+                    logger.debug(
+                        f"Filtered {len(articles) - len(filtered_articles)} articles "
+                        f"with id <= {current_min_id}"
+                    )
+                articles = filtered_articles
 
-        ids = [
-            article["id"]
-            for article in articles
-            if isinstance(article.get("id"), int) and article["id"] > 0
-        ]
-        self.last_fetched_max_id = max(ids) if ids else None
+            if not articles:
+                break
+
+            page_ids: list[int] = []
+
+            for article in articles:
+                article_id = article.get("id")
+                if isinstance(article_id, int) and article_id > 0:
+                    page_ids.append(article_id)
+
+                if buffer_time is not None:
+                    published_ts = article.get("datetime")
+                    if isinstance(published_ts, (int, float)):
+                        try:
+                            published_dt = datetime.fromtimestamp(published_ts, tz=UTC)
+                        except (ValueError, OSError):
+                            published_dt = None
+                        if published_dt and published_dt <= buffer_time:
+                            reached_buffer_cutoff = True
+
+                try:
+                    items = self._parse_article(article, buffer_time)
+                    news_entries.extend(items)
+                except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                    logger.debug(
+                        f"Failed to parse macro news article {article.get('id', 'unknown')}: {exc}"
+                    )
+                    continue
+
+            if not page_ids:
+                break
+
+            latest_page_id = max(page_ids)
+            if overall_max_id is None or latest_page_id > overall_max_id:
+                overall_max_id = latest_page_id
+
+            if reached_buffer_cutoff:
+                break
+
+            previous_min_id = current_min_id
+            current_min_id = latest_page_id
+            if previous_min_id is not None and latest_page_id <= previous_min_id:
+                break
+
+        self.last_fetched_max_id = overall_max_id
 
         return news_entries
 

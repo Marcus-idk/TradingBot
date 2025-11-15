@@ -8,24 +8,16 @@ and deduplicating prices from multiple providers.
 
 import asyncio
 import logging
-from datetime import datetime
 from decimal import Decimal
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from analysis.urgency_detector import detect_urgency
 from data import DataSourceError, NewsDataSource, PriceDataSource
 from data.models import NewsEntry, PriceData
-from data.providers.finnhub import FinnhubMacroNewsProvider
-from data.storage import (
-    get_last_macro_min_id,
-    get_last_news_time,
-    set_last_macro_min_id,
-    set_last_news_time,
-    store_news_items,
-    store_price_data,
-)
+from data.storage import store_news_items, store_price_data
 from llm.base import LLMError
 from utils.retry import RetryableError
+from workflows.watermarks import CursorPlan, WatermarkEngine, is_macro_stream
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +28,7 @@ class DataBatch(TypedDict):
     company_news: list[NewsEntry]
     macro_news: list[NewsEntry]
     prices: dict[PriceDataSource, dict[str, PriceData]]  # {provider: {symbol: PriceData}}
+    news_by_provider: dict[NewsDataSource, list[NewsEntry]]
     errors: list[str]
 
 
@@ -77,25 +70,21 @@ class DataPoller:
         self.poll_interval = poll_interval
         self.running = False
         self._stop_event = asyncio.Event()
+        self.watermarks = WatermarkEngine(db_path)
 
-        # Track macro providers that use ID-based watermarks (currently Finnhub macro endpoint)
-        self._finnhub_macro_providers: set[FinnhubMacroNewsProvider] = {
-            provider
-            for provider in news_providers
-            if isinstance(provider, FinnhubMacroNewsProvider)
-        }
+    @staticmethod
+    def _plan_kwargs(plan: CursorPlan) -> dict[str, Any]:
+        """Build keyword args for provider.fetch_incremental based on available cursors."""
+        kwargs: dict[str, Any] = {}
+        if plan.since is not None:
+            kwargs["since"] = plan.since
+        if plan.min_id is not None:
+            kwargs["min_id"] = plan.min_id
+        if plan.symbol_since_map is not None:
+            kwargs["symbol_since_map"] = plan.symbol_since_map
+        return kwargs
 
-    async def _read_watermarks(self) -> tuple[datetime | None, int | None]:
-        """Read persisted watermarks on a background thread."""
-        last_news_time = await asyncio.to_thread(get_last_news_time, self.db_path)
-        last_macro_min_id = await asyncio.to_thread(get_last_macro_min_id, self.db_path)
-        return last_news_time, last_macro_min_id
-
-    async def _fetch_all_data(
-        self,
-        last_news_time: datetime | None,
-        last_macro_min_id: int | None,
-    ) -> DataBatch:
+    async def _fetch_all_data(self) -> DataBatch:
         """
         Fetch data from all providers concurrently.
 
@@ -111,10 +100,8 @@ class DataPoller:
         # Start both news and price fetches concurrently (don't await yet)
         news_tasks = []
         for provider in self.news_providers:
-            if provider in self._finnhub_macro_providers:
-                news_tasks.append(provider.fetch_incremental(min_id=last_macro_min_id))
-            else:
-                news_tasks.append(provider.fetch_incremental(since=last_news_time))
+            plan = self.watermarks.build_plan(provider)
+            news_tasks.append(provider.fetch_incremental(**self._plan_kwargs(plan)))
 
         news_coro = asyncio.gather(
             *news_tasks,
@@ -128,18 +115,22 @@ class DataPoller:
         # Await both together to maintain full concurrency
         news_results, price_results = await asyncio.gather(news_coro, price_coro)
 
+        news_by_provider: dict[NewsDataSource, list[NewsEntry]] = {}
+
         # Process news results - zip keeps provider and result matched
         for provider, result in zip(self.news_providers, news_results, strict=True):
             provider_name = getattr(provider, "source_name", provider.__class__.__name__)
             if isinstance(result, Exception):
                 logger.debug(f"{provider_name} news fetch failed: {result}")
                 errors.append(f"{provider_name}: {str(result)}")
+                continue
+
+            entries = cast(list[NewsEntry], result)
+            news_by_provider[provider] = entries
+            if is_macro_stream(provider):
+                macro_news.extend(entries)
             else:
-                entries = cast(list[NewsEntry], result)
-                if provider in self._finnhub_macro_providers:
-                    macro_news.extend(entries)
-                else:
-                    company_news.extend(entries)
+                company_news.extend(entries)
 
         # Process price results - keep providers separate
         for provider, result in zip(self.price_providers, price_results, strict=True):
@@ -156,6 +147,7 @@ class DataPoller:
             company_news=company_news,
             macro_news=macro_news,
             prices=prices_by_provider,
+            news_by_provider=news_by_provider,
             errors=errors,
         )
 
@@ -249,52 +241,35 @@ class DataPoller:
             logger.warning(f"... {len(urgent_items) - 10} more")
 
     async def _process_news(
-        self, company_news: list[NewsEntry], macro_news: list[NewsEntry]
+        self,
+        news_by_provider: dict[NewsDataSource, list[NewsEntry]],
+        company_news: list[NewsEntry],
+        macro_news: list[NewsEntry],
     ) -> int:
-        """Store news, classify company news, detect urgency, and update watermarks."""
+        """Store news, detect urgency, and update per-provider watermarks."""
         all_news = company_news + macro_news
+        if not all_news:
+            logger.info("No news items to process")
+        else:
+            await asyncio.to_thread(store_news_items, self.db_path, all_news)
 
-        # Store all news items
-        await asyncio.to_thread(
-            store_news_items,
-            self.db_path,
-            all_news,
-        )
-
-        # Detect urgent items from all news
-        if all_news:
             try:
                 self._log_urgent_items(detect_urgency(all_news))
             except (LLMError, ValueError, TypeError, RuntimeError) as exc:
                 logger.exception(f"Urgency detection failed: {exc}")
 
-        # Update watermark with latest timestamp from all news
+        commit_tasks = [
+            asyncio.to_thread(self.watermarks.commit_updates, provider, entries)
+            for provider, entries in news_by_provider.items()
+        ]
+        if commit_tasks:
+            await asyncio.gather(*commit_tasks)
+
         if all_news:
-            max_time = max(n.published for n in all_news)
-            await asyncio.to_thread(
-                set_last_news_time,
-                self.db_path,
-                max_time,
-            )
-
-            # Persist minId watermark for macro news providers
-            for provider in self._finnhub_macro_providers:
-                if provider.last_fetched_max_id:
-                    await asyncio.to_thread(
-                        set_last_macro_min_id, self.db_path, provider.last_fetched_max_id
-                    )
-                    logger.info(
-                        f"Updated macro news minId watermark to {provider.last_fetched_max_id}"
-                    )
-
             logger.info(
                 f"Stored {len(all_news)} news items "
-                f"({len(company_news)} company, {len(macro_news)} macro), "
-                f"watermark updated to {max_time.isoformat()}"
+                f"({len(company_news)} company, {len(macro_news)} macro)"
             )
-        else:
-            logger.info("No news items to process")
-
         return len(all_news)
 
     async def poll_once(self) -> PollStats:
@@ -307,29 +282,17 @@ class DataPoller:
         stats: PollStats = {"news": 0, "prices": 0, "errors": []}
 
         try:
-            # Read watermarks for incremental fetching
-            last_news_time, last_macro_min_id = await self._read_watermarks()
-
-            if last_news_time:
-                logger.info(f"Fetching news since {last_news_time.isoformat()}")
-            else:
-                logger.info("No watermark found, fetching all available news")
-
-            if last_macro_min_id:
-                logger.info(f"Fetching macro news with minId={last_macro_min_id}")
-
             # Fetch all data concurrently
-            data = await self._fetch_all_data(last_news_time, last_macro_min_id)
+            data = await self._fetch_all_data()
 
             # Extract data from dict
             company_news = data["company_news"]
             macro_news = data["macro_news"]
             stats["errors"].extend(data["errors"])
 
-            if company_news or macro_news:
-                stats["news"] = await self._process_news(company_news, macro_news)
-            else:
-                logger.info("No new news items found")
+            stats["news"] = await self._process_news(
+                data["news_by_provider"], company_news, macro_news
+            )
 
             # Process prices
             prices_by_provider = data["prices"]

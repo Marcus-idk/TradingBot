@@ -59,8 +59,13 @@ CREATE TABLE IF NOT EXISTS holdings (
     PRIMARY KEY (symbol)
 ) WITHOUT ROWID;
 
--- State: incremental fetch and LLM cutoff
-CREATE TABLE IF NOT EXISTS last_seen (
-    key TEXT PRIMARY KEY CHECK(key IN ('news_since_iso', 'llm_last_run_iso', 'macro_news_min_id')),
-    value TEXT NOT NULL
-) WITHOUT ROWID;
+-- State: provider + stream specific cursors
+CREATE TABLE IF NOT EXISTS last_seen_state (
+    provider TEXT NOT NULL,
+    stream TEXT NOT NULL,
+    scope TEXT NOT NULL CHECK(scope IN ('GLOBAL', 'SYMBOL')),
+    symbol TEXT,
+    timestamp TEXT,
+    id INTEGER,
+    PRIMARY KEY (provider, stream, scope, symbol)
+);

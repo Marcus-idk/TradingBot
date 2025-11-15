@@ -1,105 +1,14 @@
-"""
-Batch operations and watermark management for trading bot data.
-Handles LLM processing batches and state tracking.
-"""
+"""Batch operations for trading bot data."""
 
-import logging
 from datetime import datetime
 
 from data.models import NewsEntry, PriceData
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import (
     _datetime_to_iso,
-    _iso_to_datetime,
     _row_to_news_entry,
     _row_to_price_data,
 )
-
-logger = logging.getLogger(__name__)
-
-
-def get_last_seen(db_path: str, key: str) -> str | None:
-    """
-    Get a value from last_seen table. Returns None if key doesn't exist.
-
-    Args:
-        db_path: Path to SQLite database
-        key: The key to look up
-
-    Returns:
-        The stored value or None if key doesn't exist
-    """
-    with _cursor_context(db_path, commit=False) as cursor:
-        cursor.execute("SELECT value FROM last_seen WHERE key = ?", (key,))
-        row = cursor.fetchone()
-        return row[0] if row else None
-
-
-def set_last_seen(db_path: str, key: str, value: str) -> None:
-    """
-    Set a value in last_seen table (INSERT OR REPLACE).
-
-    Args:
-        db_path: Path to SQLite database
-        key: The key to store
-        value: The value to store
-    """
-    with _cursor_context(db_path) as cursor:
-        cursor.execute("INSERT OR REPLACE INTO last_seen (key, value) VALUES (?, ?)", (key, value))
-
-
-def get_last_news_time(db_path: str) -> datetime | None:
-    """
-    Get the timestamp of the most recent news we've fetched (news_since_iso).
-
-    Returns:
-        datetime object in UTC or None if not set
-    """
-    value = get_last_seen(db_path, "news_since_iso")
-    if value:
-        # Parse ISO string to datetime
-        return _iso_to_datetime(value)
-    return None
-
-
-def set_last_news_time(db_path: str, timestamp: datetime) -> None:
-    """
-    Update the last fetched news timestamp (news_since_iso).
-
-    Args:
-        timestamp: The timestamp to store (will be converted to UTC)
-    """
-    iso_str = _datetime_to_iso(timestamp)
-    set_last_seen(db_path, "news_since_iso", iso_str)
-
-
-def get_last_macro_min_id(db_path: str) -> int | None:
-    """
-    Get the last seen macro news article ID (minId watermark).
-
-    Returns:
-        Integer ID or None if not set (first run)
-    """
-    value = get_last_seen(db_path, "macro_news_min_id")
-    if value:
-        try:
-            return int(value)
-        except ValueError as exc:
-            logger.warning(
-                f"Invalid macro_news_min_id in database ('{value}'); treating as unset: {exc}"
-            )
-            return None
-    return None
-
-
-def set_last_macro_min_id(db_path: str, min_id: int) -> None:
-    """
-    Update the last seen macro news article ID (minId watermark).
-
-    Args:
-        min_id: The max article ID from this fetch (becomes next minId)
-    """
-    set_last_seen(db_path, "macro_news_min_id", str(min_id))
 
 
 def get_news_before(db_path: str, cutoff: datetime) -> list[NewsEntry]:
@@ -163,11 +72,11 @@ def get_prices_before(db_path: str, cutoff: datetime) -> list[PriceData]:
 
 def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
     """
-    Atomically record the LLM cutoff and prune processed raw data.
+    Atomically prune processed raw data up to a cutoff.
 
-    This performs, in a single transaction:
-      1) Set `last_seen['llm_last_run_iso'] = cutoff`
-      2) DELETE from `news_symbols`, `news_items`, and `price_data` where `created_at_iso <= cutoff`
+    This performs, in a single transaction, the following:
+      - DELETE from `news_symbols`, `news_items`, and `price_data`
+        where `created_at_iso <= cutoff`.
 
     Args:
         db_path: Path to the SQLite database
@@ -179,13 +88,7 @@ def commit_llm_batch(db_path: str, cutoff: datetime) -> dict[str, int]:
     """
     iso_cutoff = _datetime_to_iso(cutoff)
     with _cursor_context(db_path) as cursor:
-        # 1) Persist the cutoff watermark
-        cursor.execute(
-            "INSERT OR REPLACE INTO last_seen (key, value) VALUES ('llm_last_run_iso', ?)",
-            (iso_cutoff,),
-        )
-
-        # 2) Prune items processed in this batch
+        # Prune items processed in this batch
         # Note: ON DELETE CASCADE should auto-delete news_symbols when news_items are deleted,
         # but we explicitly delete here for clarity and to track the count.
         cursor.execute(
