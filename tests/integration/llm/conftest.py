@@ -20,8 +20,6 @@ load_dotenv(override=True)
 
 @dataclass(slots=True)
 class ProviderSpec:
-    """Specification describing shared LLM provider behaviors."""
-
     name: str
     provider_cls: type
     settings_factory: Callable[[], Any]
@@ -97,5 +95,4 @@ _PROVIDER_SPECS: tuple[ProviderSpec, ...] = (
 
 @pytest.fixture(params=_PROVIDER_SPECS, ids=lambda spec: spec.name)
 def provider_spec(request: pytest.FixtureRequest) -> ProviderSpec:
-    """Expose provider specs for contract tests."""
     return request.param

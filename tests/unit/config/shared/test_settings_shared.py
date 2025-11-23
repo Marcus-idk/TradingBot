@@ -59,7 +59,6 @@ from config.retry import DEFAULT_DATA_RETRY, DEFAULT_LLM_RETRY
     ]
 )
 def settings_spec(request):
-    """Fixture providing specs for each provider (data + LLM)"""
     name, settings_cls, env_var, default_retry, expected_fields, whitespace_err = request.param
     return {
         "name": name,

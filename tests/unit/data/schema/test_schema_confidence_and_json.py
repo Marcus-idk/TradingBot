@@ -8,7 +8,6 @@ from data.storage.db_context import _cursor_context
 
 
 def has_json1_support(db_path: str) -> bool:
-    """Check if SQLite has JSON1 extension for conditional tests."""
     try:
         with _cursor_context(db_path, commit=False) as cursor:
             cursor.execute("SELECT json_valid('{}')")

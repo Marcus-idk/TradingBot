@@ -30,7 +30,6 @@ def make_news_item(
     news_type: NewsType = NewsType.COMPANY_SPECIFIC,
     content: str | None = None,
 ) -> NewsItem:
-    """Return a NewsItem with deterministic defaults."""
     published_at = published or _DEFAULT_TIME
     return NewsItem(
         url=url,
@@ -53,7 +52,6 @@ def make_news_entry(
     content: str | None = None,
     is_important: bool | None = None,
 ) -> NewsEntry:
-    """Return a NewsEntry wrapping a NewsItem with shared defaults."""
     article = make_news_item(
         url=url,
         headline=headline,
@@ -73,7 +71,6 @@ def make_price_data(
     volume: int | None = None,
     session: Session = Session.REG,
 ) -> PriceData:
-    """Return PriceData with consistent defaults and timezone handling."""
     price_decimal = price if isinstance(price, Decimal) else Decimal(str(price))
     timestamp_dt = timestamp or _DEFAULT_TIME
     return PriceData(
@@ -97,7 +94,6 @@ def make_analysis_result(
     result_json: str = '{"status": "ok"}',
     extras: dict[str, Any] | None = None,
 ) -> AnalysisResult:
-    """Return an AnalysisResult with deterministic timestamps."""
     payload: dict[str, Any] = {
         "symbol": symbol,
         "analysis_type": analysis_type,
@@ -123,7 +119,6 @@ def make_holdings(
     updated_at: datetime | None = None,
     notes: str | None = None,
 ) -> Holdings:
-    """Return Holdings with optional notes and deterministic timestamps."""
     quantity_decimal = quantity if isinstance(quantity, Decimal) else Decimal(str(quantity))
     break_even_decimal = (
         break_even_price

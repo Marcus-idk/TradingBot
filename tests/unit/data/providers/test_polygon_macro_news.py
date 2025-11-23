@@ -18,6 +18,7 @@ class TestPolygonMacroNewsProvider:
     """Targeted Polygon-only behaviors not covered by contracts."""
 
     async def test_fetch_incremental_handles_pagination(self, monkeypatch):
+        """Test fetch incremental handles pagination."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
@@ -82,6 +83,7 @@ class TestPolygonMacroNewsProvider:
         assert all(item.is_important is None for item in result)
 
     async def test_since_buffer_applied(self):
+        """Test since buffer applied."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
@@ -100,6 +102,7 @@ class TestPolygonMacroNewsProvider:
         assert captured["params"]["published_utc.gt"] == expected_cutoff
 
     async def test_empty_results_stops_pagination(self):
+        """Test empty results stops pagination."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
@@ -117,6 +120,7 @@ class TestPolygonMacroNewsProvider:
         assert call_count["n"] == 1
 
     async def test_next_url_without_cursor_stops_pagination(self, monkeypatch):
+        """Test next url without cursor stops pagination."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
@@ -171,6 +175,7 @@ class TestPolygonMacroNewsProvider:
         ],
     )
     async def test_extract_cursor_from_next_url(self, next_url: str, expected: str | None):
+        """Test extract cursor from next url."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])  # watchlist
 
@@ -178,6 +183,7 @@ class TestPolygonMacroNewsProvider:
         assert cursor == expected
 
     async def test_extract_cursor_exception_returns_none(self):
+        """Test extract cursor exception returns none."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 
@@ -185,6 +191,7 @@ class TestPolygonMacroNewsProvider:
         assert result is None
 
     async def test_non_dict_publisher_defaults_to_polygon(self):
+        """Test non dict publisher defaults to polygon."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonMacroNewsProvider(settings, ["AAPL"])
 

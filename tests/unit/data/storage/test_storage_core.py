@@ -11,8 +11,6 @@ from data.storage.storage_core import _check_json1_support
 
 
 class FakeConnection:
-    """Simple sqlite3 connection stub for PRAGMA tests."""
-
     def __init__(self, *, fail_foreign: bool = False, fail_busy: bool = False) -> None:
         self.fail_foreign = fail_foreign
         self.fail_busy = fail_busy
@@ -26,6 +24,7 @@ class FakeConnection:
 
 
 def test_connect_logs_when_foreign_keys_pragma_fails(monkeypatch, caplog):
+    """Test connect logs when foreign keys pragma fails."""
     caplog.set_level("WARNING")
     monkeypatch.setattr(
         sqlite3, "connect", lambda *args, **kwargs: FakeConnection(fail_foreign=True)
@@ -38,6 +37,7 @@ def test_connect_logs_when_foreign_keys_pragma_fails(monkeypatch, caplog):
 
 
 def test_connect_logs_when_busy_timeout_pragma_fails(monkeypatch, caplog):
+    """Test connect logs when busy timeout pragma fails."""
     caplog.set_level("WARNING")
     monkeypatch.setattr(sqlite3, "connect", lambda *args, **kwargs: FakeConnection(fail_busy=True))
 
@@ -48,6 +48,8 @@ def test_connect_logs_when_busy_timeout_pragma_fails(monkeypatch, caplog):
 
 
 def test_check_json1_support_returns_false_when_extension_missing(caplog):
+    """Test check json1 support returns false when extension missing."""
+
     class JsonLessConnection:
         def execute(self, _sql: str):
             raise sqlite3.OperationalError("no such function: json_valid")
@@ -59,6 +61,8 @@ def test_check_json1_support_returns_false_when_extension_missing(caplog):
 
 
 def test_init_database_raises_when_json1_missing(monkeypatch, tmp_path):
+    """Test init database raises when json1 missing."""
+
     class ContextlessConnection:
         def __enter__(self):
             return self
@@ -77,6 +81,7 @@ def test_init_database_raises_when_json1_missing(monkeypatch, tmp_path):
 
 
 def test_finalize_database_raises_when_path_missing(tmp_path):
+    """Test finalize database raises when path missing."""
     missing = tmp_path / "nope.db"
 
     with pytest.raises(FileNotFoundError, match="Database not found"):
@@ -84,6 +89,7 @@ def test_finalize_database_raises_when_path_missing(tmp_path):
 
 
 def test_finalize_database_switches_to_delete_mode(temp_db):
+    """Test finalize database switches to delete mode."""
     finalize_database(temp_db)
 
     with _cursor_context(temp_db, commit=False) as cursor:

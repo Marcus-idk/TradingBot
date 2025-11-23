@@ -6,8 +6,9 @@ from datetime import UTC, datetime
 def normalize_to_utc(dt: datetime) -> datetime:
     """Return a timezone-aware UTC datetime.
 
-    - If `dt` is naive, attach UTC tzinfo.
-    - If `dt` is aware, convert to UTC via `astimezone`.
+    Notes:
+        - If `dt` is naive, attach UTC tzinfo.
+        - If `dt` is aware, convert to UTC via `astimezone`.
     """
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
@@ -15,9 +16,10 @@ def normalize_to_utc(dt: datetime) -> datetime:
 
 
 def parse_rfc3339(timestamp_str: str) -> datetime:
-    """Parse RFC3339/ISO 8601 timestamp string to UTC datetime.
+    """Parse RFC3339/ISO 8601 timestamp string to a UTC datetime.
 
-    Handles common Z/offset/naive formats and normalizes to UTC.
+    Notes:
+        Handles common Z/offset/naive formats and normalizes to UTC.
     """
     if not isinstance(timestamp_str, str):
         raise TypeError(f"timestamp_str must be str, got {type(timestamp_str).__name__}")

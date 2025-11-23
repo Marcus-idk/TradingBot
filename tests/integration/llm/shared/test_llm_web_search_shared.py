@@ -16,6 +16,7 @@ pytestmark = [pytest.mark.network, pytest.mark.asyncio]
 
 @pytest.mark.flaky(reruns=2, reruns_delay=1)
 async def test_web_search_enabled_returns_expected_title(provider_spec):
+    """Test web search enabled returns expected title."""
     provider = provider_spec.make_provider_for_search(enabled=True)
     yesterday_utc = (datetime.now(UTC) - timedelta(days=1)).date()
     expected_title = await fetch_featured_wiki(yesterday_utc)
@@ -32,6 +33,7 @@ async def test_web_search_enabled_returns_expected_title(provider_spec):
 
 
 async def test_web_search_disabled_does_not_find_title(provider_spec):
+    """Test web search disabled does not find title."""
     provider = provider_spec.make_provider_for_search(enabled=False)
     yesterday_utc = (datetime.now(UTC) - timedelta(days=1)).date()
     expected_title = await fetch_featured_wiki(yesterday_utc)

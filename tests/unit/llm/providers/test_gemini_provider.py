@@ -78,8 +78,6 @@ def _make_provider(
 
 
 class _TestAPIError(gemini_module.APIError):  # type: ignore[misc]
-    """Test shim for google-genai APIError preserving isinstance behavior."""
-
     def __init__(self, msg: str, code: int, headers: dict[str, str] | None = None) -> None:
         Exception.__init__(self, msg)
         self.code = code
@@ -132,6 +130,7 @@ class TestGeminiProvider:
     async def test_generate_maps_tool_choice(
         self, monkeypatch: pytest.MonkeyPatch, tool_choice: str, expected_mode: str
     ) -> None:
+        """Test generate maps tool choice."""
         tools = [
             {
                 "function_declarations": [
@@ -163,6 +162,7 @@ class TestGeminiProvider:
 
     @pytest.mark.asyncio
     async def test_generate_requires_tools_for_any(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test generate requires tools for any."""
         provider, _, _ = _make_provider(monkeypatch, tools=None, tool_choice="any")
 
         with pytest.raises(ValueError, match="tool_choice='any' requires tools"):
@@ -182,6 +182,7 @@ class TestGeminiProvider:
 
     @pytest.mark.asyncio
     async def test_generate_uses_default_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test generate uses default thinking."""
         provider, client, recorded = _make_provider(monkeypatch)
 
         await provider.generate("prompt")
@@ -192,7 +193,8 @@ class TestGeminiProvider:
 
     @pytest.mark.asyncio
     async def test_generate_uses_custom_thinking(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        custom = {"thinking_budget_token_limit": 64, "include_thoughts": False}
+        """Test generate uses custom thinking."""
+        custom = {"thinking_budget_token_limit": 256, "include_thoughts": False}
         provider, _, recorded = _make_provider(
             monkeypatch,
             thinking_config=custom,
@@ -203,9 +205,25 @@ class TestGeminiProvider:
         assert recorded["thinking"][0] == custom
 
     @pytest.mark.asyncio
+    async def test_generate_clamps_small_thinking_budget(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Budgets below 128 should be clamped up to 128."""
+        custom = {"thinking_budget_token_limit": 64}
+        provider, _, recorded = _make_provider(
+            monkeypatch,
+            thinking_config=custom,
+        )
+
+        await provider.generate("prompt")
+
+        assert recorded["thinking"][0] == {"thinking_budget_token_limit": 128}
+
+    @pytest.mark.asyncio
     async def test_generate_raises_when_no_candidates(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Test generate raises when no candidates."""
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.generate_content.return_value = SimpleNamespace(
             candidates=[],
@@ -219,6 +237,7 @@ class TestGeminiProvider:
     async def test_generate_combines_text_and_code_outputs(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Test generate combines text and code outputs."""
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.generate_content.return_value = SimpleNamespace(
             candidates=[
@@ -239,6 +258,7 @@ class TestGeminiProvider:
 
     @pytest.mark.asyncio
     async def test_generate_handles_none_code_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test generate handles none code output."""
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.generate_content.return_value = SimpleNamespace(
             candidates=[
@@ -258,6 +278,7 @@ class TestGeminiProvider:
 
     @pytest.mark.asyncio
     async def test_validate_connection_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test validate connection failure."""
         provider, client, _ = _make_provider(monkeypatch)
         client.aio.models.list.side_effect = _server_error("offline")
 
@@ -268,6 +289,7 @@ class TestGeminiProvider:
         client.aio.models.list.assert_awaited()
 
     def test_classify_server_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify server error."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = _server_error("boom")
 
@@ -295,6 +317,7 @@ class TestGeminiProvider:
     def test_classify_api_error_codes(
         self, monkeypatch: pytest.MonkeyPatch, code: int, expected_retryable: bool
     ) -> None:
+        """Test classify api error codes."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = _api_error(code)
 
@@ -308,6 +331,7 @@ class TestGeminiProvider:
     def test_classify_api_error_rate_limit_uses_retry_after(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Test classify api error rate limit uses retry after."""
         provider, _, _ = _make_provider(monkeypatch)
         headers = {"retry-after": "7"}
         exc = _api_error(429, message="slow down", headers=headers)
@@ -318,6 +342,7 @@ class TestGeminiProvider:
         assert mapped.retry_after == pytest.approx(7.0)
 
     def test_classify_client_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify client error."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = _client_error("bad client")
 
@@ -326,6 +351,7 @@ class TestGeminiProvider:
         assert isinstance(mapped, LLMError)
 
     def test_classify_timeout_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify timeout message."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = RuntimeError("Request timed out waiting for response")
 
@@ -334,6 +360,7 @@ class TestGeminiProvider:
         assert isinstance(mapped, RetryableError)
 
     def test_classify_connection_message(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify connection message."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = RuntimeError("Connection error occurred")
 
@@ -342,6 +369,7 @@ class TestGeminiProvider:
         assert isinstance(mapped, RetryableError)
 
     def test_classify_unexpected_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify unexpected error."""
         provider, _, _ = _make_provider(monkeypatch)
         exc = ValueError("weird failure")
 

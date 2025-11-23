@@ -30,23 +30,32 @@ class GeminiProvider(LLMProvider):
         self.temperature = temperature
         self.tools = tools
         self.tool_choice = tool_choice
-        self.thinking_config = (
-            thinking_config if thinking_config is not None else {"thinking_budget_token_limit": 128}
-        )
+        budget_key = "thinking_budget_token_limit"
+        if thinking_config is None:
+            self.thinking_config = {budget_key: 128}
+        else:
+            budget = thinking_config.get(budget_key)
+            if isinstance(budget, int):
+                clamped = max(128, budget)
+                cfg = dict(thinking_config)
+                cfg[budget_key] = clamped
+                self.thinking_config = cfg
+            else:
+                self.thinking_config = thinking_config
         self.client = genai.Client(
             api_key=settings.api_key,
             http_options=types.HttpOptions(timeout=settings.retry_config.timeout_seconds * 1000),
         )
 
     async def generate(self, prompt: str) -> str:
-        cfg = {"candidate_count": 1, **self.config}
+        """Generate a text response from Gemini for the given prompt."""
+        args = {"candidate_count": 1, **self.config}
 
-        # Only include temperature if not None
         if self.temperature is not None:
-            cfg["temperature"] = self.temperature
+            args["temperature"] = self.temperature
 
         if self.tools:
-            cfg["tools"] = self.tools
+            args["tools"] = self.tools
 
         if self.tool_choice:
             mode = {
@@ -72,13 +81,13 @@ class GeminiProvider(LLMProvider):
                         "do not support tool_choice."
                     )
 
-                cfg["tool_config"] = {"function_calling_config": {"mode": mode}}
+                args["tool_config"] = {"function_calling_config": {"mode": mode}}
 
         if self.thinking_config:
             thinking_ctor = cast(Any, types.ThinkingConfig)
-            cfg["thinking_config"] = thinking_ctor(**self.thinking_config)
+            args["thinking_config"] = thinking_ctor(**self.thinking_config)
 
-        config = types.GenerateContentConfig(**cfg)
+        config = types.GenerateContentConfig(**args)
 
         async def _attempt() -> str:
             """Single API call attempt with error mapping to RetryableError."""

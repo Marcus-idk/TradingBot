@@ -16,7 +16,6 @@ from data.storage import connect, init_database
 
 
 def cleanup_sqlite_artifacts(db_path: str):
-    """Windows-safe cleanup for SQLite WAL databases used in tests."""
     if not os.path.exists(db_path):
         return
 
@@ -48,7 +47,6 @@ def cleanup_sqlite_artifacts(db_path: str):
 
 @pytest.fixture
 def temp_db_path():
-    """Provides temporary database file path with automatic cleanup"""
     fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield db_path
@@ -57,15 +55,12 @@ def temp_db_path():
 
 @pytest.fixture
 def temp_db(temp_db_path):
-    """Provides initialized temporary database with automatic cleanup"""
     init_database(temp_db_path)
     yield temp_db_path
 
 
 @pytest.fixture
 def mock_http_client(monkeypatch):
-    """Fixture to create a mocked httpx.AsyncClient for testing HTTP calls"""
-
     def _create_mock_client(mock_get_func):
         # Create the fake client
         mock_client = Mock()

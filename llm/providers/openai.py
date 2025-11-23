@@ -46,6 +46,7 @@ class OpenAIProvider(LLMProvider):
         )
 
     async def generate(self, prompt: str) -> str:
+        """Generate a text response from OpenAI for the given prompt."""
         args = {"model": self.model_name, "input": prompt, **self.config}
 
         if self.temperature is not None:

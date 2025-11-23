@@ -18,6 +18,7 @@ class TestPolygonNewsProvider:
     """Targeted Polygon-only behaviors not covered by contracts."""
 
     async def test_fetch_incremental_handles_pagination(self, monkeypatch):
+        """Test fetch incremental handles pagination."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonNewsProvider(settings, ["AAPL"])
 
@@ -91,6 +92,7 @@ class TestPolygonNewsProvider:
         ],
     )
     async def test_extract_cursor_from_next_url(self, next_url: str, expected: str | None):
+        """Test extract cursor from next url."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonNewsProvider(settings, ["AAPL"])
 
@@ -98,6 +100,7 @@ class TestPolygonNewsProvider:
         assert cursor == expected
 
     async def test_fetch_symbol_news_applies_buffer_filter(self, monkeypatch, caplog):
+        """Test fetch symbol news applies buffer filter."""
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonNewsProvider(settings, ["AAPL"])
         buffer_time = datetime(2024, 1, 20, 12, 0, tzinfo=UTC)

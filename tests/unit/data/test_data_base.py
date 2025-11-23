@@ -12,6 +12,7 @@ class TestDataSourceContract:
     """Contract tests for the DataSource abstract base class."""
 
     def test_source_name_none_raises(self):
+        """Test source name none raises."""
         with pytest.raises(ValueError, match="source_name cannot be None"):
 
             class ConcreteSourceNone(DataSource):
@@ -21,6 +22,7 @@ class TestDataSourceContract:
             ConcreteSourceNone(None)  # type: ignore[reportArgumentType]
 
     def test_source_name_must_be_string(self):
+        """Test source name must be string."""
         with pytest.raises(TypeError, match="source_name must be a string"):
 
             class ConcreteSourceNotStrA(DataSource):
@@ -38,6 +40,7 @@ class TestDataSourceContract:
             ConcreteSourceNotStrB(["list"])  # type: ignore[reportArgumentType]
 
     def test_source_name_cannot_be_empty(self):
+        """Test source name cannot be empty."""
         with pytest.raises(ValueError, match="source_name cannot be empty"):
 
             class ConcreteSourceEmptyA(DataSource):
@@ -55,6 +58,7 @@ class TestDataSourceContract:
             ConcreteSourceEmptyB("   ")
 
     def test_source_name_length_limit(self):
+        """Test source name length limit."""
         long_name = "A" * 101
         with pytest.raises(ValueError, match="source_name too long.*101.*max 100"):
 
@@ -65,6 +69,8 @@ class TestDataSourceContract:
             ConcreteSourceTooLong(long_name)
 
     def test_source_name_normalization(self):
+        """Test source name normalization."""
+
         class ConcreteSourceNormalized(DataSource):
             async def validate_connection(self):
                 return True
@@ -80,6 +86,7 @@ class TestDataSourceContract:
         assert source3.source_name == "Reuters"
 
     def test_datasource_is_abstract(self):
+        """Test datasource is abstract."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class DataSource"):
             DataSource("Test")  # type: ignore[reportAbstractUsage]
 
@@ -88,6 +95,7 @@ class TestNewsDataSourceContract:
     """Contract tests for the NewsDataSource abstract base class."""
 
     def test_requires_fetch_incremental(self):
+        """Test requires fetch incremental."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class.*fetch_incremental"):
 
             class IncompleteNews(NewsDataSource):
@@ -97,6 +105,8 @@ class TestNewsDataSourceContract:
             IncompleteNews("Test")  # type: ignore[reportAbstractUsage]
 
     def test_concrete_implementation_satisfies_contract(self):
+        """Test concrete implementation satisfies contract."""
+
         class ConcreteNews(NewsDataSource):
             async def validate_connection(self) -> bool:
                 return True
@@ -119,6 +129,7 @@ class TestPriceDataSourceContract:
     """Contract tests for the PriceDataSource abstract base class."""
 
     def test_requires_fetch_incremental(self):
+        """Test requires fetch incremental."""
         with pytest.raises(TypeError, match="Can't instantiate abstract class.*fetch_incremental"):
 
             class IncompletePrice(PriceDataSource):
@@ -128,6 +139,8 @@ class TestPriceDataSourceContract:
             IncompletePrice("Test")  # type: ignore[reportAbstractUsage]
 
     def test_concrete_implementation_satisfies_contract(self):
+        """Test concrete implementation satisfies contract."""
+
         class ConcretePrice(PriceDataSource):
             async def validate_connection(self) -> bool:
                 return True
@@ -141,6 +154,7 @@ class TestPriceDataSourceContract:
 
 class TestDataSourceErrorContract:
     def test_exception_inheritance(self):
+        """Test exception inheritance."""
         assert issubclass(DataSourceError, Exception)
 
         error = DataSourceError("Test error")

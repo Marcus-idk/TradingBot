@@ -17,6 +17,7 @@ class TestNewsMacroShared:
     """Shared behavior tests for macro news providers."""
 
     async def test_validate_connection_success(self, provider_spec_macro):
+        """Test validate connection success."""
         provider = provider_spec_macro.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
 
@@ -26,6 +27,7 @@ class TestNewsMacroShared:
         provider.client.validate_connection.assert_awaited_once()
 
     async def test_validate_connection_failure(self, provider_spec_macro):
+        """Test validate connection failure."""
         provider = provider_spec_macro.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("fail"))
 
@@ -33,6 +35,7 @@ class TestNewsMacroShared:
             await provider.validate_connection()
 
     async def test_maps_related_symbols(self, provider_spec_macro):
+        """Test maps related symbols."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT", "TSLA"])
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(
@@ -50,6 +53,7 @@ class TestNewsMacroShared:
         assert all(item.is_important is None for item in results)
 
     async def test_falls_back_to_market_when_no_related(self, provider_spec_macro):
+        """Test falls back to market when no related."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL", "MSFT"])
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="", epoch=now_epoch)
@@ -66,6 +70,7 @@ class TestNewsMacroShared:
         assert fallback.is_important is None
 
     async def test_filters_buffer_time_when_bootstrap(self, provider_spec_macro, monkeypatch):
+        """Test filters buffer time when bootstrap."""
         provider = provider_spec_macro.make_provider()
 
         class MockDatetime:
@@ -104,6 +109,7 @@ class TestNewsMacroShared:
         assert entry.is_important is None
 
     async def test_invalid_articles_are_skipped(self, provider_spec_macro):
+        """Test invalid articles are skipped."""
         provider = provider_spec_macro.make_provider()
         now_epoch = int(datetime.now(UTC).timestamp())
         bad_headline = provider_spec_macro.article_factory(headline="", epoch=now_epoch)
@@ -128,6 +134,7 @@ class TestNewsMacroShared:
         assert entry.is_important is None
 
     async def test_structural_error_raises(self, provider_spec_macro):
+        """Test structural error raises."""
         provider = provider_spec_macro.make_provider()
 
         async def mock_get(path: str, params: dict[str, Any]) -> Any:
@@ -139,6 +146,7 @@ class TestNewsMacroShared:
             await provider.fetch_incremental()
 
     async def test_empty_watchlist_falls_back_to_market(self, provider_spec_macro):
+        """Test empty watchlist falls back to market."""
         provider = provider_spec_macro.make_provider(symbols=[])
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_macro.article_factory(symbols="GOOG", epoch=now_epoch)
@@ -155,6 +163,7 @@ class TestNewsMacroShared:
         assert fallback.is_important is None
 
     async def test_structural_error_non_dict_response(self, provider_spec_macro):
+        """Test structural error non dict response."""
         provider = provider_spec_macro.make_provider()
         provider.client.get = AsyncMock(return_value="unexpected-type")
 
@@ -165,6 +174,7 @@ class TestNewsMacroShared:
                 await provider.fetch_incremental(since=None)
 
     async def test_parse_exception_skips_article_and_continues(self, provider_spec_macro):
+        """Test parse exception skips article and continues."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         malformed = provider_spec_macro.article_factory(headline=None)
         valid = provider_spec_macro.article_factory(symbols="AAPL")
@@ -185,6 +195,7 @@ class TestNewsMacroShared:
         assert entry.is_important is None
 
     async def test_invalid_timestamp_skips_article(self, provider_spec_macro, monkeypatch):
+        """Test invalid timestamp skips article."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 
@@ -217,6 +228,7 @@ class TestNewsMacroShared:
         assert results == []
 
     async def test_newsitem_validation_failure_skips_article(self, provider_spec_macro):
+        """Test newsitem validation failure skips article."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 
@@ -237,6 +249,7 @@ class TestNewsMacroShared:
     async def test_newsentry_validation_failure_skips_symbol(
         self, provider_spec_macro, monkeypatch
     ):
+        """Test newsentry validation failure skips symbol."""
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 

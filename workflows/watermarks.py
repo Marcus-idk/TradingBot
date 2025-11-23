@@ -90,16 +90,19 @@ class CursorPlan:
 
 
 def _utc_now() -> datetime:
+    """Return the current UTC datetime."""
     return datetime.now(UTC)
 
 
 def _cfg_days(settings: object | None, family: str, default: int = 7) -> int:
+    """Read first-run day window from settings, falling back to default."""
     if settings is None:
         return default
     return int(getattr(settings, f"{family}_news_first_run_days", default))
 
 
 def _clamp_future(ts: datetime, now: datetime) -> datetime:
+    """Clamp a timestamp to at most 60 seconds in the future."""
     cap = now + timedelta(seconds=60)
     return ts if ts <= cap else cap
 
@@ -111,6 +114,7 @@ def _is_bootstrap_symbol(
     symbol: str,
     base_since: datetime,
 ) -> bool:
+    """Return True when the symbol has no watermark or is older than the base cutoff."""
     try:
         symbol_ts = get_last_seen_timestamp(
             db_path,
@@ -134,6 +138,7 @@ class WatermarkEngine:
     db_path: str
 
     def build_plan(self, provider: NewsDataSource) -> CursorPlan:
+        """Derive cursor plan for the provider based on stored watermarks and settings."""
         rule = CURSOR_RULES.get(type(provider))
         if not rule:
             logger.debug(
@@ -197,6 +202,7 @@ class WatermarkEngine:
         return CursorPlan(since=base_since, symbol_since_map=symbol_map)
 
     def commit_updates(self, provider: NewsDataSource, entries: list[NewsEntry]) -> None:
+        """Persist updated watermarks based on fetched entries."""
         rule = CURSOR_RULES.get(type(provider))
         if not rule:
             logger.debug(
@@ -319,6 +325,7 @@ class WatermarkEngine:
 
     @staticmethod
     def _get_settings(provider: NewsDataSource) -> object | None:
+        """Retrieve provider settings object or raise if missing."""
         settings = getattr(provider, "settings", None)
         if settings is None:
             raise RuntimeError(
@@ -328,5 +335,6 @@ class WatermarkEngine:
 
 
 def is_macro_stream(provider: NewsDataSource) -> bool:
+    """Return True when the provider handles macro news streams."""
     rule = CURSOR_RULES.get(type(provider))
     return bool(rule and rule.stream is StreamEnum.MACRO)

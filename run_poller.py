@@ -1,8 +1,8 @@
-"""
-Main entry point for the trading bot data poller.
+"""Main entry point for the trading bot data poller.
 
-Runs continuous data collection from configured providers at a configurable interval
-(POLL_INTERVAL, seconds), storing results in SQLite.
+Notes:
+    Runs continuous data collection from configured providers at a configurable
+    interval (``POLL_INTERVAL`` seconds), storing results in SQLite.
 """
 
 import argparse
@@ -248,14 +248,12 @@ def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
 
 
 async def main(with_viewer: bool = False) -> int:
-    """
-    Main entry point for the poller.
+    """Main entry point for the poller.
 
-    Args:
-        with_viewer: If True, launch Streamlit web UI alongside poller
-
-    Returns:
-        Exit code (0 for success, non-zero for failure)
+    Notes:
+        When ``with_viewer`` is True, launches the Streamlit web UI alongside
+        the poller. Returns an integer exit code (``0`` for success, non-zero
+        for failure).
     """
     # Setup environment and logging
     setup_environment()

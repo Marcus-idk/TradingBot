@@ -18,6 +18,7 @@ class FinnhubClient:
         self.settings = settings
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        """Perform an authenticated GET request to the Finnhub API."""
         url = f"{self.settings.base_url}{path}"
         params = {**(params or {}), "token": self.settings.api_key}
 

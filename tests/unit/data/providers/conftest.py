@@ -28,8 +28,6 @@ from data.storage.storage_utils import _datetime_to_iso
 
 @dataclass(slots=True)
 class CompanyProviderSpec:
-    """Specification for company news provider contract tests."""
-
     name: str
     endpoint: str
     default_symbols: list[str]
@@ -42,7 +40,6 @@ class CompanyProviderSpec:
         return self.provider_factory(symbols_to_use)
 
     def wrap_response(self, payload: list[dict[str, Any]]) -> Any:
-        """Wrap provider payload to match API response shape."""
         if "polygon" in self.name:
             return {"results": payload}
         return payload
@@ -57,8 +54,6 @@ class CompanyProviderSpec:
 
 @dataclass(slots=True)
 class MacroProviderSpec:
-    """Specification for macro news provider contract tests."""
-
     name: str
     endpoint: str
     default_symbols: list[str]
@@ -70,7 +65,6 @@ class MacroProviderSpec:
         return self.provider_factory(symbols_to_use)
 
     def wrap_response(self, payload: list[dict[str, Any]]) -> Any:
-        """Wrap provider payload to match API response shape."""
         if "polygon" in self.name:
             return {"results": payload}
         return payload
@@ -85,8 +79,6 @@ class MacroProviderSpec:
 
 @dataclass(slots=True)
 class PriceProviderSpec:
-    """Specification for price provider contract tests."""
-
     name: str
     endpoint: str
     default_symbols: list[str]
@@ -123,8 +115,6 @@ class PriceProviderSpec:
 
 @dataclass(slots=True)
 class ClientSpec:
-    """Specification for client contract tests."""
-
     name: str
     module_path: str
     client_factory: Callable[[], Any]

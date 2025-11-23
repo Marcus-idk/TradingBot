@@ -19,8 +19,10 @@ async def get_json_with_retry(
 ) -> Any:
     """Async HTTP GET with retries and JSON parsing.
 
-    Only handles: GET, query params, 200/204, 4xx/5xx, Retry-After, and network timeouts.
-    Uses native async HTTP client for non-blocking requests.
+    Notes:
+        Only handles: GET, query params, 200/204, 4xx/5xx, Retry-After, and
+        network timeouts. Uses native async HTTP client for non-blocking
+        requests.
     """
     if not isinstance(url, str) or not url.strip():
         raise ValueError("url must be a non-empty string")

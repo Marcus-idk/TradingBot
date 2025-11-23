@@ -18,6 +18,7 @@ class TestNewsCompanyShared:
     """Shared behavior tests for company news providers."""
 
     async def test_validate_connection_success(self, provider_spec_company):
+        """Test validate connection success."""
         provider = provider_spec_company.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
 
@@ -27,6 +28,7 @@ class TestNewsCompanyShared:
         provider.client.validate_connection.assert_awaited_once()
 
     async def test_validate_connection_failure(self, provider_spec_company):
+        """Test validate connection failure."""
         provider = provider_spec_company.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("boom"))
 
@@ -34,6 +36,7 @@ class TestNewsCompanyShared:
             await provider.validate_connection()
 
     async def test_parses_valid_article(self, provider_spec_company):
+        """Test parses valid article."""
         provider = provider_spec_company.make_provider()
         now_epoch = int(datetime.now(UTC).timestamp())
         article = provider_spec_company.article_factory(
@@ -71,6 +74,7 @@ class TestNewsCompanyShared:
         assert item.is_important is True
 
     async def test_skips_missing_headline(self, provider_spec_company):
+        """Test skips missing headline."""
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(
             headline="", url="https://example.com", epoch=1_705_320_000
@@ -83,6 +87,7 @@ class TestNewsCompanyShared:
         assert results == []
 
     async def test_skips_missing_url(self, provider_spec_company):
+        """Test skips missing url."""
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(
             headline="Headline", url="", epoch=1_705_320_000
@@ -95,6 +100,7 @@ class TestNewsCompanyShared:
         assert results == []
 
     async def test_skips_invalid_timestamp(self, provider_spec_company):
+        """Test skips invalid timestamp."""
         provider = provider_spec_company.make_provider()
         data = provider_spec_company.article_factory(epoch=0)
 
@@ -105,6 +111,7 @@ class TestNewsCompanyShared:
         assert results == []
 
     async def test_filters_articles_with_buffer(self, provider_spec_company, monkeypatch):
+        """Test filters articles with buffer."""
         provider = provider_spec_company.make_provider()
 
         class MockDatetime:
@@ -141,6 +148,7 @@ class TestNewsCompanyShared:
         assert all(item.is_important is True for item in results)
 
     async def test_date_window_params_with_since(self, provider_spec_company, monkeypatch):
+        """Test date window params with since."""
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
         fixed_now = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
@@ -185,6 +193,7 @@ class TestNewsCompanyShared:
             assert params["ticker"] in provider_spec_company.default_symbols
 
     async def test_date_window_params_without_since(self, provider_spec_company, monkeypatch):
+        """Test date window params without since."""
         provider = provider_spec_company.make_provider()
         captured: list[tuple[str, dict[str, Any]]] = []
         fixed_now = datetime(2024, 2, 1, 12, 0, tzinfo=UTC)
@@ -228,6 +237,7 @@ class TestNewsCompanyShared:
             assert params["ticker"] in provider_spec_company.default_symbols
 
     async def test_symbol_normalization_uppercases(self, provider_spec_company):
+        """Test symbol normalization uppercases."""
         provider = provider_spec_company.make_provider(symbols=["aapl", " tsla ", ""])
 
         provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([]))
@@ -237,6 +247,7 @@ class TestNewsCompanyShared:
         assert provider.symbols == ["AAPL", "TSLA"]
 
     async def test_summary_copied_to_content(self, provider_spec_company):
+        """Test summary copied to content."""
         provider = provider_spec_company.make_provider()
         article = provider_spec_company.article_factory(summary="Earnings beat expectations")
 
@@ -249,6 +260,7 @@ class TestNewsCompanyShared:
         assert results[0].is_important is True
 
     async def test_per_symbol_error_isolation(self, provider_spec_company):
+        """Test per symbol error isolation."""
         provider = provider_spec_company.make_provider(symbols=["AAPL", "TSLA", "GOOG"])
 
         async def mock_get(path: str, params: dict[str, Any]):
@@ -266,6 +278,7 @@ class TestNewsCompanyShared:
         assert all(item.is_important is True for item in results)
 
     async def test_structural_error_raises(self, provider_spec_company):
+        """Test structural error raises."""
         provider = provider_spec_company.make_provider()
 
         async def mock_get(path: str, params: dict[str, Any]) -> Any:
@@ -277,6 +290,7 @@ class TestNewsCompanyShared:
             await provider.fetch_incremental()
 
     async def test_empty_response_returns_empty_list(self, provider_spec_company):
+        """Test empty response returns empty list."""
         provider = provider_spec_company.make_provider()
         provider.client.get = AsyncMock(return_value=provider_spec_company.wrap_response([]))
 
@@ -285,6 +299,7 @@ class TestNewsCompanyShared:
         assert results == []
 
     async def test_symbol_since_map_takes_precedence(self, provider_spec_company):
+        """Test symbol since map takes precedence."""
         provider = provider_spec_company.make_provider(symbols=["AAPL", "TSLA"])
 
         if not hasattr(provider, "_resolve_symbol_cursor"):
@@ -300,6 +315,7 @@ class TestNewsCompanyShared:
         assert result_tsla == global_since
 
     async def test_symbol_cursor_falls_back_to_global_or_none(self, provider_spec_company):
+        """Test symbol cursor falls back to global or none."""
         provider = provider_spec_company.make_provider(symbols=["AAPL"])
 
         if not hasattr(provider, "_resolve_symbol_cursor"):

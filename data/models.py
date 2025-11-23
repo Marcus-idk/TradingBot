@@ -59,6 +59,7 @@ class NewsItem:
     content: str | None = None
 
     def __post_init__(self) -> None:
+        """Normalize fields and validate headline, source, URL, and news_type."""
         self.url = self.url.strip()
         self.headline = self.headline.strip()
         self.source = self.source.strip()
@@ -84,6 +85,7 @@ class NewsSymbol:
     is_important: bool | None = None
 
     def __post_init__(self) -> None:
+        """Normalize fields and validate symbol importance data."""
         self.url = self.url.strip()
         self.symbol = self.symbol.strip().upper()
         if not self.symbol:
@@ -103,6 +105,7 @@ class NewsEntry:
     is_important: bool | None = None
 
     def __post_init__(self) -> None:
+        """Validate symbol and importance flags for the news entry."""
         self.symbol = self.symbol.strip().upper()
         if not self.symbol:
             raise ValueError("symbol cannot be empty")
@@ -146,6 +149,7 @@ class PriceData:
     session: Session = Session.REG
 
     def __post_init__(self) -> None:
+        """Normalize fields and validate price, volume, and session."""
         self.symbol = self.symbol.strip().upper()
         if not self.symbol:
             raise ValueError("symbol cannot be empty")
@@ -172,6 +176,7 @@ class AnalysisResult:
     created_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        """Normalize fields and validate analysis result payload."""
         self.symbol = self.symbol.strip().upper()
         self.model_name = self.model_name.strip()
         self.result_json = self.result_json.strip()
@@ -211,6 +216,7 @@ class Holdings:
     updated_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        """Normalize fields and validate holdings data."""
         self.symbol = self.symbol.strip().upper()
         if self.notes is not None:
             self.notes = self.notes.strip()

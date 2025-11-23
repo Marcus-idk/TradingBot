@@ -97,7 +97,6 @@ class TestWALSqlite:
         operation_lock = threading.Lock()
 
         def track_result(operation_type, *, success=True, error=None, data=None):
-            """Thread-safe result tracking"""
             with operation_lock:
                 if operation_type == "write":
                     if success:
@@ -116,7 +115,6 @@ class TestWALSqlite:
 
         # SCENARIO 1: MULTIPLE CONCURRENT WRITES (Simulating multiple data source polling)
         def write_news_data(thread_id, symbol_batch):
-            """Simulate news data polling from different sources"""
             for i, symbol in enumerate(symbol_batch):
                 news_items = [
                     self._make_news_entry(
@@ -138,7 +136,6 @@ class TestWALSqlite:
                 time.sleep(0.01)
 
         def write_price_data(thread_id, symbol_batch):
-            """Simulate price data polling from different exchanges"""
             for i, symbol in enumerate(symbol_batch):
                 price_data = [
                     make_price_data(
@@ -156,7 +153,6 @@ class TestWALSqlite:
                 time.sleep(0.01)
 
         def write_analysis_data(thread_id, symbol_batch):
-            """Simulate analysis results from different models"""
             for i, symbol in enumerate(symbol_batch):
                 analysis = make_analysis_result(
                     symbol=symbol,
@@ -179,7 +175,6 @@ class TestWALSqlite:
 
         # SCENARIO 2: CONCURRENT READS (Simulating multiple LLM agents analyzing data)
         def read_for_analysis(thread_id, query_type):
-            """Simulate LLM agents reading data for analysis"""
             for i in range(3):  # Multiple read operations per thread
                 if query_type == "news":
                     results = get_news_since(temp_db, datetime(2024, 1, 1, tzinfo=UTC))

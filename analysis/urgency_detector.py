@@ -1,8 +1,8 @@
-"""
-Urgency detection module (stub).
+"""Urgency detection helpers for news entries.
 
-For v0.3.3 this is a no-op detector that returns an empty list. It
-exists to establish the extension point for future LLM-based analysis.
+Notes:
+    Stub implementation; returns no urgent items. No urgency classification
+    is performed.
 """
 
 import logging
@@ -13,13 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def detect_urgency(news_entries: list[NewsEntry]) -> list[NewsEntry]:
-    """
-    Detect urgent news items that require immediate attention.
+    """Detect urgent news items that require immediate attention.
 
-    Note:
-        Current implementation is a stub that always returns an empty list.
-        Future versions (v0.5) will use LLM to analyze text for urgent keywords like
-        bankruptcy, SEC investigation, etc.
+    Notes:
+        Stub implementation that always returns an empty list; no urgency
+        classification is performed.
     """
     urgent: list[NewsEntry] = []
 

@@ -17,6 +17,7 @@ class TestClientShared:
     """Shared behavior tests for provider clients."""
 
     async def test_get_builds_url_and_injects_auth(self, client_spec, monkeypatch):
+        """Test get builds url and injects auth."""
         captured: dict[str, Any] = {}
 
         async def fake_get_json(url: str, **kwargs: Any) -> dict[str, str]:
@@ -56,6 +57,7 @@ class TestClientShared:
         assert captured["jitter"] == retry.jitter
 
     async def test_get_handles_none_params(self, client_spec, monkeypatch):
+        """Test get handles none params."""
         captured: dict[str, Any] = {}
 
         async def fake_get_json(url: str, **kwargs: Any) -> dict[str, str]:
@@ -73,6 +75,7 @@ class TestClientShared:
         assert captured["params"] == {client_spec.auth_param: client_spec.api_key}
 
     async def test_validate_connection_success(self, client_spec):
+        """Test validate connection success."""
         client = client_spec.make_client()
         client.get = AsyncMock(return_value={"status": "ok"})
 
@@ -88,6 +91,7 @@ class TestClientShared:
             )
 
     async def test_validate_connection_failure_returns_false(self, client_spec):
+        """Test validate connection failure returns false."""
         client = client_spec.make_client()
         client.get = AsyncMock(side_effect=DataSourceError("boom"))
 

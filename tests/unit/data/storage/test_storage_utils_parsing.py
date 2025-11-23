@@ -24,22 +24,27 @@ class TestIsoParsingHelpers:
     """Tests for ISO/RFC3339 parsing helpers."""
 
     def test_iso_to_datetime_parses_z_suffix(self):
+        """Test iso to datetime parses z suffix."""
         dt = _iso_to_datetime("2024-03-10T15:45:00Z")
         assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_iso_to_datetime_preserves_offset(self):
+        """Test iso to datetime preserves offset."""
         dt = _iso_to_datetime("2024-03-10T15:45:00+00:00")
         assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_parse_rfc3339_handles_naive_as_utc(self):
+        """Test parse rfc3339 handles naive as utc."""
         dt = parse_rfc3339("2024-03-10T15:45:00")
         assert dt == datetime(2024, 3, 10, 15, 45, tzinfo=UTC)
 
     def test_parse_rfc3339_raises_for_non_string(self):
+        """Test parse rfc3339 raises for non string."""
         with pytest.raises(TypeError):
             parse_rfc3339(123)  # type: ignore[reportArgumentType] - intentional negative test
 
     def test_parse_rfc3339_invalid_format_raises(self):
+        """Test parse rfc3339 invalid format raises."""
         with pytest.raises(ValueError):
             parse_rfc3339("not-a-timestamp")
 
@@ -48,6 +53,7 @@ class TestRowMappers:
     """Tests for row-to-model conversion helpers."""
 
     def test_row_to_news_item_maps_fields_and_type(self):
+        """Test row to news item maps fields and type."""
         row = {
             "url": "https://example.com/news/1",
             "headline": "Headline",
@@ -68,6 +74,7 @@ class TestRowMappers:
         assert result.news_type is NewsType.COMPANY_SPECIFIC
 
     def test_row_to_news_symbol_maps_fields_and_nullable_is_important(self):
+        """Test row to news symbol maps fields and nullable is important."""
         row_true = {
             "url": "https://example.com/news/1",
             "symbol": "aapl",
@@ -89,6 +96,7 @@ class TestRowMappers:
         assert result_null.is_important is None
 
     def test_row_to_news_entry_maps_joined_row(self):
+        """Test row to news entry maps joined row."""
         row = {
             "url": "https://example.com/news/1",
             "headline": "Joined Headline",
@@ -113,6 +121,7 @@ class TestRowMappers:
         assert entry.news_type is NewsType.MACRO
 
     def test_row_to_price_data_maps_decimal_and_session(self):
+        """Test row to price data maps decimal and session."""
         row = {
             "symbol": "msft",
             "timestamp_iso": "2024-03-10T15:45:00Z",
@@ -129,6 +138,7 @@ class TestRowMappers:
         assert result.session == Session.REG
 
     def test_row_to_analysis_result_builds_model(self):
+        """Test row to analysis result builds model."""
         row = {
             "symbol": "tsla",
             "analysis_type": "news_analysis",
@@ -150,6 +160,7 @@ class TestRowMappers:
         assert result.created_at == datetime(2024, 3, 10, 15, 50, tzinfo=UTC)
 
     def test_row_to_holdings_parses_decimals(self):
+        """Test row to holdings parses decimals."""
         row = {
             "symbol": "aapl",
             "quantity": "10.5",

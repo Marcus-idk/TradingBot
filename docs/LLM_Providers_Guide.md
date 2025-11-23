@@ -90,7 +90,8 @@
   - Typical fields (depending on model/version):  
     - `thinking_budget_token_limit: int` — max tokens for the internal thinking phase.  
     - `include_thoughts: bool` — whether to include a summarized thought trace in the response.  
-  Defaults: If omitted, the provider sets a small budget (e.g., `{"thinking_budget": 128}` when supported) to enable lightweight reasoning while limiting cost.  
+  Defaults: If omitted, the provider sets a small budget (`{"thinking_budget_token_limit": 128}`) to enable lightweight reasoning while limiting cost.  
+  If you pass a smaller budget, the provider clamps it up to 128 before sending.  
   `GeminiProvider(..., thinking_config={"thinking_budget_token_limit":2048,"include_thoughts":False}, ...)`
 
 - **`**kwargs -> self.config`** — passed into `GenerateContentConfig(...)`.

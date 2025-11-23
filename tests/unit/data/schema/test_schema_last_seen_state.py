@@ -11,6 +11,7 @@ class TestLastSeenStateSchema:
     """Validate column layout and constraints for last_seen_state."""
 
     def test_table_has_expected_columns(self, temp_db):
+        """Test table has expected columns."""
         with _cursor_context(temp_db, commit=False) as cursor:
             cursor.execute("PRAGMA table_info(last_seen_state)")
             columns = [row["name"] for row in cursor.fetchall()]
@@ -25,6 +26,7 @@ class TestLastSeenStateSchema:
         ]
 
     def test_primary_key_enforces_uniqueness(self, temp_db):
+        """Test primary key enforces uniqueness."""
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
                 """
@@ -43,6 +45,7 @@ class TestLastSeenStateSchema:
                 )
 
     def test_scope_check_constraint(self, temp_db):
+        """Test scope check constraint."""
         with pytest.raises(sqlite3.IntegrityError):
             with _cursor_context(temp_db) as cursor:
                 cursor.execute(

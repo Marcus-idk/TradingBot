@@ -26,6 +26,7 @@ class TestFinnhubMacroProviderSpecific:
     async def test_fetch_incremental_includes_min_id_param(
         self, macro_provider: FinnhubMacroNewsProvider, monkeypatch
     ):
+        """Test fetch incremental includes min id param."""
         captured: dict[str, object] = {}
 
         async def mock_get(path: str, params: dict[str, str | int]):
@@ -45,6 +46,7 @@ class TestFinnhubMacroProviderSpecific:
         macro_provider: FinnhubMacroNewsProvider,
         monkeypatch,
     ):
+        """Test last fetched max id advances only on newer ids."""
         fixed_now = datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
 
         class MockDatetime:
@@ -97,6 +99,7 @@ class TestFinnhubMacroProviderSpecific:
     async def test_fetch_incremental_paginates_with_min_id(
         self, macro_provider: FinnhubMacroNewsProvider, monkeypatch
     ):
+        """Test fetch incremental paginates with min id."""
         fixed_now = datetime(2024, 2, 2, 12, 0, tzinfo=UTC)
         epoch = int(fixed_now.timestamp())
         real_datetime = datetime
@@ -157,6 +160,7 @@ class TestFinnhubMacroProviderSpecific:
     async def test_fetch_incremental_stops_at_bootstrap_cutoff(
         self, macro_provider: FinnhubMacroNewsProvider, monkeypatch
     ):
+        """Test fetch incremental stops at bootstrap cutoff."""
         fixed_now = datetime(2024, 2, 5, 12, 0, tzinfo=UTC)
         real_datetime = datetime
 

@@ -276,13 +276,25 @@ logger.exception("Workflow failed")  # In except blocks for stack trace
 # Use logger.exception() instead of logger.error(..., exc_info=True) for clarity
 ```
 
+### DOCSTRINGS_REQUIRED
+- Production code: every function/method SHOULD have a short, stable docstring unless it is trivial.
+- Allowed to omit docstrings for: trivial dunders/constructors (`__init__`, `__enter__`, `__exit__`, etc.), obvious pass-through overrides (e.g., `validate_connection` that just defers), and simple property accessors that only return an attribute.
+- Tests: module/class/test-case docstrings are fine; skip docstrings on helper fixtures, mocks, and tiny override stubs.
+- When adding a docstring, keep it tight and “absolute” (what it does/returns), avoiding Args/Returns unless needed.
+```python
+def fetch_table_names(db_path: str) -> list[str]:
+    """Return sorted SQLite table names for the given database path."""
+    ...
+```
+
 # SHOULD-FOLLOW RULES
 ---
 
 ### COMMENT_STYLE
-- Add comments and docstrings only where they clarify intent or mark key sections, not to restate obvious code.
-- Almost always use a single-line summary docstring.
-- Add a short `"Notes:"` block only when strictly necessary (e.g., non-trivial contracts) or when explicitly requested.
+- Add docstrings/comments where they clarify intent or contracts; skip them for trivial constructors and obvious passthroughs.
+- Docstrings SHOULD be minimal: a short, stable description of what the thing does and its contract.
+- Docstrings MUST be "absolute": describe behavior and responsibilities, not how or why the code was written (no meta text like "follow Writing_Code.md" or "this was recently refactored").
+- When you need more than a one-line summary, extra explanation MUST go under a short `"Notes:"` block (e.g., non-trivial contracts) instead of free-form paragraphs.
 - Avoid long `Args`/`Returns` sections unless explicitly requested.
 - Follow the surrounding file's commenting style so sections read consistently.
 

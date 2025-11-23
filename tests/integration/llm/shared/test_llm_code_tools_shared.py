@@ -10,6 +10,7 @@ pytestmark = [pytest.mark.network, pytest.mark.asyncio]
 
 
 async def test_code_tools_enabled_matches_expected_digest(provider_spec):
+    """Test code tools enabled matches expected digest."""
     provider = provider_spec.make_provider_for_code_tools(enabled=True)
     b64, expected_sha = make_base64_blob(4)
     prompt = (
@@ -27,6 +28,7 @@ async def test_code_tools_enabled_matches_expected_digest(provider_spec):
 
 
 async def test_code_tools_disabled_does_not_match_digest(provider_spec):
+    """Test code tools disabled does not match digest."""
     provider = provider_spec.make_provider_for_code_tools(enabled=False)
     b64, expected_sha = make_base64_blob(4)
     prompt = (

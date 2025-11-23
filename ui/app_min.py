@@ -8,19 +8,21 @@ from data.storage.db_context import _cursor_context
 
 
 def _friendly_table_name(raw_name: str) -> str:
-    """Convert raw table names like `price_data` into `Price Data`."""
+    """Return a human-friendly label for a table name."""
     cleaned = re.sub(r"[^0-9A-Za-z]+", " ", raw_name)
     cleaned = " ".join(cleaned.split())
     return cleaned.title() if cleaned else raw_name
 
 
 def fetch_table_names(db_path: str) -> list[str]:
+    """Return sorted SQLite table names for the given database path."""
     with _cursor_context(db_path, commit=False) as cursor:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
         return [row["name"] for row in cursor.fetchall()]
 
 
 def build_display_map(names: list[str]) -> dict[str, str]:
+    """Build a display-label-to-table-name mapping for the sidebar."""
     display_to_table: dict[str, str] = {}
     for raw in names:
         label = _friendly_table_name(raw)
@@ -47,6 +49,7 @@ st.header("TradingBot DB")
 
 if selected:
     with _cursor_context(DB_PATH, commit=False) as cursor:
+        # `selected` comes from `sqlite_master` via `fetch_table_names`, so it is trusted.
         cursor.execute(f"SELECT * FROM {selected} LIMIT 1000")
         rows = [dict(row) for row in cursor.fetchall()]
     st.dataframe(

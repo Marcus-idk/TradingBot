@@ -43,6 +43,7 @@ def _status_response(code: int, headers: dict[str, str] | None = None) -> httpx.
 class TestOpenAIProvider:
     @pytest.mark.asyncio
     async def test_generate_passes_expected_args(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test generate passes expected args."""
         tools = [{"type": "code"}]
         provider, client = _make_provider(
             monkeypatch,
@@ -69,6 +70,7 @@ class TestOpenAIProvider:
     async def test_generate_respects_custom_reasoning(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Test generate respects custom reasoning."""
         provider, client = _make_provider(
             monkeypatch,
             temperature=None,
@@ -89,6 +91,7 @@ class TestOpenAIProvider:
         caplog: pytest.LogCaptureFixture,
         tool_choice_input: str,
     ) -> None:
+        """Test generate coerces gpt5 tool choice to auto."""
         provider, client = _make_provider(
             monkeypatch,
             model_name="gpt-5-preview",
@@ -104,6 +107,7 @@ class TestOpenAIProvider:
         assert "coercing to 'auto'" in caplog.text
 
     def test_classify_rate_limit_with_retry_after(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify rate limit with retry after."""
         provider, _ = _make_provider(monkeypatch)
         headers = {"retry-after": "3"}
         exc = openai_module.RateLimitError(
@@ -118,6 +122,7 @@ class TestOpenAIProvider:
         assert mapped.retry_after == pytest.approx(3.0)
 
     def test_classify_rate_limit_without_retry_after(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify rate limit without retry after."""
         provider, _ = _make_provider(monkeypatch)
         exc = openai_module.RateLimitError(
             "Too many requests",
@@ -141,6 +146,7 @@ class TestOpenAIProvider:
     def test_classify_retryable_errors(
         self, monkeypatch: pytest.MonkeyPatch, exception: Exception
     ) -> None:
+        """Test classify retryable errors."""
         provider, _ = _make_provider(monkeypatch)
 
         mapped = provider._classify_openai_exception(exception)
@@ -148,6 +154,7 @@ class TestOpenAIProvider:
         assert isinstance(mapped, RetryableError)
 
     def test_classify_api_status_retryable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify api status retryable."""
         provider, _ = _make_provider(monkeypatch)
         exc = openai_module.APIStatusError("Server", response=_status_response(503), body=None)  # type: ignore[reportCallIssue]
 
@@ -157,6 +164,7 @@ class TestOpenAIProvider:
         assert "503" in str(mapped)
 
     def test_classify_api_status_rate_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify api status rate limit."""
         provider, _ = _make_provider(monkeypatch)
         headers = {"retry-after": "2.5"}
         exc = openai_module.APIStatusError(  # type: ignore[reportCallIssue]
@@ -172,6 +180,7 @@ class TestOpenAIProvider:
         assert "429" in str(mapped)
 
     def test_classify_api_status_non_retryable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify api status non retryable."""
         provider, _ = _make_provider(monkeypatch)
         exc = openai_module.APIStatusError("Bad request", response=_status_response(400), body=None)  # type: ignore[reportCallIssue]
 
@@ -197,6 +206,7 @@ class TestOpenAIProvider:
         status_code: int,
         expected_message: str,
     ) -> None:
+        """Test classify non retryable openai errors."""
         provider, _ = _make_provider(monkeypatch)
         exc = exc_cls("boom", response=_status_response(status_code), body=None)  # type: ignore[reportCallIssue]
 
@@ -206,6 +216,7 @@ class TestOpenAIProvider:
         assert str(mapped).startswith(f"{expected_message}: boom")
 
     def test_classify_falls_back_to_llm_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test classify falls back to llm error."""
         provider, _ = _make_provider(monkeypatch)
         exc = ValueError("Unexpected")
 
@@ -216,6 +227,7 @@ class TestOpenAIProvider:
 
     @pytest.mark.asyncio
     async def test_validate_connection_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test validate connection failure."""
         provider, client = _make_provider(monkeypatch)
         client.models.list.side_effect = openai_module.APIConnectionError(
             message="Offline", request=_dummy_request()

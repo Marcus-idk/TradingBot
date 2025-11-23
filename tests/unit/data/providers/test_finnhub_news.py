@@ -14,6 +14,7 @@ class TestFinnhubNewsProviderSpecific:
     """Tests for Finnhub-only behaviors not covered by company news contracts."""
 
     async def test_fetch_incremental_with_no_symbols_returns_empty_list(self):
+        """Test fetch incremental with no symbols returns empty list."""
         provider = FinnhubNewsProvider(FinnhubSettings(api_key="test_key"), [])
 
         result = await provider.fetch_incremental()

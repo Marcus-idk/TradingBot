@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 def parse_retry_after(value: str | float | int | None) -> float | None:
     """Parse Retry-After header value (numeric seconds or HTTP-date).
 
-    Returns seconds to wait (floored at 0.0), or None if parsing fails.
+    Notes:
+        Returns seconds to wait (floored at 0.0), or None if parsing fails.
     """
     if value is None:
         return None
@@ -59,8 +60,10 @@ async def retry_and_call[T](
 ) -> T:
     """Exponential backoff with jitter for retryable operations.
 
-    Retries on RetryableError up to `attempts` times. Sleeps between attempts
-    using delay = retry_after (if provided) else base * (mult ** attempt) ± jitter.
+    Notes:
+        Retries on RetryableError up to `attempts` times. Sleeps between
+        attempts using delay = retry_after (if provided) else base *
+        (mult ** attempt) ± jitter.
     """
     if attempts < 1:
         raise ValueError("attempts must be >= 1")

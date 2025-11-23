@@ -1,9 +1,9 @@
-"""
-Data poller for continuous market data collection.
+"""Data poller for continuous market data collection.
 
-Orchestrates fetching from configured providers at regular intervals,
-storing results in SQLite, managing watermarks for incremental fetching,
-and deduplicating prices from multiple providers.
+Notes:
+    Orchestrates fetching from configured providers at regular intervals,
+    storing results in SQLite, managing watermarks for incremental fetching,
+    and deduplicating prices from multiple providers.
 """
 
 import asyncio
@@ -41,11 +41,11 @@ class PollStats(TypedDict):
 
 
 class DataPoller:
-    """
-    Polls configured providers for news and price data at regular intervals.
+    """Poll configured providers for news and price data at regular intervals.
 
-    Handles watermark-based incremental fetching, partial failures,
-    price deduplication across providers, and graceful shutdown.
+    Notes:
+        Handles watermark-based incremental fetching, partial failures, price
+        deduplication across providers, and graceful shutdown.
     """
 
     def __init__(
@@ -55,15 +55,7 @@ class DataPoller:
         price_providers: list[PriceDataSource],
         poll_interval: int,
     ) -> None:
-        """
-        Initialize the data poller.
-
-        Args:
-            db_path: Path to SQLite database
-            news_providers: List of news provider instances
-            price_providers: List of price provider instances
-            poll_interval: Polling interval in seconds
-        """
+        """Initialize the data poller."""
         self.db_path = db_path
         self.news_providers = news_providers
         self.price_providers = price_providers
@@ -85,11 +77,11 @@ class DataPoller:
         return kwargs
 
     async def _fetch_all_data(self) -> DataBatch:
-        """
-        Fetch data from all providers concurrently.
+        """Fetch data from all providers concurrently.
 
-        Returns:
-            DataBatch with company_news, macro_news, prices, and errors
+        Notes:
+            Returns a ``DataBatch`` with company_news, macro_news, prices, and
+            errors.
         """
         # Separate results by provider type
         company_news: list[NewsEntry] = []
@@ -154,17 +146,13 @@ class DataPoller:
     async def _process_prices(
         self, prices_by_provider: dict[PriceDataSource, dict[str, PriceData]]
     ) -> int:
-        """
-        Deduplicate and store price data from multiple providers.
+        """Deduplicate and store price data from multiple providers.
 
-        Compares prices by symbol across providers. If prices differ by >= $0.01,
-        logs an error. Always stores the primary provider's price (first in order).
-
-        Args:
-            prices_by_provider: Dict mapping provider name to symbol-keyed prices
-
-        Returns:
-            Number of prices stored
+        Notes:
+            Compares prices by symbol across providers. If prices differ by
+            at least ``$0.01``, logs an error. Always stores the primary
+            provider's price (first in order). Returns the number of prices
+            stored.
         """
         if not prices_by_provider:
             return 0
@@ -273,11 +261,11 @@ class DataPoller:
         return len(all_news)
 
     async def poll_once(self) -> PollStats:
-        """
-        Execute one polling cycle.
+        """Execute one polling cycle.
 
-        Returns:
-            PollStats with news count, prices count, and errors list
+        Notes:
+            Returns a ``PollStats`` dict with news count, prices count, and
+            errors list.
         """
         stats: PollStats = {"news": 0, "prices": 0, "errors": []}
 
@@ -317,10 +305,10 @@ class DataPoller:
         return stats
 
     async def run(self) -> None:
-        """
-        Run continuous polling loop.
+        """Run the continuous polling loop.
 
-        Polls at specified interval until stop() is called.
+        Notes:
+            Polls at the configured interval until ``stop()`` is called.
         """
 
         self._stop_event.clear()

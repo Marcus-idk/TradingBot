@@ -1,4 +1,4 @@
-"""Retry utilities behaviors we rely on in v0.3.1."""
+"""Retry utilities behaviors relied on by core workflows."""
 
 import logging
 from datetime import UTC, datetime, timedelta

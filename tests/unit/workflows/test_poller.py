@@ -18,8 +18,6 @@ from workflows.watermarks import CursorPlan
 
 
 class StubNews(NewsDataSource):
-    """Stub news provider returning a preset list of items."""
-
     def __init__(self, items: list[NewsEntry]):
         super().__init__("StubNews")
         self._items = items
@@ -38,8 +36,6 @@ class StubNews(NewsDataSource):
 
 
 class StubPrice(PriceDataSource):
-    """Stub price provider returning a preset list of items."""
-
     def __init__(self, items: list[PriceData]):
         super().__init__("StubPrice")
         self._items = items
@@ -52,8 +48,6 @@ class StubPrice(PriceDataSource):
 
 
 class SecondaryStubPrice(PriceDataSource):
-    """Secondary stub price provider."""
-
     def __init__(self, items: list[PriceData]):
         super().__init__("SecondaryStubPrice")
         self._items = items
@@ -66,8 +60,6 @@ class SecondaryStubPrice(PriceDataSource):
 
 
 class StubMacroNews(NewsDataSource):
-    """Stub macro news provider that tracks parameters and returns preset items."""
-
     def __init__(self, items: list[NewsEntry]):
         super().__init__("StubMacroNews")
         self._items = items
@@ -90,13 +82,9 @@ class StubMacroNews(NewsDataSource):
 
 
 class TestDataPoller:
-    """Tests for the DataPoller orchestrator."""
-
     pytestmark = pytest.mark.asyncio
 
     async def test_poll_once_collects_errors(self, temp_db):
-        """Aggregates errors from failing providers without aborting cycle."""
-
         class ErrNews(NewsDataSource):
             def __init__(self):
                 super().__init__("ErrNews")
@@ -130,7 +118,6 @@ class TestDataPoller:
         )  # provider name included
 
     async def test_poller_quick_shutdown(self, temp_db):
-        """Verify poller stops quickly when stop() is called during sleep."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
 
         # Start poller in background
@@ -151,7 +138,6 @@ class TestDataPoller:
         assert elapsed < 2.0
 
     async def test_poller_custom_poll_interval(self, temp_db):
-        """Verify poll interval is set correctly."""
         # Create poller with custom 60 second interval
         custom_interval = 60
         poller = DataPoller(
@@ -169,8 +155,6 @@ class TestDataPoller:
         assert another_poller.poll_interval == 120
 
     async def test_poll_once_collects_price_provider_errors(self, temp_db):
-        """Price provider failures are reported without aborting the cycle."""
-
         class ErrPrice(PriceDataSource):
             def __init__(self) -> None:
                 super().__init__("ErrPrice")
@@ -214,6 +198,7 @@ class TestDataPoller:
         assert captured["symbol_since_map"] is plan.symbol_since_map
 
     async def test_fetch_all_data_routes_company_and_macro_news(self, temp_db, monkeypatch):
+        """Test fetch all data routes company and macro news."""
         company_entry = make_news_entry(symbol="AAPL", news_type=NewsType.COMPANY_SPECIFIC)
         macro_entry = make_news_entry(symbol="MARKET", news_type=NewsType.MACRO)
         company_provider = StubNews([company_entry])
@@ -276,6 +261,7 @@ class TestDataPollerProcessPrices:
     pytestmark = pytest.mark.asyncio
 
     async def test_process_prices_returns_zero_on_empty_input(self, temp_db, monkeypatch):
+        """Test process prices returns zero on empty input."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
         stored: list[PriceData] = []
 
@@ -296,6 +282,7 @@ class TestDataPollerProcessPrices:
     async def test_process_prices_primary_missing_symbol_warns_and_skips(
         self, temp_db, monkeypatch, caplog
     ):
+        """Test process prices primary missing symbol warns and skips."""
         poller = DataPoller(
             temp_db,
             [StubNews([])],
@@ -334,6 +321,7 @@ class TestDataPollerProcessPrices:
         assert "StubPrice missing price for AAPL" in caplog.text
 
     async def test_process_prices_missing_secondary_provider_is_ignored(self, temp_db, monkeypatch):
+        """Test process prices missing secondary provider is ignored."""
         poller = DataPoller(
             temp_db,
             [StubNews([])],
@@ -367,6 +355,7 @@ class TestDataPollerProcessPrices:
     async def test_process_prices_secondary_missing_symbol_warns(
         self, temp_db, monkeypatch, caplog
     ):
+        """Test process prices secondary missing symbol warns."""
         poller = DataPoller(
             temp_db,
             [StubNews([])],
@@ -407,6 +396,7 @@ class TestDataPollerProcessPrices:
     async def test_process_prices_mismatch_logs_error_and_keeps_primary(
         self, temp_db, monkeypatch, caplog
     ):
+        """Test process prices mismatch logs error and keeps primary."""
         poller = DataPoller(
             temp_db,
             [StubNews([])],
@@ -453,6 +443,7 @@ class TestDataPollerProcessPrices:
     async def test_process_prices_handles_duplicate_class_instances(
         self, temp_db, monkeypatch, caplog
     ):
+        """Test process prices handles duplicate class instances."""
         primary_price = make_price_data(
             symbol="AAPL",
             timestamp=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
@@ -505,6 +496,7 @@ class TestDataPollerNewsProcessing:
 
     @pytest.mark.asyncio
     async def test_process_news_commits_each_provider(self, temp_db, monkeypatch):
+        """Test process news commits each provider."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
         provider_one = StubNews([make_news_entry(symbol="AAPL")])
         provider_two = StubNews([make_news_entry(symbol="TSLA")])
@@ -538,6 +530,7 @@ class TestDataPollerNewsProcessing:
 
     @pytest.mark.asyncio
     async def test_process_news_logs_urgency_detection_failures(self, temp_db, monkeypatch, caplog):
+        """Test process news logs urgency detection failures."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
         entry = make_news_entry(symbol="AAPL")
         provider = StubNews([entry])
@@ -563,6 +556,7 @@ class TestDataPollerNewsProcessing:
 
     @pytest.mark.asyncio
     async def test_process_news_logs_when_empty(self, temp_db, monkeypatch, caplog):
+        """Test process news logs when empty."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
 
         async def immediate_to_thread(func, *args, **kwargs):
@@ -578,6 +572,7 @@ class TestDataPollerNewsProcessing:
         assert "No news items to process" in caplog.text
 
     def test_log_urgent_items_logs_summary(self, temp_db, caplog):
+        """Test log urgent items logs summary."""
         poller = DataPoller(temp_db, [StubNews([])], [StubPrice([])], poll_interval=300)
         caplog.set_level(logging.WARNING)
         urgent_items = [
@@ -603,6 +598,8 @@ class TestDataPollerRunLoop:
     pytestmark = pytest.mark.asyncio
 
     async def test_run_logs_completed_with_errors(self, temp_db, monkeypatch, caplog):
+        """Test run logs completed with errors."""
+
         async def fake_poll_once(self):
             self.stop()
             return {"news": 0, "prices": 0, "errors": ["boom"]}
@@ -616,6 +613,7 @@ class TestDataPollerRunLoop:
         assert "Cycle #1 completed with errors" in caplog.text
 
     async def test_run_skips_wait_when_sleep_time_zero(self, temp_db, monkeypatch, caplog):
+        """Test run skips wait when sleep time zero."""
         call_count = 0
 
         async def fake_poll_once(self):
@@ -635,6 +633,7 @@ class TestDataPollerRunLoop:
         assert call_count >= 2
 
     async def test_run_handles_wait_timeout(self, temp_db, monkeypatch, caplog):
+        """Test run handles wait timeout."""
         call_count = 0
 
         async def fake_poll_once(self):
@@ -661,6 +660,8 @@ class TestDataPollerRunLoop:
         assert "Poll wait timeout; continuing to next cycle" in caplog.text
 
     async def test_run_handles_wait_cancelled(self, temp_db, monkeypatch, caplog):
+        """Test run handles wait cancelled."""
+
         async def fake_poll_once(self):
             return {"news": 0, "prices": 0, "errors": []}
 

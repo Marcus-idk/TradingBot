@@ -1,8 +1,10 @@
 """
 Market sessions utilities for US equity markets.
 
-Handles session classification (pre-market, regular, after-hours, closed)
-based on Eastern Time trading hours and NYSE calendar, with automatic DST handling.
+Notes:
+    Handles session classification (pre-market, regular, after-hours, closed)
+    based on Eastern Time trading hours and NYSE calendar, with automatic DST
+    handling.
 """
 
 import logging
@@ -27,11 +29,11 @@ from data.models import Session
 logger = logging.getLogger(__name__)
 
 # Cache NYSE calendar
-_nyse_calendar = None
+_nyse_calendar: xcals.ExchangeCalendar | None = None
 
 
-def _get_nyse_calendar():
-    """Get or create cached NYSE calendar instance."""
+def _get_nyse_calendar() -> xcals.ExchangeCalendar:
+    """Return cached NYSE calendar instance."""
     global _nyse_calendar
     if _nyse_calendar is None:
         _nyse_calendar = xcals.get_calendar("XNYS")
@@ -39,24 +41,20 @@ def _get_nyse_calendar():
 
 
 def classify_us_session(ts_utc: datetime) -> Session:
-    """
-    Classify US equity market session from a UTC-aware timestamp.
+    """Classify US equity market session from a UTC-aware timestamp.
 
-    Trading sessions (Eastern Time):
-    - Pre-market: 04:00 - 09:30 ET
-    - Regular: 09:30 - 16:00 ET (or until 13:00 ET on early close days)
-    - After-hours: 16:00 - 20:00 ET (or 13:00 - 20:00 ET on early close days)
-    - Closed: Weekends, holidays, and outside trading hours
+    Notes:
+        Trading sessions (Eastern Time):
+        - Pre-market: 04:00 - 09:30 ET
+        - Regular: 09:30 - 16:00 ET (or until 13:00 ET on early close days)
+        - After-hours: 16:00 - 20:00 ET (or 13:00 - 20:00 ET on early close
+          days)
+        - Closed: Weekends, holidays, and outside trading hours.
 
-    Args:
-        ts_utc: UTC-aware datetime timestamp
-
-    Returns:
-        Session enum (PRE, REG, POST, or CLOSED)
-
-    Note:
-        Uses NYSE calendar to detect holidays and early close days.
-        Requires `exchange_calendars`; if not installed, an ImportError is raised at import time.
+        Expects a UTC-aware ``ts_utc`` datetime and returns a ``Session`` enum
+        (PRE, REG, POST, or CLOSED). Uses the NYSE calendar to detect holidays
+        and early close days. Requires ``exchange_calendars``; if not
+        installed, an ImportError is raised at import time.
     """
     # Ensure timestamp is UTC-aware
     if ts_utc.tzinfo is None:

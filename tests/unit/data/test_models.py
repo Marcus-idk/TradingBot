@@ -146,6 +146,7 @@ class TestNewsEntry:
         )
 
     def test_newsentry_symbol_uppercasing_and_passthrough(self):
+        """Test newsentry symbol uppercasing and passthrough."""
         article = self._article()
         entry = NewsEntry(article=article, symbol="aapl", is_important=None)
 
@@ -157,17 +158,20 @@ class TestNewsEntry:
         assert entry.news_type is NewsType.COMPANY_SPECIFIC
 
     def test_newsentry_is_important_accepts_bool_or_none(self):
+        """Test newsentry is important accepts bool or none."""
         article = self._article()
         assert NewsEntry(article=article, symbol="MSFT", is_important=True).is_important is True
         assert NewsEntry(article=article, symbol="TSLA", is_important=False).is_important is False
         assert NewsEntry(article=article, symbol="GOOG", is_important=None).is_important is None
 
     def test_newsentry_requires_non_empty_symbol(self):
+        """Test newsentry requires non empty symbol."""
         article = self._article()
         with pytest.raises(ValueError, match="symbol cannot be empty"):
             NewsEntry(article=article, symbol="  ", is_important=None)
 
     def test_newsentry_invalid_is_important_value(self):
+        """Test newsentry invalid is important value."""
         article = self._article()
         with pytest.raises(ValueError, match="is_important must be True, False, or None"):
             NewsEntry(article=article, symbol="AAPL", is_important="yes")  # type: ignore[arg-type]
@@ -177,12 +181,14 @@ class TestNewsSymbol:
     """Tests for NewsSymbol link validation."""
 
     def test_newssymbol_valid_creation(self):
+        """Test newssymbol valid creation."""
         link = NewsSymbol(url="https://example.com/news", symbol="aapl", is_important=None)
         assert link.url == "https://example.com/news"
         assert link.symbol == "AAPL"
         assert link.is_important is None
 
     def test_newssymbol_importance_bool_conversion(self):
+        """Test newssymbol importance bool conversion."""
         assert (
             NewsSymbol(
                 url="https://example.com/news", symbol="msft", is_important=True
@@ -197,6 +203,7 @@ class TestNewsSymbol:
         )
 
     def test_newssymbol_invalid_inputs_raise(self):
+        """Test newssymbol invalid inputs raise."""
         with pytest.raises(ValueError, match="url must be http\\(s\\)"):
             NewsSymbol(url="ftp://example.com", symbol="AAPL")
 

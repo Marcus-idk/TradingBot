@@ -1,7 +1,9 @@
 """
 Helpers for parsing and filtering symbol lists.
 
-Follow Writing_Code.md: simple, clear, and consistent utilities.
+Notes:
+    Provides normalization, validation, and filtering helpers for ticker
+    symbols.
 """
 
 import logging
@@ -24,14 +26,15 @@ def parse_symbols(
     *,
     validate: bool = True,
 ) -> list[str]:
-    """
-    Parse a comma-separated string into an order-preserving, deduplicated list of
-    uppercase symbols. Optionally filter to a watchlist and validate shape.
+    """Parse a comma-separated string into a deduplicated list of uppercase symbols.
 
-    - Trims/uppercases
-    - Deduplicates while preserving order
-    - If `filter_to` is provided, returns only symbols present in that set
-    - If `validate` is True, enforce common ticker formats (allows share-class suffixes)
+    Notes:
+        Optionally filter to a watchlist and validate shape.
+        - Trims/uppercases
+        - Deduplicates while preserving order
+        - If `filter_to` is provided, returns only symbols present in that set
+        - If `validate` is True, enforce common ticker formats (allows
+          share-class suffixes)
     """
 
     if not raw or not isinstance(raw, str) or not raw.strip():

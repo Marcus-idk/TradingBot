@@ -18,6 +18,7 @@ class TestPricesShared:
     """Shared behavior tests for price providers."""
 
     async def test_validate_connection_success(self, provider_spec_prices):
+        """Test validate connection success."""
         provider = provider_spec_prices.make_provider()
         provider.client.validate_connection = AsyncMock(return_value=True)
 
@@ -27,6 +28,7 @@ class TestPricesShared:
         provider.client.validate_connection.assert_awaited_once()
 
     async def test_validate_connection_failure(self, provider_spec_prices):
+        """Test validate connection failure."""
         provider = provider_spec_prices.make_provider()
         provider.client.validate_connection = AsyncMock(side_effect=DataSourceError("broken"))
 
@@ -34,6 +36,7 @@ class TestPricesShared:
             await provider.validate_connection()
 
     async def test_decimal_conversion(self, provider_spec_prices):
+        """Test decimal conversion."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=123.4567, timestamp=1_705_320_000)
         provider.client.get = AsyncMock(return_value=quote)
@@ -46,6 +49,7 @@ class TestPricesShared:
         assert item.price == Decimal("123.4567")
 
     async def test_classifies_session(self, provider_spec_prices):
+        """Test classifies session."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         ts = datetime(2024, 1, 17, 15, 0, tzinfo=UTC)
         quote = provider_spec_prices.quote(price=150.0, timestamp=int(ts.timestamp()))
@@ -56,6 +60,7 @@ class TestPricesShared:
         assert results[0].session.name == "REG"
 
     async def test_rejects_negative_price(self, provider_spec_prices):
+        """Test rejects negative price."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=-1, timestamp=1_705_320_000)
         provider.client.get = AsyncMock(return_value=quote)
@@ -65,6 +70,7 @@ class TestPricesShared:
         assert results == []
 
     async def test_rejects_zero_price(self, provider_spec_prices):
+        """Test rejects zero price."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=0, timestamp=1_705_320_000)
         provider.client.get = AsyncMock(return_value=quote)
@@ -74,6 +80,7 @@ class TestPricesShared:
         assert results == []
 
     async def test_rejects_string_price(self, provider_spec_prices, caplog):
+        """Test rejects string price."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price="invalid", timestamp=1_705_320_000)
         provider.client.get = AsyncMock(return_value=quote)
@@ -85,6 +92,7 @@ class TestPricesShared:
         assert any("invalid" in message for message in caplog.messages)
 
     async def test_rejects_missing_price_field(self, provider_spec_prices):
+        """Test rejects missing price field."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         quote = provider_spec_prices.quote(price=None, timestamp=1_705_320_000)
         if "c" in quote:
@@ -96,6 +104,7 @@ class TestPricesShared:
         assert results == []
 
     async def test_timestamp_fallback_when_missing(self, provider_spec_prices, monkeypatch):
+        """Test timestamp fallback when missing."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
@@ -119,6 +128,7 @@ class TestPricesShared:
         assert results[0].timestamp == fixed_now
 
     async def test_timestamp_fallback_when_invalid(self, provider_spec_prices, monkeypatch):
+        """Test timestamp fallback when invalid."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         fixed_now = datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
 
@@ -142,6 +152,7 @@ class TestPricesShared:
         assert results[0].timestamp == fixed_now
 
     async def test_error_isolation_per_symbol(self, provider_spec_prices):
+        """Test error isolation per symbol."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL", "FAIL", "TSLA"])
 
         async def mock_get(path: str, params: dict[str, Any]):
@@ -156,6 +167,7 @@ class TestPricesShared:
         assert {item.symbol for item in results} == {"AAPL", "TSLA"}
 
     async def test_non_dict_quote_skipped(self, provider_spec_prices):
+        """Test non dict quote skipped."""
         provider = provider_spec_prices.make_provider(symbols=["AAPL"])
         provider.client.get = AsyncMock(return_value=[provider_spec_prices.malformed(as_type=str)])
 

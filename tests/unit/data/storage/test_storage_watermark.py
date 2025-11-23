@@ -21,6 +21,7 @@ class TestTimestampCursors:
     """Timestamp helpers persist and round-trip values."""
 
     def test_global_timestamp_roundtrip(self, temp_db):
+        """Test global timestamp roundtrip."""
         timestamp = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
 
         set_last_seen_timestamp(
@@ -56,6 +57,7 @@ class TestTimestampCursors:
         assert roundtrip.tzinfo is UTC
 
     def test_symbol_timestamp_roundtrip(self, temp_db):
+        """Test symbol timestamp roundtrip."""
         base = datetime(2024, 2, 1, 9, 30, tzinfo=UTC)
         aapl = base
         tsla = base.replace(hour=10)
@@ -118,6 +120,7 @@ class TestSymbolNormalization:
     """_normalize_symbol enforces scope-specific requirements."""
 
     def test_symbol_scope_requires_non_empty_value(self):
+        """Test symbol scope requires non empty value."""
         with pytest.raises(ValueError, match="symbol is required"):
             _normalize_symbol(Scope.SYMBOL, None)
 
@@ -128,6 +131,7 @@ class TestSymbolNormalization:
             _normalize_symbol(Scope.SYMBOL, "__GLOBAL__")
 
     def test_global_scope_rejects_symbols(self):
+        """Test global scope rejects symbols."""
         assert _normalize_symbol(Scope.GLOBAL, None) == "__GLOBAL__"
 
         with pytest.raises(ValueError, match="symbol must be None"):
@@ -138,6 +142,7 @@ class TestIdCursors:
     """ID helpers store integers and guard against corruption."""
 
     def test_global_id_roundtrip(self, temp_db):
+        """Test global id roundtrip."""
         set_last_seen_id(
             temp_db,
             Provider.FINNHUB,
@@ -157,6 +162,7 @@ class TestIdCursors:
         )
 
     def test_corrupted_id_row_returns_none(self, temp_db):
+        """Test corrupted id row returns none."""
         with _cursor_context(temp_db) as cursor:
             cursor.execute(
                 """

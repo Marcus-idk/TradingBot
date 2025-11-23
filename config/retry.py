@@ -1,6 +1,4 @@
-"""
-Centralized retry configuration for LLM and data providers
-"""
+"""Centralized retry configuration for LLM and data providers."""
 
 from dataclasses import dataclass
 
