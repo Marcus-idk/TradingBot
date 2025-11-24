@@ -25,9 +25,6 @@ from utils.datetime_utils import normalize_to_utc
 logger = logging.getLogger(__name__)
 
 
-CursorKind = Literal["timestamp", "id"]
-
-
 @dataclass(frozen=True)
 class CursorRule:
     """Describes how a provider/stream tracks watermarks."""
@@ -35,7 +32,7 @@ class CursorRule:
     provider: ProviderEnum  # Which provider (FINNHUB, POLYGON)
     stream: StreamEnum  # Which stream (COMPANY, MACRO)
     scope: ScopeEnum  # SYMBOL = one watermark per symbol, GLOBAL = one watermark total
-    cursor: CursorKind  # "timestamp" = datetime cursor, "id" = integer cursor
+    cursor: Literal["timestamp", "id"]  # "timestamp" = datetime cursor, "id" = integer cursor
     bootstrap: bool  # True = detect new symbols and backfill for global scope providers
     overlap_family: Literal[
         "company", "macro"
@@ -107,14 +104,21 @@ def _clamp_future(ts: datetime, now: datetime) -> datetime:
     return ts if ts <= cap else cap
 
 
-def _is_bootstrap_symbol(
+def _is_global_bootstrap_symbol(
     db_path: str,
     rule: CursorRule,
     *,
     symbol: str,
     base_since: datetime,
 ) -> bool:
-    """Return True when the symbol has no watermark or is older than the base cutoff."""
+    """Return True when a GLOBAL-scope provider should bootstrap this symbol.
+
+    Notes:
+        Used only for providers that use GLOBAL scope + bootstrap=True
+        (e.g., Polygon company news). For per-symbol scope providers
+        (e.g., Finnhub company news), bootstrap behavior is handled
+        directly in build_plan.
+    """
     try:
         symbol_ts = get_last_seen_timestamp(
             db_path,
@@ -146,15 +150,19 @@ class WatermarkEngine:
             )
             return CursorPlan()
 
+        # Provider-specific settings (used for first-run windows, etc.).
         settings = self._get_settings(provider)
         now = _utc_now()
 
+        # ID-based cursor: only track the last integer ID.
         if rule.cursor == "id":
             last_id = get_last_seen_id(self.db_path, rule.provider, rule.stream, rule.scope)
             return CursorPlan(min_id=last_id)
 
+        # Timestamp-based cursor: derive "first run" window from settings.
         first_run_days = _cfg_days(settings, rule.overlap_family)
 
+        # Per-symbol scope (e.g., Finnhub company news): one cursor per symbol.
         if rule.scope is ScopeEnum.SYMBOL:
             per_symbol_map: dict[str, datetime] = {}
             for symbol in getattr(provider, "symbols", []) or []:
@@ -172,6 +180,7 @@ class WatermarkEngine:
                 per_symbol_map[symbol] = since
             return CursorPlan(symbol_since_map=per_symbol_map)
 
+        # Global scope (e.g., Polygon company/macro): single shared cursor.
         prev = get_last_seen_timestamp(
             self.db_path,
             rule.provider,
@@ -184,12 +193,14 @@ class WatermarkEngine:
         else:
             base_since = normalize_to_utc(prev)
 
+        # Optional per-symbol bootstrap overrides for GLOBAL+bootstrap providers
+        # (e.g., Polygon company news): new/stale symbols get a custom window.
         symbol_map: dict[str, datetime] | None = None
         if rule.bootstrap and getattr(provider, "symbols", None):
             overrides: dict[str, datetime] = {}
             override_since = now - timedelta(days=first_run_days)
             for symbol in getattr(provider, "symbols", []) or []:
-                if _is_bootstrap_symbol(
+                if _is_global_bootstrap_symbol(
                     self.db_path,
                     rule,
                     symbol=symbol,
@@ -210,8 +221,10 @@ class WatermarkEngine:
             )
             return
 
+        # Capture "now" once so all clamping uses the same reference.
         now = _utc_now()
 
+        # ID-based cursor: rely on provider's recorded max ID.
         if rule.cursor == "id":
             max_id = getattr(provider, "last_fetched_max_id", None)
             if max_id is None:
@@ -219,9 +232,11 @@ class WatermarkEngine:
             set_last_seen_id(self.db_path, rule.provider, rule.stream, rule.scope, max_id)
             return
 
+        # No entries means nothing to advance for timestamp-based cursors.
         if not entries:
             return
 
+        # Per-symbol scope (e.g., Finnhub company): track max timestamp per symbol.
         if rule.scope is ScopeEnum.SYMBOL:
             max_by_symbol: dict[str, datetime] = {}
             for entry in entries:

@@ -156,19 +156,17 @@ def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
         )
         ui_process = subprocess.Popen(
             [
-                sys.executable,
-                "-m",
+                sys.executable,  # use the same Python interpreter as the main process
+                "-m",  # run as a script
                 "streamlit",
                 "run",
-                str(PROJECT_ROOT / "ui/app_min.py"),
+                str(PROJECT_ROOT / "ui/app_min.py"),  # path to the Streamlit app file
                 "--server.port",
-                str(config.ui_port),
+                str(config.ui_port),  # port for the Streamlit server
                 "--server.headless",
-                "true",
+                "true",  # run without auto-opening a browser window
             ],
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            env=env,  # pass modified env so DATABASE_PATH/PYTHONPATH are available
         )
         logger.info(f"Streamlit UI started at http://localhost:{config.ui_port}")
         return ui_process
@@ -330,9 +328,7 @@ async def main(with_viewer: bool = False) -> int:
 
 if __name__ == "__main__":
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(
-        description="Trading Bot Data Poller - Collects market data every 5 minutes"
-    )
+    parser = argparse.ArgumentParser(description="Trading Bot Data Poller - Made by Marcus Goh")
     parser.add_argument(
         "-v",
         action="store_true",
