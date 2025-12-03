@@ -1,7 +1,13 @@
 """Public data models, providers, and storage helpers for the trading bot."""
 
 # Core abstractions (available immediately)
-from data.base import DataSource, DataSourceError, NewsDataSource, PriceDataSource
+from data.base import (
+    DataSource,
+    DataSourceError,
+    NewsDataSource,
+    PriceDataSource,
+    SocialDataSource,
+)
 
 # Data models
 from data.models import (
@@ -14,6 +20,7 @@ from data.models import (
     NewsType,
     PriceData,
     Session,
+    SocialDiscussion,
     Stance,
 )
 
@@ -29,9 +36,11 @@ from data.storage import (
     get_news_symbols,
     get_price_data_since,
     get_prices_before,
+    get_social_discussions_since,
     init_database,
     store_news_items,
     store_price_data,
+    store_social_discussions,
     upsert_analysis_result,
     upsert_holdings,
 )
@@ -40,6 +49,7 @@ __all__ = [
     "DataSource",
     "NewsDataSource",
     "PriceDataSource",
+    "SocialDataSource",
     "DataSourceError",
     "NewsItem",
     "NewsEntry",
@@ -51,11 +61,14 @@ __all__ = [
     "Session",
     "Stance",
     "AnalysisType",
+    "SocialDiscussion",
     "init_database",
     "finalize_database",
     "store_news_items",
+    "store_social_discussions",
     "store_price_data",
     "get_news_since",
+    "get_social_discussions_since",
     "get_news_symbols",
     "get_price_data_since",
     "upsert_analysis_result",

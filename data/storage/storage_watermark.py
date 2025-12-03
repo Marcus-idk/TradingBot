@@ -81,7 +81,19 @@ def _upsert_state(
             INSERT INTO last_seen_state (provider, stream, scope, symbol, timestamp, id)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(provider, stream, scope, symbol)
-            DO UPDATE SET timestamp = excluded.timestamp, id = excluded.id
+            DO UPDATE SET
+                timestamp = CASE
+                    WHEN excluded.timestamp IS NULL THEN last_seen_state.timestamp
+                    WHEN last_seen_state.timestamp IS NULL THEN excluded.timestamp
+                    WHEN excluded.timestamp > last_seen_state.timestamp THEN excluded.timestamp
+                    ELSE last_seen_state.timestamp
+                END,
+                id = CASE
+                    WHEN excluded.id IS NULL THEN last_seen_state.id
+                    WHEN last_seen_state.id IS NULL THEN excluded.id
+                    WHEN excluded.id > last_seen_state.id THEN excluded.id
+                    ELSE last_seen_state.id
+                END
             """,
             (
                 provider.value,

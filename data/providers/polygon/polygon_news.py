@@ -49,7 +49,6 @@ class PolygonNewsProvider(NewsDataSource):
         overlap_delta = timedelta(minutes=self.settings.company_news_overlap_minutes)
         bootstrap_delta = timedelta(days=self.settings.company_news_first_run_days)
 
-        # Polygon's /v2/reference/news endpoint uses pagination
         news_entries: list[NewsEntry] = []
 
         for symbol in self.symbols:

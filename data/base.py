@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from data.models import NewsEntry, PriceData
+from data.models import NewsEntry, PriceData, SocialDiscussion
 
 
 class DataSource(ABC):
@@ -54,6 +54,23 @@ class NewsDataSource(DataSource):
         raise NotImplementedError(
             "fetch_incremental must be implemented by subclasses "
             f"(since={since!r}, min_id={min_id!r}, symbol_since_map={symbol_since_map!r})"
+        )
+
+
+class SocialDataSource(DataSource):
+    """Abstract base class for data sources that provide social discussions."""
+
+    @abstractmethod
+    async def fetch_incremental(
+        self,
+        *,
+        since: datetime | None = None,
+        symbol_since_map: dict[str, datetime | None] | None = None,
+    ) -> list[SocialDiscussion]:
+        """Fetch new social discussion items using incremental cursors."""
+        raise NotImplementedError(
+            "fetch_incremental must be implemented by subclasses "
+            f"(since={since!r}, symbol_since_map={symbol_since_map!r})"
         )
 
 

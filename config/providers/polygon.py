@@ -9,7 +9,11 @@ from config.retry import DEFAULT_DATA_RETRY, DataRetryConfig
 
 @dataclass(frozen=True)
 class PolygonSettings:
-    """Configuration for Polygon.io API access."""
+    """Configuration for Polygon.io API access.
+
+    API precision: Polygon /v2/reference/news uses published_utc.gt with exact
+    ISO timestamps. Overlap re-scans a buffer window; DB dedupes on insert.
+    """
 
     api_key: str
     base_url: str = "https://api.polygon.io"

@@ -9,7 +9,12 @@ from config.retry import DEFAULT_DATA_RETRY, DataRetryConfig
 
 @dataclass(frozen=True)
 class FinnhubSettings:
-    """Configuration settings for Finnhub API integration"""
+    """Configuration settings for Finnhub API integration.
+
+    API precision: Finnhub /company-news uses date-only from/to params (YYYY-MM-DD).
+    We query full days, then filter by timestamp in code. Overlap re-scans a buffer
+    window; DB dedupes on insert.
+    """
 
     api_key: str
     base_url: str = "https://finnhub.io/api/v1"

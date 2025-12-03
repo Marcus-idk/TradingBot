@@ -92,8 +92,17 @@ def test_finalize_database_switches_to_delete_mode(temp_db):
     """Test finalize database switches to delete mode."""
     finalize_database(temp_db)
 
-    with _cursor_context(temp_db, commit=False) as cursor:
+    # Check raw mode without re-enabling WAL
+    with sqlite3.connect(temp_db) as conn:
+        cursor = conn.cursor()
         cursor.execute("PRAGMA journal_mode")
         mode = cursor.fetchone()[0]
 
     assert mode.lower() == "delete"
+
+    # Normal connections should restore WAL
+    with _cursor_context(temp_db, commit=False) as cursor:
+        cursor.execute("PRAGMA journal_mode")
+        mode_wal = cursor.fetchone()[0]
+
+    assert mode_wal.lower() == "wal"

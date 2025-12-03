@@ -23,6 +23,17 @@ def connect(db_path: str, **kwargs) -> sqlite3.Connection:
         conn.execute("PRAGMA busy_timeout = 5000")
     except sqlite3.Error as e:
         logger.warning(f"Failed to apply SQLite busy_timeout pragma: {e}")
+
+    # Enforce WAL mode and synch (synch changes per connection, resets to FULL on new)
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to set SQLite journal_mode=WAL: {e}")
+
+    try:
+        conn.execute("PRAGMA synchronous = NORMAL")
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to set SQLite synchronous=NORMAL: {e}")
     return conn
 
 
@@ -64,8 +75,13 @@ def finalize_database(db_path: str) -> None:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found: {db_path}")
 
-    # Use closing() to ensure connection is properly closed
-    with closing(connect(db_path)) as conn:
+    # Bypass connect() to avoid re-enabling WAL during maintenance.
+    with closing(sqlite3.connect(db_path)) as conn:
+        try:
+            conn.execute("PRAGMA synchronous = FULL")
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to set SQLite synchronous=FULL during finalize: {e}")
+
         # Force all WAL transactions into main database
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 

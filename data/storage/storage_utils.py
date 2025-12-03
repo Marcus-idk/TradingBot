@@ -14,6 +14,7 @@ from data.models import (
     NewsSymbol,
     PriceData,
     Session,
+    SocialDiscussion,
     Stance,
 )
 
@@ -163,4 +164,18 @@ def _row_to_holdings(row: dict[str, Any]) -> Holdings:
         notes=row.get("notes"),
         created_at=created_at,
         updated_at=updated_at,
+    )
+
+
+def _row_to_social_discussion(row: dict[str, Any]) -> SocialDiscussion:
+    """Convert database row to SocialDiscussion model."""
+    return SocialDiscussion(
+        source=row["source"],
+        source_id=row["source_id"],
+        symbol=row["symbol"],
+        community=row["community"],
+        title=row["title"],
+        url=row["url"],
+        content=row.get("content"),
+        published=_iso_to_datetime(row["published_iso"]),
     )

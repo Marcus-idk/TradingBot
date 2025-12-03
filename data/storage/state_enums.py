@@ -10,6 +10,7 @@ class Provider(Enum):
 
     FINNHUB = "FINNHUB"
     POLYGON = "POLYGON"
+    REDDIT = "REDDIT"
 
 
 class Stream(Enum):
@@ -17,6 +18,7 @@ class Stream(Enum):
 
     COMPANY = "COMPANY"
     MACRO = "MACRO"
+    SOCIAL = "SOCIAL"
 
 
 class Scope(Enum):

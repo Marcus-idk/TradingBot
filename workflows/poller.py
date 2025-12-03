@@ -12,9 +12,9 @@ from decimal import Decimal
 from typing import Any, TypedDict, cast
 
 from analysis.urgency_detector import detect_urgency
-from data import DataSourceError, NewsDataSource, PriceDataSource
-from data.models import NewsEntry, PriceData
-from data.storage import store_news_items, store_price_data
+from data import DataSourceError, NewsDataSource, PriceDataSource, SocialDataSource
+from data.models import NewsEntry, PriceData, SocialDiscussion
+from data.storage import store_news_items, store_price_data, store_social_discussions
 from llm.base import LLMError
 from utils.retry import RetryableError
 from workflows.watermarks import CursorPlan, WatermarkEngine, is_macro_stream
@@ -27,8 +27,10 @@ class DataBatch(TypedDict):
 
     company_news: list[NewsEntry]
     macro_news: list[NewsEntry]
+    social_discussions: list[SocialDiscussion]
     prices: dict[PriceDataSource, dict[str, PriceData]]  # {provider: {symbol: PriceData}}
     news_by_provider: dict[NewsDataSource, list[NewsEntry]]
+    social_by_provider: dict[SocialDataSource, list[SocialDiscussion]]
     errors: list[str]
 
 
@@ -36,6 +38,7 @@ class PollStats(TypedDict):
     """Statistics from one polling cycle."""
 
     news: int
+    social: int
     prices: int
     errors: list[str]
 
@@ -52,12 +55,14 @@ class DataPoller:
         self,
         db_path: str,
         news_providers: list[NewsDataSource],
+        social_providers: list[SocialDataSource],
         price_providers: list[PriceDataSource],
         poll_interval: int,
     ) -> None:
         """Initialize the data poller."""
         self.db_path = db_path
         self.news_providers = news_providers
+        self.social_providers = social_providers
         self.price_providers = price_providers
         self.poll_interval = poll_interval
         self.running = False
@@ -80,20 +85,26 @@ class DataPoller:
         """Fetch data from all providers concurrently.
 
         Notes:
-            Returns a ``DataBatch`` with company_news, macro_news, prices, and
-            errors.
+            Returns a ``DataBatch`` with company_news, macro_news, social_discussions,
+            prices, and errors.
         """
         # Separate results by provider type
         company_news: list[NewsEntry] = []
         macro_news: list[NewsEntry] = []
+        social_discussions: list[SocialDiscussion] = []
         prices_by_provider: dict[PriceDataSource, dict[str, PriceData]] = {}
         errors = []
 
-        # Start both news and price fetches concurrently (don't await yet)
+        # Start news, social, and price fetches concurrently (don't await yet)
         news_tasks = []
         for provider in self.news_providers:
             plan = self.watermarks.build_plan(provider)
             news_tasks.append(provider.fetch_incremental(**self._plan_kwargs(plan)))
+
+        social_tasks = []
+        for provider in self.social_providers:
+            plan = self.watermarks.build_plan(provider)
+            social_tasks.append(provider.fetch_incremental(**self._plan_kwargs(plan)))
 
         news_coro = asyncio.gather(
             *news_tasks,
@@ -103,11 +114,18 @@ class DataPoller:
             *(provider.fetch_incremental() for provider in self.price_providers),
             return_exceptions=True,
         )
+        social_coro = asyncio.gather(
+            *social_tasks,
+            return_exceptions=True,
+        )
 
         # Await both together to maintain full concurrency
-        news_results, price_results = await asyncio.gather(news_coro, price_coro)
+        news_results, price_results, social_results = await asyncio.gather(
+            news_coro, price_coro, social_coro
+        )
 
         news_by_provider: dict[NewsDataSource, list[NewsEntry]] = {}
+        social_by_provider: dict[SocialDataSource, list[SocialDiscussion]] = {}
 
         # Process news results - zip keeps provider and result matched
         for provider, result in zip(self.news_providers, news_results, strict=True):
@@ -124,6 +142,18 @@ class DataPoller:
             else:
                 company_news.extend(entries)
 
+        # Process social results
+        for provider, result in zip(self.social_providers, social_results, strict=True):
+            provider_name = getattr(provider, "source_name", provider.__class__.__name__)
+            if isinstance(result, Exception):
+                logger.debug(f"{provider_name} social fetch failed: {result}")
+                errors.append(f"{provider_name}: {str(result)}")
+                continue
+
+            items = cast(list[SocialDiscussion], result)
+            social_by_provider[provider] = items
+            social_discussions.extend(items)
+
         # Process price results - keep providers separate
         for provider, result in zip(self.price_providers, price_results, strict=True):
             provider_name = getattr(provider, "source_name", provider.__class__.__name__)
@@ -138,8 +168,10 @@ class DataPoller:
         return DataBatch(
             company_news=company_news,
             macro_news=macro_news,
+            social_discussions=social_discussions,
             prices=prices_by_provider,
             news_by_provider=news_by_provider,
+            social_by_provider=social_by_provider,
             errors=errors,
         )
 
@@ -260,14 +292,37 @@ class DataPoller:
             )
         return len(all_news)
 
+    async def _process_social(
+        self,
+        social_by_provider: dict[SocialDataSource, list[SocialDiscussion]],
+        social_discussions: list[SocialDiscussion],
+    ) -> int:
+        """Store social discussions and update watermarks."""
+        if not social_discussions:
+            logger.info("No social discussions to process")
+        else:
+            await asyncio.to_thread(store_social_discussions, self.db_path, social_discussions)
+
+        commit_tasks = [
+            asyncio.to_thread(self.watermarks.commit_updates, provider, items)
+            for provider, items in social_by_provider.items()
+        ]
+        if commit_tasks:
+            await asyncio.gather(*commit_tasks)
+
+        if social_discussions:
+            logger.info(f"Stored {len(social_discussions)} social discussions")
+
+        return len(social_discussions)
+
     async def poll_once(self) -> PollStats:
         """Execute one polling cycle.
 
         Notes:
-            Returns a ``PollStats`` dict with news count, prices count, and
+            Returns a ``PollStats`` dict with news count, social count, prices count, and
             errors list.
         """
-        stats: PollStats = {"news": 0, "prices": 0, "errors": []}
+        stats: PollStats = {"news": 0, "social": 0, "prices": 0, "errors": []}
 
         try:
             # Fetch all data concurrently
@@ -276,10 +331,15 @@ class DataPoller:
             # Extract data from dict
             company_news = data["company_news"]
             macro_news = data["macro_news"]
+            social_discussions = data["social_discussions"]
             stats["errors"].extend(data["errors"])
 
             stats["news"] = await self._process_news(
                 data["news_by_provider"], company_news, macro_news
+            )
+
+            stats["social"] = await self._process_social(
+                data["social_by_provider"], social_discussions
             )
 
             # Process prices
@@ -330,13 +390,13 @@ class DataPoller:
             if stats["errors"]:
                 logger.warning(
                     f"Cycle #{cycle_count} completed with errors: "
-                    f"{stats['news']} news, {stats['prices']} prices, "
+                    f"{stats['news']} news, {stats['social']} social, {stats['prices']} prices, "
                     f"Errors: {stats['errors']}"
                 )
             else:
                 logger.info(
                     f"Cycle #{cycle_count} completed successfully: "
-                    f"{stats['news']} news, {stats['prices']} prices"
+                    f"{stats['news']} news, {stats['social']} social, {stats['prices']} prices"
                 )
 
             # Calculate sleep time to maintain consistent interval

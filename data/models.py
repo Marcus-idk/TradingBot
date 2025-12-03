@@ -139,6 +139,44 @@ class NewsEntry:
 
 
 @dataclass
+class SocialDiscussion:
+    """Normalized social discussion thread (e.g., Reddit post with top comments)."""
+
+    source: str
+    source_id: str
+    symbol: str
+    community: str  # e.g., subreddit, channel, space
+    title: str
+    url: str
+    published: datetime
+    content: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate and normalize social discussion fields."""
+        self.source = self.source.strip()
+        self.source_id = self.source_id.strip()
+        self.symbol = self.symbol.strip().upper()
+        self.community = self.community.strip()
+        self.title = self.title.strip()
+        self.url = self.url.strip()
+
+        if not self.source:
+            raise ValueError("source cannot be empty")
+        if not self.source_id:
+            raise ValueError("source_id cannot be empty")
+        if not self.symbol:
+            raise ValueError("symbol cannot be empty")
+        if not self.community:
+            raise ValueError("community cannot be empty")
+        if not self.title:
+            raise ValueError("title cannot be empty")
+        if not _valid_http_url(self.url):
+            raise ValueError("url must be http(s)")
+
+        self.published = normalize_to_utc(self.published)
+
+
+@dataclass
 class PriceData:
     """Single price observation for a symbol."""
 

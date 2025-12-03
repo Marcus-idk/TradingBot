@@ -15,7 +15,7 @@ When updating this file, follow this checklist:
 ---
 
 ## Core Idea
-Framework for US equities data collection and LLM-ready storage. Current scope: strict UTC models, SQLite with constraints/dedup, LLM provider integrations (OpenAI, Gemini), and a configurable (5 mins for now) data poller with Finnhub and Polygon providers. Trading decisions are not implemented yet; session detection is implemented via ET conversion.
+Framework for US equities data collection and LLM-ready storage. Current scope: strict UTC models, SQLite with constraints/dedup, LLM provider integrations (OpenAI, Gemini), and a configurable (5 mins for now) data poller with Finnhub, Polygon, and Reddit providers (news, prices, social sentiment). Trading decisions are not implemented yet; session detection is implemented via ET conversion.
 
 ## Time Policy
 - Persistence: UTC everywhere (ISO `YYYY-MM-DDTHH:MM:SSZ`).
@@ -24,12 +24,16 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 ## Environment Variables
 - `FINNHUB_API_KEY` - Required for market data fetching
 - `POLYGON_API_KEY` - Required for Polygon.io news data
+- `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` / `REDDIT_USER_AGENT` - Required for Reddit social sentiment
 - `OPENAI_API_KEY` - Required for OpenAI LLM provider
 - `GEMINI_API_KEY` - Required for Gemini LLM provider
 - `DATABASE_PATH` - Optional, defaults to data/trading_bot.db
 - `SYMBOLS` - Required for `run_poller.py`; comma-separated tickers (e.g., "AAPL,MSFT,TSLA")
 - `POLL_INTERVAL` - Required for `run_poller.py`; polling frequency in seconds (e.g., 300 for 5 minutes)
 - `STREAMLIT_PORT` - Optional, defaults to 8501; port used when launching web UI with `-v`
+- `LOG_LEVEL` - Optional; logging level name (e.g., DEBUG, INFO)
+- `LOG_FILE` - Optional; path to log file (if set, logs also go to this file)
+- `LOG_FORMAT` - Optional; logging format string for log lines
 
 ## Top-Level Files
 - `README.md` - Landing page that points developers to detailed documentation in `docs/`
@@ -40,17 +44,17 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
 ## Main Entry Points
 - `run_poller.py` - Main data collection script
-  - `PollerConfig` - Configuration dataclass (db_path, symbols, poll_interval, ui_port, finnhub_settings, polygon_settings)
+  - `PollerConfig` - Configuration dataclass (db_path, symbols, poll_interval, ui_port, finnhub_settings, polygon_settings, reddit_settings)
   - `setup_environment()` - Load environment variables and configure logging
   - `build_config()` - Parse environment variables and build PollerConfig object
   - `initialize_database()` - Initialize database and return success status
   - `launch_ui_process()` - Launch Streamlit UI process if `-v` flag provided
-  - `create_and_validate_providers()` - Create and validate news/price providers, returns provider lists
+  - `create_and_validate_providers()` - Create and validate news/social/price providers, returns provider lists (news, social, prices)
   - `cleanup_ui_process()` - Terminate UI process on shutdown
   - `main()` - Async entry point with signal handling
   - Uses `utils.logging.setup_logging()` for consistent logging
   - Uses `utils.signals.register_graceful_shutdown()` for SIGINT/SIGTERM
-  - Requires `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, and `POLYGON_API_KEY` in environment
+  - Requires `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, `POLYGON_API_KEY`, and Reddit credentials (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT`) in environment
   - Optional web UI: run with `-v` (port configurable via `STREAMLIT_PORT`, default 8501)
 - `ui/app_min.py` - Streamlit database UI. Run with `streamlit run ui/app_min.py` (uses `DATABASE_PATH`).
 
@@ -84,6 +88,9 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `config/providers/polygon.py`
     - `PolygonSettings` - Dataclass for Polygon.io configuration
     - `PolygonSettings.from_env()` - Load settings from environment
+  - `config/providers/reddit.py`
+    - `RedditSettings` - Dataclass for Reddit OAuth and polling configuration
+    - `RedditSettings.from_env()` - Load Reddit settings from environment
 
 ### `data/` — Data models, storage, and providers
 **Purpose**: Core data structures, SQLite operations, and data source implementations
@@ -102,6 +109,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
       - `symbol_since_map` allows per-symbol cursors that override the global `since` where supported
   - `PriceDataSource` - Abstract class for price providers
     - `fetch_incremental() -> list[PriceData]` — snapshot price fetch (no incremental cursors yet)
+  - `SocialDataSource` - Abstract class for social providers
+    - `fetch_incremental(*, since: datetime | None = None, symbol_since_map: dict[str, datetime | None] | None = None) -> list[SocialDiscussion]` — timestamp cursors (per-symbol or global)
 
 - `data/models.py` - Core dataclasses and enums
   **Enums**:
@@ -118,6 +127,7 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
   - `NewsSymbol` - Join row: `url`, `symbol`, `is_important` (bool | None)
   - `NewsEntry` - Domain model: `article` (NewsItem), `symbol`, `is_important`
   - `PriceData` - `symbol`, `timestamp` (UTC), `price` (Decimal), `volume` (optional), `session` (Session)
+  - `SocialDiscussion` - `source`, `source_id`, `symbol`, `community` (platform section like subreddit/channel), `title`, `url`, `published` (UTC), `content` (optional)
 
   **Functions**:
   - `_valid_http_url()` - Validate HTTP/HTTPS URLs
@@ -136,8 +146,8 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `_check_json1_support()` - Verify SQLite JSON1 extension
 
   - `storage_crud.py` - CRUD operations for all data types
-    - **Store**: `store_news_items()` (accepts list[NewsEntry], splits to tables), `store_price_data()`
-    - **Query**: `get_news_since()` (returns list[NewsEntry]), `get_news_symbols()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
+    - **Store**: `store_news_items()` (accepts list[NewsEntry], splits to tables), `store_price_data()`, `store_social_discussions()`
+    - **Query**: `get_news_since()` (returns list[NewsEntry]), `get_social_discussions_since()`, `get_news_symbols()`, `get_price_data_since()`, `get_all_holdings()`, `get_analysis_results()`
     - **Upsert**: `upsert_analysis_result()`, `upsert_holdings()`
 
   - `storage_batch.py` - Batch operations for LLM processing
@@ -149,11 +159,11 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 
   - `storage_utils.py` - Utilities and type converters
     - **Helpers**: `_datetime_to_iso()`, `_decimal_to_text()`, `_iso_to_datetime()`, `_normalize_url()`
-    - **Row converters**: `_row_to_analysis_result()`, `_row_to_holdings()`, `_row_to_news_item()` (article-level), `_row_to_news_symbol()`, `_row_to_news_entry()`, `_row_to_price_data()`
+    - **Row converters**: `_row_to_analysis_result()`, `_row_to_holdings()`, `_row_to_news_item()` (article-level), `_row_to_news_symbol()`, `_row_to_news_entry()`, `_row_to_price_data()`, `_row_to_social_discussion()`
 
 **Subdirectories**:
 - `data/providers/` - Data source implementations
-  - `data/providers/__init__.py` - Public facade; import via `from data.providers import finnhub, polygon`
+  - `data/providers/__init__.py` - Public facade; import via `from data.providers import finnhub, polygon, reddit`
   - `data/providers/finnhub/`
     - `FinnhubClient` - HTTP client for Finnhub API with retry logic
       - `__init__()` - Initialize with settings
@@ -195,10 +205,15 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
       - `_extract_cursor()` - Extract cursor from Polygon next_url for pagination
       - `_parse_article()` - Convert API response to NewsEntry list per watchlist symbol; default to 'MARKET' when none match
       - `_extract_symbols_from_tickers()` - Filter `tickers` array against watchlist; if nothing survives, fallback to ['MARKET'] for market-wide coverage
+  - `data/providers/reddit/`
+    - `RedditClient` - PRAW wrapper for OAuth-backed Reddit access; `validate_connection()` calls `/api/v1/me`
+    - `RedditSocialProvider` - Social sentiment provider (per-symbol timestamp cursors)
+      - `fetch_incremental(*, since=..., symbol_since_map=...) -> list[SocialDiscussion]` — uses subreddit combo `stocks+investing+wallstreetbets`, `time_filter=week` on bootstrap, `time_filter=hour` for incremental, local watermark filtering, and top comments aggregation (limit from settings); fills `community` with subreddit name
+      - `_build_content()` - Concatenate post selftext and top comments; tolerant of comment fetch failures
 
 - `data/storage/state_enums.py` - Enums for watermark provider/stream/scope
-  - `Provider` - Values: `FINNHUB`, `POLYGON`
-  - `Stream` - Values: `COMPANY`, `MACRO`
+  - `Provider` - Values: `FINNHUB`, `POLYGON`, `REDDIT`
+  - `Stream` - Values: `COMPANY`, `MACRO`, `SOCIAL`
   - `Scope` - Values: `GLOBAL`, `SYMBOL`
 
 ### `llm/` — LLM provider abstractions
@@ -272,21 +287,22 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `workflows/__init__.py` - Public facade (exports DataPoller)
 - `workflows/poller.py` - Data collection orchestrator
   - `DataPoller` - Orchestrates multiple providers concurrently with urgency detection
-    - `__init__(db_path, news_providers, price_providers, poll_interval)` - Initialize poller
-    - `_fetch_all_data()` - Concurrently fetch news and prices; return company/macro news and per‑provider prices with errors
+    - `__init__(db_path, news_providers, social_providers, price_providers, poll_interval)` - Initialize poller with news, social, and price providers
+    - `_fetch_all_data()` - Concurrently fetch news, social discussions, and prices; return company/macro news, social_discussions, and per‑provider prices with errors
     - `_log_urgent_items()` - Log urgent news items to console
     - `_process_news()` - Store news (NewsEntry split to tables), detect urgency, update watermarks
+    - `_process_social()` - Store social discussions and update watermarks for social providers
     - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only; skips symbols missing from primary (intentional design, not a bug)
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
     - `stop()` - Request graceful shutdown
-  - `DataBatch` (TypedDict) - Batch result with `company_news`, `macro_news`, `prices: dict[PriceDataSource, dict[str, PriceData]]` (provider → {symbol → PriceData}), `errors`
-  - `PollStats` (TypedDict) - Per-cycle stats with `news`, `prices`, `errors`
+  - `DataBatch` (TypedDict) - Batch result with `company_news`, `macro_news`, `social_discussions`, `prices: dict[PriceDataSource, dict[str, PriceData]]` (provider → {symbol → PriceData}), per‑provider maps, and `errors`
+  - `PollStats` (TypedDict) - Per-cycle stats with `news`, `social`, `prices`, `errors`
 
-- `workflows/watermarks.py` - Watermark planning and persistence for news providers
+- `workflows/watermarks.py` - Watermark planning and persistence for news and social providers
   - `CursorPlan` - Dataclass describing cursor kwargs (`since`, `min_id`, optional `symbol_since_map`) passed to provider `fetch_incremental` methods
-  - `CURSOR_RULES` - Mapping from provider types to cursor rules (provider/stream/scope, cursor kind, bootstrap behavior, overlap family)
-  - `WatermarkEngine` - Builds per-provider cursor plans from `last_seen_state` and committed data, and writes back updated timestamp/ID watermarks after processing
+  - `CURSOR_RULES` - Mapping from provider types (Finnhub, Polygon, Reddit) to cursor rules (provider/stream/scope, cursor kind, bootstrap behavior, overlap family)
+  - `WatermarkEngine` - Builds per-provider cursor plans from `last_seen_state` and committed data, and writes back updated timestamp/ID watermarks after processing for news and social streams
   - `is_macro_stream(provider)` - Helper to identify macro streams for routing news into `macro_news` vs `company_news`
 
 ### `analysis/` — Business logic and classification
@@ -327,6 +343,7 @@ Tables:
 - `price_data(symbol, timestamp_iso, price TEXT, volume, session, created_at_iso)` — PK: (symbol, timestamp_iso)
 - `analysis_results(symbol, analysis_type, model_name, stance, confidence_score, last_updated_iso, result_json, created_at_iso)` — PK: (symbol, analysis_type)
 - `holdings(symbol, quantity TEXT, break_even_price TEXT, total_cost TEXT, notes, created_at_iso, updated_at_iso)` — PK: symbol
-- `last_seen_state(provider, stream, scope, symbol, timestamp, id)` — Watermarks keyed by provider/stream/scope/symbol; `scope` constrained to `GLOBAL`/`SYMBOL`, timestamps stored as ISO text, IDs as integers
+- `social_discussions(source, source_id, symbol, community, title, url, content, published_iso, created_at_iso)` — PK: (source, source_id)
+- `last_seen_state(provider, stream, scope, symbol DEFAULT '__GLOBAL__', timestamp, id)` — Watermarks keyed by provider/stream/scope/symbol; `provider` constrained to `FINNHUB`/`POLYGON`/`REDDIT`, `stream` to `COMPANY`/`MACRO`/`SOCIAL`, `scope` to `GLOBAL`/`SYMBOL`; symbol is non-null with global sentinel; CHECK enforces exactly one of `timestamp` or `id` is set; timestamps stored as ISO text, IDs as integers
 
 Constraints: NOT NULL on required fields, CHECK constraints for positive values, enum validations, JSON object validation for JSON columns

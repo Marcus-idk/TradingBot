@@ -19,7 +19,8 @@ from dotenv import load_dotenv
 
 from config.providers.finnhub import FinnhubSettings
 from config.providers.polygon import PolygonSettings
-from data import DataSourceError, NewsDataSource, PriceDataSource
+from config.providers.reddit import RedditSettings
+from data import DataSourceError, NewsDataSource, PriceDataSource, SocialDataSource
 from data.providers.finnhub import (
     FinnhubMacroNewsProvider,
     FinnhubNewsProvider,
@@ -29,6 +30,7 @@ from data.providers.polygon import (
     PolygonMacroNewsProvider,
     PolygonNewsProvider,
 )
+from data.providers.reddit import RedditSocialProvider
 from data.storage import init_database
 from utils.logging import setup_logging
 from utils.retry import RetryableError
@@ -50,6 +52,7 @@ class PollerConfig:
     ui_port: int | None
     finnhub_settings: FinnhubSettings
     polygon_settings: PolygonSettings
+    reddit_settings: RedditSettings
 
 
 def setup_environment() -> None:
@@ -122,6 +125,15 @@ def build_config(with_viewer: bool) -> PollerConfig:
             "Please set POLYGON_API_KEY environment variable"
         ) from exc
 
+    # Load Reddit settings
+    try:
+        reddit_settings = RedditSettings.from_env()
+    except ValueError as exc:
+        raise ValueError(
+            f"Failed to load Reddit settings: {exc}. "
+            "Please set REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, and REDDIT_USER_AGENT"
+        ) from exc
+
     return PollerConfig(
         db_path=db_path,
         symbols=symbols,
@@ -129,6 +141,7 @@ def build_config(with_viewer: bool) -> PollerConfig:
         ui_port=ui_port,
         finnhub_settings=finnhub_settings,
         polygon_settings=polygon_settings,
+        reddit_settings=reddit_settings,
     )
 
 
@@ -182,7 +195,7 @@ def launch_ui_process(config: PollerConfig) -> subprocess.Popen | None:
 
 async def create_and_validate_providers(
     config: PollerConfig,
-) -> tuple[list[NewsDataSource], list[PriceDataSource]]:
+) -> tuple[list[NewsDataSource], list[SocialDataSource], list[PriceDataSource]]:
     """Create and validate news and price providers."""
     logger.info(f"Tracking symbols: {', '.join(config.symbols)}")
     logger.info(f"Poll interval: {config.poll_interval} seconds")
@@ -196,6 +209,9 @@ async def create_and_validate_providers(
     polygon_company_news_provider = PolygonNewsProvider(config.polygon_settings, config.symbols)
     polygon_macro_news_provider = PolygonMacroNewsProvider(config.polygon_settings, config.symbols)
 
+    # Create Reddit provider
+    reddit_social_provider = RedditSocialProvider(config.reddit_settings, config.symbols)
+
     # Group providers by type
     news_providers: list[NewsDataSource] = [
         company_news_provider,
@@ -203,6 +219,7 @@ async def create_and_validate_providers(
         polygon_company_news_provider,
         polygon_macro_news_provider,
     ]
+    social_providers: list[SocialDataSource] = [reddit_social_provider]
     price_providers: list[PriceDataSource] = [finnhub_price_provider]
 
     # Validate connections
@@ -214,6 +231,7 @@ async def create_and_validate_providers(
             (finnhub_price_provider, "Finnhub price"),
             (polygon_company_news_provider, "Polygon company news"),
             (polygon_macro_news_provider, "Polygon macro news"),
+            (reddit_social_provider, "Reddit social"),
         ]
 
         results = await asyncio.gather(*[p.validate_connection() for p, _ in providers_to_validate])
@@ -228,7 +246,7 @@ async def create_and_validate_providers(
         logger.exception(f"Connection validation failed: {exc}")
         raise ValueError(f"Provider validation failed: {exc}") from exc
 
-    return news_providers, price_providers
+    return news_providers, social_providers, price_providers
 
 
 def cleanup_ui_process(ui_process: subprocess.Popen | None) -> None:
@@ -272,14 +290,17 @@ async def main(with_viewer: bool = False) -> int:
 
     try:
         # Create and validate providers
-        news_providers, price_providers = await create_and_validate_providers(config)
-        if not news_providers:
+        news_providers, social_providers, price_providers = await create_and_validate_providers(
+            config
+        )
+        if not news_providers and not social_providers:
             return 1
 
         # Create poller
         poller = DataPoller(
             db_path=config.db_path,
             news_providers=news_providers,
+            social_providers=social_providers,
             price_providers=price_providers,
             poll_interval=config.poll_interval,
         )

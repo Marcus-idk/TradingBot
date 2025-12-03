@@ -214,5 +214,99 @@ The **"Endpoints"** section shows only what we actually call/use (matching the �
 
 ---
 
+## Provider: Reddit
+**Auth & Base**: OAuth2 (client_id + client_secret + user_agent) · Base: `https://oauth.reddit.com`
+
+**What they provide**
+- Social/Sentiment — ✅ (posts + top comments)
+
+**Rate Limits**
+- OAuth: ~100 requests/minute.
+- Use `+` syntax to combine subreddits in one request (e.g., `stocks+investing+wallstreetbets`).
+- Batch fetch with `/api/info` when you have multiple IDs.
+
+**Recommended Connectivity / Health Check**
+- Endpoint: `GET /api/v1/me`.
+- Why: Verifies OAuth token validity and returns authenticated user info.
+
+**Usage Notes (Social/Sentiment)**
+- Time filters: Only `hour`, `day`, `week`, `month`, `year`, `all` available. No "last 5 minutes" option.
+- Incremental fetching: Use `time_filter=hour` and filter locally by watermark timestamp.
+- Bootstrap: Use `time_filter=week` for first run / new symbols.
+- Target subreddits: `stocks`, `investing`, `wallstreetbets`.
+- Response model: All endpoints return "things" wrapped in `kind` + `data` envelope.
+
+**Endpoints**
+- Search Posts — `GET /r/{subreddit}/search`
+  - Params: `q` (query, e.g., "AAPL"), `restrict_sr` (boolean, restrict to subreddit), `sort` (`relevance` | `hot` | `top` | `new` | `comments`), `t` (`hour` | `day` | `week` | `month` | `year` | `all`), `limit` (max 100), `after` (fullname for pagination)
+  - Returns:
+    ```json
+    {
+      "kind": "Listing",
+      "data": {
+        "after": "t3_abc123",
+        "children": [
+          {
+            "kind": "t3",
+            "data": {
+              "id": "xyz789",
+              "name": "t3_xyz789",
+              "title": "AAPL earnings discussion",
+              "selftext": "What do you think about...",
+              "author": "user123",
+              "subreddit": "stocks",
+              "created_utc": 1732900800.0,
+              "permalink": "/r/stocks/comments/xyz789/aapl_earnings_discussion/",
+              "url": "https://www.reddit.com/r/stocks/comments/xyz789/aapl_earnings_discussion/"
+            }
+          }
+        ]
+      }
+    }
+    ```
+  - **Note**: Use `sort=new` and `t=hour` for incremental polling. Use `+` syntax for multi-subreddit search (e.g., `/r/stocks+investing/search`).
+
+- Get Post Comments — `GET /r/{subreddit}/comments/{article}`
+  - Path: `subreddit` (subreddit name), `article` (post ID36, e.g., "xyz789")
+  - Params: `sort` (`confidence` | `top` | `new` | `controversial` | `old`), `limit` (max comments), `depth` (max reply depth)
+  - Returns:
+    ```json
+    [
+      {
+        "kind": "Listing",
+        "data": {
+          "children": [
+            {
+              "kind": "t3",
+              "data": { "...post data..." }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Listing",
+        "data": {
+          "children": [
+            {
+              "kind": "t1",
+              "data": {
+                "id": "abc123",
+                "name": "t1_abc123",
+                "body": "I think AAPL is undervalued...",
+                "author": "investor99",
+                "score": 45,
+                "created_utc": 1732901400.0,
+                "is_submitter": false
+              }
+            }
+          ]
+        }
+      }
+    ]
+    ```
+  - **Note**: Returns array of two Listings: first is the post (t3), second is the comment tree (t1). Use `sort=top` and `limit=20` to get highest-signal comments.
+
+---
+
 ## Notes
 - Keep this file concise and **contract-only**.

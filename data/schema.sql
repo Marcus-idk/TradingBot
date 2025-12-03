@@ -24,6 +24,19 @@ CREATE TABLE IF NOT EXISTS news_symbols (
     FOREIGN KEY (url) REFERENCES news_items(url) ON DELETE CASCADE
 ) WITHOUT ROWID;
 
+CREATE TABLE IF NOT EXISTS social_discussions (
+    source TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    community TEXT NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    content TEXT,
+    published_iso TEXT NOT NULL,
+    created_at_iso TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+    PRIMARY KEY (source, source_id)
+) WITHOUT ROWID;
+
 -- Price data
 CREATE TABLE IF NOT EXISTS price_data (
     symbol TEXT NOT NULL,
@@ -62,11 +75,12 @@ CREATE TABLE IF NOT EXISTS holdings (
 
 -- Provider cursor state
 CREATE TABLE IF NOT EXISTS last_seen_state (
-    provider TEXT NOT NULL CHECK(provider IN ('FINNHUB', 'POLYGON')),
-    stream TEXT NOT NULL CHECK(stream IN ('COMPANY', 'MACRO')),
+    provider TEXT NOT NULL CHECK(provider IN ('FINNHUB', 'POLYGON', 'REDDIT')),
+    stream TEXT NOT NULL CHECK(stream IN ('COMPANY', 'MACRO', 'SOCIAL')),
     scope TEXT NOT NULL CHECK(scope IN ('GLOBAL', 'SYMBOL')),
-    symbol TEXT,
+    symbol TEXT NOT NULL DEFAULT '__GLOBAL__',
     timestamp TEXT,
     id INTEGER,
+    CHECK ((timestamp IS NULL) != (id IS NULL)),
     PRIMARY KEY (provider, stream, scope, symbol)
 );

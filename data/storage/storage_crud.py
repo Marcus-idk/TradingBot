@@ -2,7 +2,15 @@
 
 from datetime import UTC, datetime
 
-from data.models import AnalysisResult, Holdings, NewsEntry, NewsSymbol, NewsType, PriceData
+from data.models import (
+    AnalysisResult,
+    Holdings,
+    NewsEntry,
+    NewsSymbol,
+    NewsType,
+    PriceData,
+    SocialDiscussion,
+)
 from data.storage.db_context import _cursor_context
 from data.storage.storage_utils import (
     _datetime_to_iso,
@@ -13,6 +21,7 @@ from data.storage.storage_utils import (
     _row_to_news_entry,
     _row_to_news_symbol,
     _row_to_price_data,
+    _row_to_social_discussion,
 )
 
 
@@ -69,6 +78,41 @@ def store_news_items(db_path: str, items: list[NewsEntry]) -> None:
             )
 
 
+def store_social_discussions(db_path: str, items: list[SocialDiscussion]) -> None:
+    """Store social discussion threads."""
+    if not items:
+        return
+
+    with _cursor_context(db_path) as cursor:
+        for item in items:
+            normalized_url = _normalize_url(item.url)
+            cursor.execute(
+                """
+                INSERT INTO social_discussions
+                (source, source_id, symbol, community, title, url, content,
+                 published_iso)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(source, source_id) DO UPDATE SET
+                    symbol = excluded.symbol,
+                    community = excluded.community,
+                    title = excluded.title,
+                    url = excluded.url,
+                    content = excluded.content,
+                    published_iso = excluded.published_iso
+            """,
+                (
+                    item.source,
+                    item.source_id,
+                    item.symbol,
+                    item.community,
+                    item.title,
+                    normalized_url,
+                    item.content,
+                    _datetime_to_iso(item.published),
+                ),
+            )
+
+
 def store_price_data(db_path: str, items: list[PriceData]) -> None:
     """Store price data with type conversions."""
     if not items:
@@ -121,6 +165,7 @@ def get_news_symbols(db_path: str, symbol: str | None = None) -> list[NewsSymbol
     """Retrieve stored news symbol links, optionally filtered by symbol."""
     with _cursor_context(db_path, commit=False) as cursor:
         if symbol:
+            # need to normalize symbol for lookup, user can call anywhere
             symbol_key = symbol.strip().upper()
             cursor.execute(
                 """
@@ -141,6 +186,37 @@ def get_news_symbols(db_path: str, symbol: str | None = None) -> list[NewsSymbol
             )
 
         return [_row_to_news_symbol(dict(row)) for row in cursor.fetchall()]
+
+
+def get_social_discussions_since(
+    db_path: str, timestamp: datetime, symbol: str | None = None
+) -> list[SocialDiscussion]:
+    """Retrieve social discussions since the given timestamp."""
+    with _cursor_context(db_path, commit=False) as cursor:
+        if symbol:
+            cursor.execute(
+                """
+                SELECT source, source_id, symbol, community, title, url, content,
+                       published_iso
+                FROM social_discussions
+                WHERE published_iso >= ? AND symbol = ?
+                ORDER BY published_iso ASC
+            """,
+                (_datetime_to_iso(timestamp), symbol.strip().upper()),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT source, source_id, symbol, community, title, url, content,
+                       published_iso
+                FROM social_discussions
+                WHERE published_iso >= ?
+                ORDER BY published_iso ASC
+            """,
+                (_datetime_to_iso(timestamp),),
+            )
+
+        return [_row_to_social_discussion(dict(row)) for row in cursor.fetchall()]
 
 
 def get_price_data_since(db_path: str, timestamp: datetime) -> list[PriceData]:
@@ -176,6 +252,7 @@ def get_analysis_results(db_path: str, symbol: str | None = None) -> list[Analys
     """Retrieve analysis results, optionally filtered by symbol."""
     with _cursor_context(db_path, commit=False) as cursor:
         if symbol:
+            symbol = symbol.strip().upper()
             cursor.execute(
                 """
                 SELECT symbol, analysis_type, model_name, stance, confidence_score,
