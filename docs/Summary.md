@@ -291,8 +291,9 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
     - `__init__(db_path, news_providers, social_providers, price_providers, poll_interval)` - Initialize poller with news, social, and price providers
     - `_fetch_all_data()` - Concurrently fetch news, social discussions, and prices; return company/macro news, social_discussions, and per‑provider prices with errors
     - `_log_urgent_items()` - Log urgent news items to console
+    - `_log_urgent_social()` - Log urgent social threads to console
     - `_process_news()` - Store news (NewsEntry split to tables), detect urgency, update watermarks
-    - `_process_social()` - Store social discussions and update watermarks for social providers
+    - `_process_social()` - Store social discussions, detect urgency, update watermarks for social providers
     - `_process_prices()` - Deduplicate per symbol using primary provider; log mismatches ≥ $0.01; store primary only; skips symbols missing from primary (intentional design, not a bug)
     - `poll_once()` - One cycle: fetch, process, update watermarks, return stats
     - `run()` - Continuous polling loop with interval scheduling and graceful shutdown
@@ -314,7 +315,9 @@ Framework for US equities data collection and LLM-ready storage. Current scope: 
 - `analysis/news_classifier.py` - News classification stub
   - `classify(news_entries)` - Accepts list[NewsEntry] and returns [] while logging a debug hint; importance flags now come from persisted `news_symbols`
 - `analysis/urgency_detector.py` - Urgency detection module
-  - `detect_urgency(news_entries)` - Detect urgent news requiring immediate attention (currently stub that logs cycle stats and returns empty list; LLM-based detection in v0.5)
+  - `UrgencyInput` - Normalized text+metadata payload used for urgency scoring
+  - `detect_news_urgency(news_entries)` - Normalizes headline/body and logs stub stats; returns empty list for now
+  - `detect_social_urgency(social_items)` - Normalizes title/post/comments and logs stub stats; returns empty list for now
 
 ### `ui/` — Web UI
 **Purpose**: Lightweight Streamlit interface for local DB inspection

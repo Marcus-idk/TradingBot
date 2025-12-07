@@ -371,7 +371,6 @@ def test_stuff():
 - [ ] Mocking at correct level (not facades)?
 - [ ] Integration tests marked correctly?
 - [ ] Following similar test patterns? (studied existing tests first?)
-- [ ] Updated `docs/Test_Catalog.md` (added/removed files, tests listed with one-line descriptions)
 - [ ] Simple asserts have no custom message strings
 - [ ] Complex assertions use brief messages only when needed
 - [ ] Exception tests use `pytest.raises(..., match=...)` when message matters

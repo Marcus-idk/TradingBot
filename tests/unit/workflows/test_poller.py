@@ -694,7 +694,7 @@ class TestDataPollerNewsProcessing:
         def raising_detect(_entries):
             raise LLMError("urgency boom")
 
-        monkeypatch.setattr("workflows.poller.detect_urgency", raising_detect)
+        monkeypatch.setattr("workflows.poller.detect_news_urgency", raising_detect)
 
         caplog.set_level(logging.ERROR)
         count = await poller._process_news(news_by_provider, [entry], [])
@@ -737,6 +737,55 @@ class TestDataPollerNewsProcessing:
         poller._log_urgent_items(urgent_items)
 
         assert "Found 11 URGENT news items requiring attention" in caplog.text
+        assert "... 1 more" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_process_social_logs_urgency_detection_failures(
+        self, temp_db, monkeypatch, caplog
+    ):
+        """Test process social logs urgency detection failures."""
+        social_item = make_social_discussion(symbol="AAPL")
+        provider = StubSocial([social_item])
+        poller = DataPoller(temp_db, [], [provider], [], poll_interval=300)
+        social_by_provider: dict[SocialDataSource, list[SocialDiscussion]] = {
+            provider: [social_item]
+        }
+
+        async def immediate_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        monkeypatch.setattr(asyncio, "to_thread", immediate_to_thread)
+        monkeypatch.setattr(poller.watermarks, "commit_updates", lambda *_: None)
+
+        def raising_detect(_entries):
+            raise LLMError("social boom")
+
+        monkeypatch.setattr("workflows.poller.detect_social_urgency", raising_detect)
+
+        caplog.set_level(logging.ERROR)
+        count = await poller._process_social(social_by_provider, [social_item])
+
+        assert count == 1
+        assert "Social urgency detection failed" in caplog.text
+
+    def test_log_urgent_social_logs_summary(self, temp_db, caplog):
+        """Test log urgent social items logs summary."""
+        poller = DataPoller(temp_db, [StubNews([])], [], [StubPrice([])], poll_interval=300)
+        caplog.set_level(logging.WARNING)
+        urgent_items = [
+            make_social_discussion(
+                symbol=f"SYM{i}",
+                url=f"https://example.com/social-{i}",
+                title=f"Urgent social {i}",
+                published=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+                community="r/stocks",
+            )
+            for i in range(11)
+        ]
+
+        poller._log_urgent_social(urgent_items)
+
+        assert "Found 11 URGENT social threads requiring attention" in caplog.text
         assert "... 1 more" in caplog.text
 
 

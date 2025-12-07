@@ -11,7 +11,7 @@ import logging
 from decimal import Decimal
 from typing import Any, TypedDict, cast
 
-from analysis.urgency_detector import detect_urgency
+from analysis.urgency_detector import detect_news_urgency, detect_social_urgency
 from data import DataSourceError, NewsDataSource, PriceDataSource, SocialDataSource
 from data.models import NewsEntry, PriceData, SocialDiscussion
 from data.storage import store_news_items, store_price_data, store_social_discussions
@@ -260,6 +260,17 @@ class DataPoller:
         if len(urgent_items) > 10:
             logger.warning(f"... {len(urgent_items) - 10} more")
 
+    def _log_urgent_social(self, urgent_items: list[SocialDiscussion]) -> None:
+        """Summarize urgent social items with bounded detail."""
+        if not urgent_items:
+            logger.debug("No urgent social items detected")
+            return
+        logger.warning(f"Found {len(urgent_items)} URGENT social threads requiring attention")
+        for item in urgent_items[:10]:
+            logger.warning(f"URGENT [{item.symbol}] {item.community}: {item.title} - {item.url}")
+        if len(urgent_items) > 10:
+            logger.warning(f"... {len(urgent_items) - 10} more")
+
     async def _process_news(
         self,
         news_by_provider: dict[NewsDataSource, list[NewsEntry]],
@@ -274,7 +285,7 @@ class DataPoller:
             await asyncio.to_thread(store_news_items, self.db_path, all_news)
 
             try:
-                self._log_urgent_items(detect_urgency(all_news))
+                self._log_urgent_items(detect_news_urgency(all_news))
             except (LLMError, ValueError, TypeError, RuntimeError) as exc:
                 logger.exception(f"Urgency detection failed: {exc}")
 
@@ -302,6 +313,11 @@ class DataPoller:
             logger.info("No social discussions to process")
         else:
             await asyncio.to_thread(store_social_discussions, self.db_path, social_discussions)
+
+            try:
+                self._log_urgent_social(detect_social_urgency(social_discussions))
+            except (LLMError, ValueError, TypeError, RuntimeError) as exc:
+                logger.exception(f"Social urgency detection failed: {exc}")
 
         commit_tasks = [
             asyncio.to_thread(self.watermarks.commit_updates, provider, items)

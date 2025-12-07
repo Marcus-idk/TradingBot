@@ -180,11 +180,12 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_classify_handles_empty_list` - Handles empty input list
 
 ### `tests/unit/analysis/test_urgency_detector.py`
-- Purpose: Urgency detector stub behavior
+- Purpose: Urgency detector stubs for news and social inputs
 - Tests:
-  - `test_detect_urgency_returns_empty_list` - Returns empty urgent list
-  - `test_detect_urgency_handles_empty_list` - Handles empty input list
-  - `test_detect_urgency_extracts_text_from_headline_and_content` - Extracts text safely from headline/content
+  - `test_detect_news_urgency_returns_empty_list` - News stub returns empty list
+  - `test_detect_news_urgency_handles_empty_list` - News stub handles empty input
+  - `test_detect_news_urgency_extracts_text_from_headline_and_content` - News stub tolerates missing content
+  - `test_detect_social_urgency_handles_empty_and_content_none` - Social stub returns empty and tolerates missing content
 
 ### `tests/unit/config/shared/test_settings_shared.py`
 - Purpose: Unified env loading/validation across Finnhub, Polygon, OpenAI, Gemini
@@ -888,6 +889,8 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_process_news_logs_urgency_detection_failures` - Logs urgency detection failures but still returns correct count
   - `test_process_news_logs_when_empty` - Logs when there are no news items to process
   - `test_log_urgent_items_logs_summary` - Logs bounded urgent-items summary with ellipsis
+  - `test_process_social_logs_urgency_detection_failures` - Logs social urgency detection failures but still returns correct count
+  - `test_log_urgent_social_logs_summary` - Logs bounded urgent-social summary with ellipsis
 
   **TestDataPollerRunLoop**
   - `test_run_logs_completed_with_errors` - Logs "completed with errors" when errors present
