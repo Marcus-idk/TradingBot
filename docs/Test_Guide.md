@@ -10,7 +10,7 @@ These files demonstrate all style rules below. When writing or cleaning up tests
 
 - **Unit - With DB**: `tests/unit/data/storage/test_storage_news.py`
 - **Unit - Contract Tests**: `tests/unit/data/providers/shared/test_news_company_shared.py`
-- **Unit - Pure Logic**: `tests/unit/data/test_models.py`
+- **Unit - Pure Logic**: `tests/unit/data/models/test_news_models.py`
 - **Integration - E2E Workflow**: `tests/integration/data/test_roundtrip_e2e.py`
 - **Integration - Live Network**: `tests/integration/data/providers/test_polygon_live.py`
 
@@ -43,16 +43,6 @@ Use these rules across all tests to keep the suite readable and uniform.
 - Setup and builders
   - ✅ Prefer shared factories from `tests/factories/models.py` for common data model shapes; wrap them locally only when the scenario needs extra behaviour or defaults.
   - ❌ Avoid: Inline object construction repeated across multiple tests
-
----
-
-## LIMITS & FRAMEWORK
-- **Max file size**: 600 lines (target: ~400)
-- **Max test class**: ~200-250 lines
-- **Framework**: pytest
-- **Principle**: Make it obvious where to find/add tests
-
----
 
 # WHERE TO PUT YOUR TEST - PRIMARY DECISION
 
@@ -182,7 +172,7 @@ class Session(Enum):
     POST = "POST"
     CLOSED = "CLOSED"
 
-# Test: tests/unit/data/test_models.py
+# Test: tests/unit/data/models/test_price_and_analysis_models.py
 def test_enum_values_unchanged():
     """These values are in database - MUST NOT CHANGE."""
     assert Session.REG.value == "REG"

@@ -91,7 +91,7 @@ CURSOR_RULES: dict[type[NewsDataSource | SocialDataSource], CursorRule] = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class CursorPlan:
     since: datetime | None = None
     min_id: int | None = None

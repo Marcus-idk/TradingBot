@@ -18,7 +18,7 @@ from llm import GeminiProvider, OpenAIProvider
 load_dotenv(override=True)
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class ProviderSpec:
     """Specification for an LLM provider used in integration tests."""
 

@@ -26,7 +26,7 @@ from data.providers.polygon.polygon_client import PolygonClient
 from data.storage.storage_utils import _datetime_to_iso
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class CompanyProviderSpec:
     name: str
     endpoint: str
@@ -52,7 +52,7 @@ class CompanyProviderSpec:
         return "unexpected"
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class MacroProviderSpec:
     name: str
     endpoint: str
@@ -77,7 +77,7 @@ class MacroProviderSpec:
         return "unexpected"
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class PriceProviderSpec:
     name: str
     endpoint: str
@@ -113,7 +113,7 @@ class PriceProviderSpec:
         return "unexpected"
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class ClientSpec:
     name: str
     module_path: str

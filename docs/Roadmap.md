@@ -43,11 +43,11 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Decimal precision for financial values
 
 **Notes**:
-- Environment: Requires SQLite JSON1 extension (fails fast if missing)
+- Requires SQLite JSON1 extension.
 
 ---
 
-## v0.3 — Data Collection Layer
+## v0.3 — Data Collection Layer ✅
 **Goal**: Build complete data ingestion pipeline
  
 **Achieves**:
@@ -69,14 +69,8 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Centralized Finnhub API validation in client (providers delegate)
 
 **Notes**:
-- Watermark system:
-  - Normalized state table: `last_seen_state(provider, stream, scope, symbol, timestamp, id)` keyed by provider/stream/scope/symbol
-  - Enums: provider (`FINNHUB`), stream (`COMPANY`/`MACRO`), scope (`GLOBAL`/`SYMBOL`) keep cursor identities stable
-  - Two-clock design: Fetch by publish/published time; cleanup by insert time via batch pruning (handles late arrivals)
-- Data flow:
-  - 5‑min loop: Build cursor plans from `last_seen_state` → Fetch incremental data from providers → Store → Commit updated watermarks
-  - Cleanup prep: choose a cutoff and prune rows where `created_at_iso ≤ cutoff` using batch helpers
- 
+- 5‑min loop: plan cursors from `last_seen_state`, fetch, store, update watermarks.
+
 
 ### v0.3.2 — Database UI ✅
 **Goal**: Browse the SQLite database locally and prepare analysis extension points
@@ -86,9 +80,7 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Simple news-importance stub marks all news entries important before storage; full LLM-based classification remains planned for v0.5
 
 **Notes**:
-- Dev UX: `pip install streamlit` (or `pip install -r requirements-dev.txt`)
-- Run: `streamlit run ui/app_min.py`
-- Scope: local development (read‑only table viewer); do not expose publicly
+- Local-only Streamlit viewer for quick DB inspection.
 
 ### v0.3.3 — Macro News ✅
 **Goal**:
@@ -101,9 +93,9 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Urgency detection stub logs cycle stats but returns no flagged items (empty list); LLM-based detection deferred to v0.5
 
 **Notes**:
-- Flow: Every 5 min → fetch incremental → dedup → store → classify urgency (stub)
+- Flow: Every 5 min → fetch, dedup, store, classify urgency (stub).
 
-### v0.3.4 — Complete Data Pipeline
+### v0.3.4 — Complete Data Pipeline ✅
 **Goal**:
 - Complete ingestion with multi-source news and price dedup framework
 
@@ -111,16 +103,11 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Polygon.io news providers (company + macro) for multi-source news coverage
 - Price deduplication framework (ready for multiple providers)
 - Reddit sentiment ingestion (PRAW, ~100 queries/min; posts + top comments for held symbols)
-- SEC EDGAR (filings/insider trades, 10 req/sec)
-- RSS feeds (custom news sources)
-- Circuit breakers and retry logic
+- Retry logic for external APIs
 - Data quality validation
 
 **Notes**:
-- Provider pattern: Dual providers (news+price) or single-purpose
- - Price dedup: Compare to primary; log mismatches >= $0.01; store primary.
- - Contract test harness: Unified tests for client/news/price providers ensuring consistent data quality validation across all sources (delivers on "Data quality validation" achievement)
- - Partial progress: Polygon news providers implemented; Reddit social sentiment implemented; price dedup framework in place (single Finnhub provider currently; Polygon price endpoint requires paid plan). SEC EDGAR and RSS integrations remain planned.
+- Dual news/price provider pattern with shared contract tests; price dedup stores primary provider price and logs mismatches.
 
 ---
 
@@ -195,25 +182,36 @@ Automated trading bot that uses LLMs for fundamental analysis. Polls data every 
 - Flat file support where necessary (CSV exports, bulk historical data)
 - Provider abstraction over multiple transport types
 
+### SEC EDGAR & RSS Ingestion
+- SEC EDGAR (filings/insider trades, 10 req/sec)
+- RSS feeds (custom news sources)
+
 ## Runtime Flow Snapshot
 - Startup
-  - Loads `.env` and logging; parses `SYMBOLS`, `POLL_INTERVAL`, `FINNHUB_API_KEY`, `DATABASE_PATH` (default `data/trading_bot.db`). If `-v`, also uses `STREAMLIT_PORT`. Initializes SQLite (JSON1 required).
-  - Launches optional Streamlit viewer if requested (`-v`) before provider validation.
-  - Creates configured providers (Finnhub company/macro/price; Polygon news; Reddit social sentiment) and validates API connections.
-- Every poll (interval = `POLL_INTERVAL`, e.g., 300s; first cycle runs immediately)
+  - Loads `.env`, configures logging, and reads `SYMBOLS`, `POLL_INTERVAL`, `DATABASE_PATH` (default `data/trading_bot.db`), and provider keys (`FINNHUB_API_KEY`, `POLYGON_API_KEY`, Reddit credentials); if `-v`, also reads `STREAMLIT_PORT`.
+  - Ensures the database directory exists and runs `init_database`, which enforces SQLite JSON1 support and applies required PRAGMAs.
+  - If `-v`, launches the optional Streamlit UI pointed at the same `DATABASE_PATH`; on failure, logs a warning and continues without UI.
+  - Creates configured providers (Finnhub company/macro/price; Polygon company/macro; Reddit social sentiment) and validates each API connection; failures abort startup.
+  - Registers graceful shutdown handlers, logs a startup banner, and enters the polling loop.
+- Every poll (interval ≈ `POLL_INTERVAL`, e.g., 300s; first cycle runs immediately)
   - Watermark planning:
-    - `WatermarkEngine` builds per-provider cursor plans from `last_seen_state` using typed rules (timestamp vs ID, global vs per-symbol scope, and configurable overlap/first-run windows from provider settings).
-  - Fetch company and macro news:
-    - Finnhub company: per-symbol timestamp cursors with overlap; first run uses a lookback window from settings.
-    - Finnhub macro: global ID cursor via `minId`; first run uses a lookback window and tracks `last_fetched_max_id`.
-    - Polygon company/macro: global timestamp cursors with optional per-symbol bootstrap overrides; apply configured overlap/first-run windows and follow pagination.
+    - `WatermarkEngine` reads `last_seen_state` and builds per-provider cursor plans using typed rules (timestamp vs ID, GLOBAL vs SYMBOL scope) and provider settings for first-run lookback windows; providers then apply their own overlap windows when constructing API calls.
+  - Fetch company and macro news (providers run concurrently):
+    - Finnhub company: per-symbol timestamp cursors; each symbol uses its own watermark minus an overlap, or a first-run lookback window when no watermark exists.
+    - Finnhub macro: global ID cursor via `minId`; on first run uses a time-based lookback window and tracks `last_fetched_max_id`, which becomes the committed ID watermark.
+    - Polygon company: global timestamp cursor with optional per-symbol bootstrap overrides for new or stale symbols; applies overlap and first-run windows and follows pagination via `cursor` / `next_url`.
+    - Polygon macro: global timestamp cursor only; applies overlap and first-run windows and follows the same pagination pattern.
   - Fetch social sentiment:
-    - Reddit social: per-symbol timestamp cursors via `WatermarkEngine` and Reddit search; fetches posts and top comments for tracked symbols.
-  - Fetch prices (`/quote` per symbol) and classify session (REG/PRE/POST/CLOSED) from ET.
-  - Store results
-    - `store_news_items` writes articles once by URL (`news_items`) and per-symbol links (`news_symbols`), preserving per-symbol `is_important` flags.
-    - `store_social_discussions` writes Reddit discussions to `social_discussions` while preserving source, symbol, and timestamps.
-    - Run urgency detector (stub; returns none; no urgent headlines logged).
-    - `DataPoller._process_prices` deduplicates per symbol across providers, logs mismatches, and stores primary prices.
-    - `WatermarkEngine.commit_updates` advances timestamp/ID watermarks in `last_seen_state` for news and social streams based on the data actually stored.
-  - Sleep until next cycle.
+    - Reddit social: per-symbol timestamp cursors via `WatermarkEngine`; bootstrap runs use a wider `time_filter` and lookback window, incremental runs use a narrower `time_filter` with overlap, and each symbol fetches posts and top comments from `stocks+investing+wallstreetbets`.
+  - Fetch prices:
+    - Finnhub prices: calls `/quote` per symbol, normalizes timestamps to UTC, and classifies each observation into `PRE`, `REG`, `POST`, or `CLOSED` using ET trading hours and the NYSE calendar.
+  - Store results and run stub analysis:
+    - News, social, and price fetches are aggregated per provider; individual provider failures are logged and counted but do not stop other providers.
+    - News: a simple importance stub sets `is_important=True` on all news entries; storage keeps one row per article URL and per-symbol links with their importance flags.
+    - Social: Reddit discussions are upserted with their source, symbol, community, title, URL, content, and timestamps preserved.
+    - Urgency: news and social urgency detectors run as stubs, logging basic stats and returning no urgent items.
+    - Prices: `DataPoller._process_prices` treats the first configured price provider as primary, stores only its price per symbol, and logs warnings for missing prices and errors for cross-provider mismatches ≥ $0.01.
+  - Watermark commit:
+    - For each news and social provider, `WatermarkEngine.commit_updates` runs after storage to advance timestamp or ID watermarks in `last_seen_state` based on the data actually stored, including optional per-symbol marks for GLOBAL+bootstrap providers.
+  - Sleep until next cycle:
+    - Logs per-cycle stats (news, social, prices, errors) and waits just long enough so that each loop boundary aligns with the configured `POLL_INTERVAL`, unless a shutdown signal or `stop()` request ends the loop.

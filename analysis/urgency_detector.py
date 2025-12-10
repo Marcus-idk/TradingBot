@@ -10,7 +10,7 @@ from data.models import NewsEntry, SocialDiscussion
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class UrgencyInput:
     """Normalized text + metadata for urgency scoring."""
 

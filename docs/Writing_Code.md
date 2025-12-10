@@ -17,6 +17,10 @@
 
 # MUST-FOLLOW RULES
 
+### FILE_SIZE_LIMITS
+- Max file size: 600 lines (target: ~400)
+- Max test class size: ~200–250 lines
+
 ### PYTHON_VERSION
 Use Python 3.12+ modern syntax.
 ```python
@@ -81,7 +85,7 @@ Validate at boundaries, fail fast on invalid state, make types explicit.
 def store_price(symbol: str, price: Decimal) -> None:
     if price <= 0:
         raise ValueError(f"Invalid price {price} for {symbol}")
-    # Use dataclasses/enums where helpful
+    # Use dataclasses/enums where helpful; use frozen=True for config/settings that must not change
 ```
 
 ### ERROR_HANDLING
@@ -224,6 +228,10 @@ def process(items: list[str]) -> dict[str, int | None]:
     ...
 # Keep from typing: Mapping, Any, Callable, Awaitable, Iterator, TypeVar
 ```
+
+### LIST_VS_SEQUENCE
+- Default to `list[...]` for concrete collections and return types.
+- Use `Sequence[...]` only for parameters that are read-only views (iterate/index/len only, no mutation).
 
 ### MAPPING_VS_DICT
 Use `Mapping` for read-only inputs; `dict` for mutable locals/returns.

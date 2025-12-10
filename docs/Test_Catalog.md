@@ -676,8 +676,8 @@ The detailed inventory starts below this line (to be populated and maintained).
   **TestDataSourceErrorContract**
   - `test_exception_inheritance` - DataSourceError hierarchy
 
-### `tests/unit/data/test_models.py`
-- Purpose: Dataclasses and enums validation
+### `tests/unit/data/models/test_news_models.py`
+- Purpose: NewsItem, NewsEntry, and NewsSymbol validation
 - Tests:
   **TestNewsItem**
   - `test_newsitem_valid_creation` - Valid NewsItem requires core fields and normalizes to UTC
@@ -695,6 +695,10 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_newssymbol_valid_creation` - Valid link object
   - `test_newssymbol_importance_bool_conversion` - Bool conversion
   - `test_newssymbol_invalid_inputs_raise` - URL/symbol/importance validation
+
+### `tests/unit/data/models/test_price_and_analysis_models.py`
+- Purpose: PriceData and AnalysisResult validation
+- Tests:
   **TestPriceData**
   - `test_pricedata_symbol_uppercasing` - Symbol uppercased
   - `test_pricedata_price_must_be_positive` - Positive price only
@@ -706,11 +710,15 @@ The detailed inventory starts below this line (to be populated and maintained).
   **TestAnalysisResult**
   - `test_analysisresult_symbol_uppercasing` - Symbol uppercased
   - `test_analysisresult_json_validation` - JSON validation
-  - `test_analysisresult_confidence_range` - Confidence range
+  - `test_analysisresult_confidence_score_validation` - Confidence range
   - `test_analysisresult_enum_validation` - Enum validation
   - `test_analysisresult_timezone_normalization` - UTC normalization
   - `test_analysisresult_symbol_validation` - Symbol validation
   - `test_analysisresult_empty_string_validation` - Empty string rejection
+
+### `tests/unit/data/models/test_holdings_and_social_models.py`
+- Purpose: Holdings and SocialDiscussion validation and normalization
+- Tests:
   **TestHoldings**
   - `test_holdings_symbol_uppercasing` - Symbol uppercased
   - `test_holdings_financial_values_positive` - Positive financial values
@@ -718,14 +726,9 @@ The detailed inventory starts below this line (to be populated and maintained).
   - `test_holdings_timezone_normalization` - UTC normalization
   - `test_holdings_symbol_validation` - Symbol validation
   - `test_holdings_notes_trimming` - Notes trimming
-
-### `tests/unit/data/test_models_social.py`
-- Purpose: SocialDiscussion validation and normalization
-- Tests:
-  **TestSocialDiscussionValidation**
+  **TestSocialDiscussion**
   - `test_required_fields_raise_value_error` - Empty/invalid fields raise ValueError
   - `test_non_datetime_published_raises` - Non-datetime published raises ValueError
-  **TestSocialDiscussionNormalization**
   - `test_normalization_strips_and_uppercases` - Trims fields, uppercases symbol, normalizes published to UTC
 
 ### `tests/unit/llm/test_llm_base.py`
