@@ -137,7 +137,7 @@ class RedditSocialProvider(SocialDataSource):
         try:
             # defensive conversion float()
             published = datetime.fromtimestamp(float(created_utc), tz=UTC)
-        except (ValueError, OSError, TypeError) as exc:
+        except (ValueError, OSError, OverflowError, TypeError) as exc:
             submission_id = getattr(submission, "id", "unknown")
             logger.debug(
                 f"Failed to parse timestamp {created_utc!r} for submission {submission_id}: {exc}"

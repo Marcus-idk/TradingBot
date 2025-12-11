@@ -101,7 +101,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
                     if isinstance(published_ts, (int, float)):
                         try:
                             published_dt = datetime.fromtimestamp(published_ts, tz=UTC)
-                        except (ValueError, OSError):
+                        except (ValueError, OSError, OverflowError):
                             published_dt = None
                         if published_dt and published_dt <= buffer_time:
                             reached_buffer_cutoff = True
@@ -149,7 +149,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
 
         try:
             published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, OverflowError) as exc:
             logger.debug(
                 f"Skipping macro news article due to invalid epoch {datetime_epoch}: {exc}"
             )

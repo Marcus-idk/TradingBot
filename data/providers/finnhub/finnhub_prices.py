@@ -83,7 +83,7 @@ class FinnhubPriceProvider(PriceDataSource):
         if quote_timestamp > 0:
             try:
                 timestamp = datetime.fromtimestamp(quote_timestamp, tz=UTC)
-            except (ValueError, OSError) as exc:
+            except (ValueError, OSError, OverflowError) as exc:
                 logger.warning(
                     "Invalid quote timestamp for %s: %r (%s) - using now()",
                     symbol,

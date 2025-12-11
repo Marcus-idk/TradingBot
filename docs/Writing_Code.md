@@ -89,64 +89,24 @@ def store_price(symbol: str, price: Decimal) -> None:
 ```
 
 ### ERROR_HANDLING
-Handle errors explicitly. Never swallow. Raise domain-specific exceptions.
-```python
-try:
-    response = api_call(symbol)
-except RequestException as e:
-    logger.exception(f"Failed to fetch {symbol}")
-    raise DataFetchError(f"Cannot retrieve {symbol}: {e}") from e
-```
-
-Fail‑fast for structural errors; degrade gracefully for malformed items; empty pages are valid termination.
-
-```python
-# Structural/contract errors → raise immediately
-if not isinstance(response, dict):
-    raise DataFetchError(f"Expected dict, got {type(response).__name__}")
-
-results = response.get("results", [])
-if not isinstance(results, list):
-    raise DataFetchError("results must be list")
-
-# Valid "no data" case → stop cleanly
-if not results:
-    return []
-
-# Malformed items → skip with DEBUG log
-for article in results:
-    try:
-        items.extend(parse_article(article))
-    except Exception as exc:
-        logger.debug(f"Skipping malformed item: {exc}")
-```
+- Fail fast on structural/contract errors at boundaries by raising domain-specific exceptions (e.g., `DataSourceError`, `LLMError`); do not silently continue.
+- For external APIs, treat authentication/4xx as non-retryable data errors and 408/429/5xx as retryable; propagate these as `DataSourceError` or `RetryableError`, never swallow them.
+- Orchestrators may catch domain errors and a small, explicit set of runtime/OS errors to log and continue; truly unexpected exceptions should usually bubble to the top-level entrypoint rather than being hidden.
 
 ### ERROR_HANDLING_EXPECTED_PARSING
-Parsing helpers may return sentinel values (e.g., `None`) without logging when a comment documents the intentional fallthrough and the function contract defines the sentinel.
-```python
-def parse_retry_after(value: str | float | int | None) -> float | None:
-    try:
-        return max(0.0, float(value))
-    except (TypeError, ValueError):
-        # Intentional fallthrough: try HTTP-date parsing next.
-        pass
-    ...
-    return None
-```
+- Parsing helpers may return sentinel values (like `None`) without logging only when this behavior is part of the function contract and clearly documented.
+- Use this for “expected fallthrough” cases, not for malformed or contract-breaking input.
 
 ### CLEANUP_SHUTDOWN
-Before escalating from graceful shutdown to forceful termination, emit a `WARNING` with the cause.
-```python
-except Exception as exc:
-    logger.warning(f"Graceful stop failed; forcing kill: {exc}")
-    process.kill()
-```
+- Broad catches (`except Exception` or `except BaseException`) are allowed only in shutdown/cleanup code (e.g., UI/process teardown, DB rollback) or health-check probes.
+- In cleanup, log the failure and then either re-raise (for transactional helpers) or continue shutdown; never hide that cleanup failed.
 
 ### PER_ITEM_CATCHES
-Per-item parsing loops should catch explicit data issues (`ValueError`, `TypeError`, `KeyError`, `AttributeError`, and provider-domain errors) instead of `except Exception`.
+- In per-item parsing loops, catch only explicit data issues (`ValueError`, `TypeError`, `KeyError`, `AttributeError`, and provider-domain errors) and skip bad items with DEBUG logs.
+- Do not use `except Exception` inside per-item loops; malformed items should not crash the batch, but unexpected errors should still surface.
 
 ### CAUSE_CHAINING
-When wrapping exceptions, use `raise ... from exc` so upstream callers retain the original traceback.
+- When wrapping exceptions, use `raise ... from exc` so upstream callers retain the original traceback.
 
 ### CENTRALIZE_CONCERNS
 Centralize I/O, HTTP, retries/backoff, timezones, data normalization, logging.

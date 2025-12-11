@@ -123,7 +123,7 @@ class FinnhubNewsProvider(NewsDataSource):
 
         try:
             published = datetime.fromtimestamp(datetime_epoch, tz=UTC)
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, OverflowError) as exc:
             logger.debug(
                 f"Skipping company news article for {symbol} due to invalid epoch "
                 f"{datetime_epoch}: {exc}"
