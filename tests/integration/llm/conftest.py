@@ -97,4 +97,5 @@ _PROVIDER_SPECS: tuple[ProviderSpec, ...] = (
 
 @pytest.fixture(params=_PROVIDER_SPECS, ids=lambda spec: spec.name)
 def provider_spec(request: pytest.FixtureRequest) -> ProviderSpec:
+    """ProviderSpec fixture for LLM integration contract tests."""
     return request.param

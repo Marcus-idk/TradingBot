@@ -26,11 +26,14 @@ def _freeze_datetime(monkeypatch, fixed_now: datetime) -> None:
 
 @pytest.fixture
 def settings() -> RedditSettings:
+    """Return RedditSettings with test credentials for unit tests."""
     return RedditSettings(client_id="id", client_secret="secret", user_agent="agent")
 
 
 @pytest.fixture(autouse=True)
 def immediate_to_thread(monkeypatch):
+    """Patch asyncio.to_thread to execute callables immediately during tests."""
+
     async def _immediate(func, *args, **kwargs):
         return func(*args, **kwargs)
 
@@ -44,12 +47,14 @@ class FakeComments(list):
 
 class TestRedditSocialProviderBasics:
     def test_symbol_normalization_uppercases_and_filters(self, settings):
+        """Normalize symbols by stripping whitespace and uppercasing non-empty entries."""
         provider = RedditSocialProvider(settings, ["aapl", " TSLA ", ""])
 
         assert provider.symbols == ["AAPL", "TSLA"]
 
     @pytest.mark.asyncio
     async def test_validate_connection_delegates_to_client(self, settings):
+        """Ensure validate_connection delegates to the underlying client once."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         calls = {"count": 0}
 
@@ -68,6 +73,7 @@ class TestRedditSocialProviderBasics:
 class TestFetchIncremental:
     @pytest.mark.asyncio
     async def test_fetch_incremental_empty_symbols_returns_empty(self, settings):
+        """Return an empty list when no symbols are configured."""
         provider = RedditSocialProvider(settings, [])
 
         result = await provider.fetch_incremental()
@@ -76,6 +82,7 @@ class TestFetchIncremental:
 
     @pytest.mark.asyncio
     async def test_fetch_incremental_bootstrap_uses_week_filter(self, settings, monkeypatch):
+        """Use the bootstrap time filter and first-run window when no cursor is set."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         fixed_now = datetime(2024, 4, 1, 12, 0, tzinfo=UTC)
         _freeze_datetime(monkeypatch, fixed_now)
@@ -97,6 +104,7 @@ class TestFetchIncremental:
 
     @pytest.mark.asyncio
     async def test_fetch_incremental_cursor_uses_hour_with_overlap(self, settings, monkeypatch):
+        """Use incremental time filter and overlap window when a symbol cursor exists."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         fixed_now = datetime(2024, 4, 1, 12, 0, tzinfo=UTC)
         _freeze_datetime(monkeypatch, fixed_now)
@@ -118,6 +126,7 @@ class TestFetchIncremental:
         assert captured["time_filter"] == settings.incremental_time_filter
 
     def test_resolve_symbol_cursor_prefers_symbol_map_over_global(self, settings):
+        """Prefer per-symbol cursor over global since when resolving start time."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         symbol_map = {"AAPL": datetime(2024, 4, 1, 10, 0, tzinfo=UTC)}
         global_since = datetime(2024, 4, 1, 9, 0, tzinfo=UTC)
@@ -128,6 +137,7 @@ class TestFetchIncremental:
 
     @pytest.mark.asyncio
     async def test_fetch_incremental_praw_error_skips_symbol_not_all(self, settings, monkeypatch):
+        """Skip only symbols that raise PrawcoreException and keep others."""
         provider = RedditSocialProvider(settings, ["AAPL", "TSLA"])
         fixed_now = datetime(2024, 4, 1, 12, 0, tzinfo=UTC)
         _freeze_datetime(monkeypatch, fixed_now)
@@ -164,6 +174,7 @@ class TestParseSubmission:
         return RedditSocialProvider(settings, ["AAPL"])
 
     def test_parse_submission_valid_returns_discussion(self, settings, monkeypatch):
+        """Parse a valid submission into a SocialDiscussion instance."""
         provider = self._provider(settings)
         start_time = datetime(2024, 1, 1, 9, 0, tzinfo=UTC)
         submission = SimpleNamespace(
@@ -216,12 +227,14 @@ class TestParseSubmission:
         ],
     )
     def test_parse_submission_invalid_returns_none(self, settings, submission):
+        """Return None for malformed or incomplete Reddit submissions."""
         provider = self._provider(settings)
         start_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
         assert provider._parse_submission(submission, "AAPL", start_time) is None
 
     def test_parse_submission_returns_none_when_before_start(self, settings):
+        """Return None when a submission is older than the incremental start time."""
         provider = self._provider(settings)
         start_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
         submission = SimpleNamespace(
@@ -240,6 +253,7 @@ class TestParseSubmission:
 
 class TestBuildContent:
     def test_build_content_combines_selftext_and_comments(self, settings):
+        """Combine selftext and non-empty comment bodies into a single content string."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         comments = FakeComments(
             [
@@ -255,6 +269,7 @@ class TestBuildContent:
         assert content == "Post: Body\n\nComments:\n\nFirst\n\nSecond"
 
     def test_build_content_empty_returns_none(self, settings, caplog):
+        """Return None when both selftext and comments are effectively empty."""
         provider = RedditSocialProvider(settings, ["AAPL"])
         submission = SimpleNamespace(selftext="", comments=FakeComments())
 

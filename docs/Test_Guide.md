@@ -28,6 +28,11 @@ These files demonstrate all style rules below. When writing or cleaning up tests
 
 Use these rules across all tests to keep the suite readable and uniform.
 
+- Catalog + collection note
+  - Pytest only collects tests from files matching the default patterns (e.g., `test_*.py` / `*_test.py`).
+  - `tools/generate_test_catalog.py` lists every `tests/**/*.py` file, but it only lists tests that pytest actually collects.
+  - Do not name helper functions `test_*` in non-test modules (e.g., `tests/helpers.py`); keep helpers named like `make_*` / `build_*`, or rename the file to a test-pattern name if it contains real tests.
+
 - Assertions
   - ✅ Prefer plain `assert` without custom failure strings — pytest shows values/diffs.
   - ❌ Remove: `assert len(items) == 2, "Expected 2 items"` (pytest shows this)
@@ -35,10 +40,6 @@ Use these rules across all tests to keep the suite readable and uniform.
 
 - Exceptions
   - Use `pytest.raises(ExpectedError, match=...)` when asserting both type and message.
-
-- Comments and docstrings
-  - ✅ One-liner: `"""Store and retrieve news items."""`
-  - ❌ Avoid: Multi-line narratives, numbered steps, banners that restate code.
 
 - Setup and builders
   - ✅ Prefer shared factories from `tests/factories/models.py` for common data model shapes; wrap them locally only when the scenario needs extra behaviour or defaults.

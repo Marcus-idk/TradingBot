@@ -59,6 +59,7 @@ from config.retry import DEFAULT_DATA_RETRY, DEFAULT_LLM_RETRY
     ]
 )
 def settings_spec(request):
+    """Parametrized settings specification for shared env-loading contract tests."""
     name, settings_cls, env_var, default_retry, expected_fields, whitespace_err = request.param
     return {
         "name": name,

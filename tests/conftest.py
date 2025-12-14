@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import logging
 import os
 import sqlite3
 import tempfile
@@ -14,8 +15,11 @@ import pytest
 
 from data.storage import connect, init_database
 
+logger = logging.getLogger(__name__)
+
 
 def cleanup_sqlite_artifacts(db_path: str):
+    """Clean up temporary SQLite database and related WAL/SHM artifacts."""
     if not os.path.exists(db_path):
         return
 
@@ -28,8 +32,8 @@ def cleanup_sqlite_artifacts(db_path: str):
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")  # Merge WAL→main DB
             conn.execute("PRAGMA journal_mode=DELETE")  # Exit WAL mode (key for Windows)
             conn.commit()
-    except sqlite3.Error:
-        pass
+    except sqlite3.Error as exc:
+        logger.warning("Failed to checkpoint SQLite WAL for %s: %s", db_path, exc)
 
     gc.collect()
 
@@ -49,6 +53,7 @@ def cleanup_sqlite_artifacts(db_path: str):
 
 @pytest.fixture
 def temp_db_path():
+    """Yield path to a temporary SQLite database and clean it up afterwards."""
     fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(fd)  # get rid of fd (a id number for the path), we don't need
     yield db_path
@@ -57,12 +62,15 @@ def temp_db_path():
 
 @pytest.fixture
 def temp_db(temp_db_path):
+    """Initialize a temporary TradingBot database and yield its path."""
     init_database(temp_db_path)
     yield temp_db_path
 
 
 @pytest.fixture
 def mock_http_client(monkeypatch):
+    """Provide a factory that returns a mocked httpx.AsyncClient."""
+
     def _create_mock_client(mock_get_func):
         # Create the fake client
         mock_client = Mock()

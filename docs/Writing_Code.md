@@ -248,10 +248,14 @@ logger.exception("Workflow failed")  # In except blocks for stack trace
 ```
 
 ### DOCSTRINGS_REQUIRED
-- Production code: every function/method SHOULD have a short, stable docstring unless it is trivial.
-- Allowed to omit docstrings for: trivial dunders/constructors (`__init__`, `__enter__`, `__exit__`, etc.), obvious pass-through overrides (e.g., `validate_connection` that just defers), and simple property accessors that only return an attribute.
-- Tests: module/class/test-case docstrings are fine; skip docstrings on helper fixtures, mocks, and tiny override stubs.
-- When adding a docstring, keep it tight and “absolute” (what it does/returns), avoiding Args/Returns unless needed.
+- **Production code**: All public functions and methods MUST have a docstring; private helpers MAY omit docstrings when they are trivial and self-explanatory.
+- **Tests**: Anything that appears in `docs/Test_Catalog.md` MUST have a docstring:
+  - The module-level docstring for each `tests/**/*.py` file (used as "Purpose" in the catalog)
+  - All pytest fixtures (top-level `@pytest.fixture` functions)
+  - All collected test functions and test methods (names starting with `test_`)
+- Helper classes and their internal methods that are not fixtures or tests do not need docstrings for catalog purposes.
+- Classes, modules, and package `__init__.py` files SHOULD have a short top-level docstring describing their purpose.
+- Keep docstrings short, stable, and behavior-focused; follow `COMMENT_STYLE` for formatting.
 ```python
 def fetch_table_names(db_path: str) -> list[str]:
     """Return sorted SQLite table names for the given database path."""
@@ -262,11 +266,10 @@ def fetch_table_names(db_path: str) -> list[str]:
 ---
 
 ### COMMENT_STYLE
-- Add docstrings/comments where they clarify intent or contracts; skip them for trivial constructors and obvious passthroughs.
-- Docstrings SHOULD be minimal: a short, stable description of what the thing does and its contract.
+- Functions and methods covered by `DOCSTRINGS_REQUIRED` MUST have a docstring; use comments only for extra intent, edge cases, or non-obvious decisions.
+- Prefer one-line, stable docstrings that describe behavior/contract; avoid narrative multi-line stories or banners that just restate code.
 - Docstrings MUST be "absolute": describe behavior and responsibilities, not how or why the code was written (no meta text like "follow Writing_Code.md" or "this was recently refactored").
-- When you need more than a one-line summary, extra explanation MUST go under a short `"Notes:"` block (e.g., non-trivial contracts) instead of free-form paragraphs.
-- Avoid long `Args`/`Returns` sections unless explicitly requested.
+- For non-trivial contracts, extra explanation MUST go under a short `"Notes:"` block instead of free-form paragraphs or big `Args`/`Returns` sections (only add those when explicitly requested).
 - Follow the surrounding file's commenting style so sections read consistently.
 
 # CODE REVIEW CHECKLIST

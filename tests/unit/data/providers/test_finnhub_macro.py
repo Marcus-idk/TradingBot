@@ -13,6 +13,7 @@ from data.providers.finnhub import FinnhubMacroNewsProvider
 
 @pytest.fixture
 def macro_provider() -> FinnhubMacroNewsProvider:
+    """Return a FinnhubMacroNewsProvider configured with sample symbols."""
     settings = FinnhubSettings(api_key="test_key")
     return FinnhubMacroNewsProvider(settings, ["AAPL", "MSFT"])
 

@@ -11,6 +11,7 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def finnhub_settings() -> FinnhubSettings:
+    """Load FinnhubSettings from the environment or skip when unavailable."""
     try:
         return FinnhubSettings.from_env()
     except ValueError as exc:
@@ -19,6 +20,7 @@ def finnhub_settings() -> FinnhubSettings:
 
 @pytest.fixture
 def polygon_settings() -> PolygonSettings:
+    """Load PolygonSettings from the environment or skip when unavailable."""
     try:
         return PolygonSettings.from_env()
     except ValueError as exc:
@@ -27,6 +29,7 @@ def polygon_settings() -> PolygonSettings:
 
 @pytest.fixture
 def reddit_settings() -> RedditSettings:
+    """Load RedditSettings from the environment or skip when unavailable."""
     try:
         return RedditSettings.from_env()
     except ValueError as exc:

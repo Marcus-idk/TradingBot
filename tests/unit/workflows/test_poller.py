@@ -20,6 +20,8 @@ from workflows.watermarks import CursorPlan
 
 @pytest.fixture(autouse=True)
 def immediate_to_thread(monkeypatch):
+    """Patch asyncio.to_thread to run callables synchronously in tests."""
+
     async def _immediate(func, *args, **kwargs):
         return func(*args, **kwargs)
 
@@ -116,6 +118,8 @@ class TestDataPoller:
     pytestmark = pytest.mark.asyncio
 
     async def test_poll_once_collects_errors(self, temp_db):
+        """Collect provider errors while still processing other successful providers."""
+
         class ErrNews(NewsDataSource):
             def __init__(self):
                 super().__init__("ErrNews")
@@ -149,6 +153,7 @@ class TestDataPoller:
         )  # provider name included
 
     async def test_poller_quick_shutdown(self, temp_db):
+        """Stop the run loop quickly instead of waiting the full poll interval."""
         poller = DataPoller(temp_db, [StubNews([])], [], [StubPrice([])], poll_interval=300)
 
         # Start poller in background
@@ -169,6 +174,7 @@ class TestDataPoller:
         assert elapsed < 2.0
 
     async def test_poller_custom_poll_interval(self, temp_db):
+        """Respect a custom poll interval configuration on the poller."""
         # Create poller with custom 60 second interval
         custom_interval = 60
         poller = DataPoller(
@@ -187,6 +193,8 @@ class TestDataPoller:
         assert another_poller.poll_interval == 120
 
     async def test_poll_once_collects_price_provider_errors(self, temp_db):
+        """Collect price provider errors and surface them in stats."""
+
         class ErrPrice(PriceDataSource):
             def __init__(self) -> None:
                 super().__init__("ErrPrice")
@@ -205,6 +213,7 @@ class TestDataPoller:
         assert any("ErrPrice" in message for message in stats["errors"])
 
     async def test_fetch_all_data_forwards_cursor_kwargs(self, temp_db, monkeypatch):
+        """Forward watermark cursor fields into provider.fetch_incremental keyword args."""
         provider = StubNews([])
         poller = DataPoller(temp_db, [provider], [], [], poll_interval=60)
 

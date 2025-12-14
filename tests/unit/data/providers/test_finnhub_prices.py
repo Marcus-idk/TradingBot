@@ -12,6 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture
 def price_provider() -> FinnhubPriceProvider:
+    """Return a FinnhubPriceProvider with a test API key and no symbols."""
     settings = FinnhubSettings(api_key="test_key")
     return FinnhubPriceProvider(settings, [])
 

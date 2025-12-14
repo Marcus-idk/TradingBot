@@ -141,6 +141,7 @@ def _polygon_settings() -> PolygonSettings:
 
 @pytest.fixture(params=["finnhub", "polygon"])
 def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec:
+    """Parametrized company-news provider spec for Finnhub and Polygon."""
     if request.param == "finnhub":
 
         def finnhub_company_article_factory(**kwargs) -> dict[str, Any]:
@@ -193,6 +194,7 @@ def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec
 
 @pytest.fixture(params=["finnhub", "polygon"])
 def provider_spec_macro(request: pytest.FixtureRequest) -> MacroProviderSpec:
+    """Parametrized macro-news provider spec for Finnhub and Polygon."""
     if request.param == "finnhub":
 
         def finnhub_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
@@ -251,6 +253,7 @@ def provider_spec_macro(request: pytest.FixtureRequest) -> MacroProviderSpec:
 
 @pytest.fixture
 def provider_spec_prices() -> PriceProviderSpec:
+    """Price provider spec for Finnhub used by shared price contract tests."""
     return PriceProviderSpec(
         name="finnhub_prices",
         endpoint="/quote",
@@ -261,6 +264,7 @@ def provider_spec_prices() -> PriceProviderSpec:
 
 @pytest.fixture(params=("finnhub_client", "polygon_client"))
 def client_spec(request: pytest.FixtureRequest) -> ClientSpec:
+    """Parametrized HTTP client spec for Finnhub and Polygon clients."""
     if request.param == "finnhub_client":
         api_key = "finnhub_test_key"
         settings = FinnhubSettings(api_key=api_key)
