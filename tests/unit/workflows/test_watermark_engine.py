@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -99,6 +100,31 @@ class TestBuildPlan:
         assert plan.since == base_since
         override = fixed_now - timedelta(days=provider.settings.company_news_first_run_days)
         assert plan.symbol_since_map == {"AAPL": override, "MSFT": override}
+
+    def test_polygon_company_plan_raises_on_bootstrap_detection_failure(self, temp_db, monkeypatch):
+        """Polygon plan raises when bootstrap detection hits DB errors."""
+        provider = PolygonNewsProvider(PolygonSettings(api_key="test"), ["AAPL"])
+
+        def fake_get_last_seen_timestamp(
+            db_path: str,
+            provider_enum: Provider,
+            stream: Stream,
+            scope: Scope,
+            symbol: str | None = None,
+        ) -> datetime | None:
+            if scope is Scope.SYMBOL:
+                raise sqlite3.Error("boom")
+            return None
+
+        monkeypatch.setattr(
+            watermarks_module, "get_last_seen_timestamp", fake_get_last_seen_timestamp
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="Bootstrap detection failed provider=POLYGON stream=COMPANY symbol=AAPL",
+        ):
+            _make_engine(temp_db).build_plan(provider)
 
     def test_reddit_social_plan_uses_per_symbol_map(self, temp_db, monkeypatch):
         """Reddit plan returns per-symbol cursors with first-run window."""
