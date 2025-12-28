@@ -234,5 +234,10 @@ class GeminiProvider(LLMProvider):
             TypeError,
             RuntimeError,
         ) as exc:
-            logger.warning("GeminiProvider connection validation failed: %s", exc)
+            logger.warning(
+                "GeminiProvider connection validation failed (model=%s, exc=%s): %s",
+                self.model_name,
+                type(exc).__name__,
+                exc,
+            )
             return False

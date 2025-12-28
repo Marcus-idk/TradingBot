@@ -1,13 +1,10 @@
 """Urgency detection helpers for news and social entries."""
 
-import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from data.models import NewsEntry, SocialDiscussion
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -78,14 +75,5 @@ def _build_social_inputs(items: Iterable[SocialDiscussion]) -> list[UrgencyInput
 
 
 def _log_stub_stats(inputs: Sequence[UrgencyInput], stream: str) -> None:
-    """Log basic stats for stub urgency detection."""
-    if not inputs:
-        logger.debug("No %s items to analyze for urgency (stub)", stream)
-        return
-    total_chars = sum(len(i.title) + len(i.body) for i in inputs)
-    logger.debug(
-        "Analyzed %s %s items for urgency (stub) — text_len=%s",
-        len(inputs),
-        stream,
-        total_chars,
-    )
+    """No-op placeholder for urgency detection metrics/logging."""
+    return

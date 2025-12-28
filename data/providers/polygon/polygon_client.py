@@ -22,7 +22,7 @@ def _extract_cursor_from_next_url(next_url: str) -> str | None:
         query_params = urllib.parse.parse_qs(parsed.query)
         return query_params.get("cursor", [None])[0]
     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-        logger.debug("Failed to extract cursor from next_url: %s", exc)
+        logger.debug("Failed to extract cursor from next_url=%r: %s", next_url, exc)
         return None
 
 

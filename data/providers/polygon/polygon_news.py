@@ -97,7 +97,12 @@ class PolygonNewsProvider(NewsDataSource):
         published_gt: str,
         buffer_time: datetime | None,
     ) -> list[NewsEntry]:
-        """Fetch all news for a symbol, following pagination until complete."""
+        """Fetch all news for a symbol, following pagination until complete.
+
+        Notes:
+            ``buffer_time`` is the request cutoff for the underlying API call (the same
+            cutoff encoded in ``published_gt``). It is not the provider watermark.
+        """
         news_entries: list[NewsEntry] = []
         cursor: str | None = None
 
@@ -123,7 +128,10 @@ class PolygonNewsProvider(NewsDataSource):
                         f"{type(response).__name__}"
                     )
 
-                articles = response.get("results", [])
+                if "results" not in response:
+                    raise DataSourceError("Polygon company news response missing 'results' field")
+
+                articles = response["results"]
 
                 if not isinstance(articles, list):
                     raise DataSourceError(
@@ -135,12 +143,25 @@ class PolygonNewsProvider(NewsDataSource):
                     break
 
                 for article in articles:
+                    if not isinstance(article, dict):
+                        logger.debug(
+                            "Skipping company news item for %s with unexpected type: %s",
+                            symbol,
+                            type(article).__name__,
+                        )
+                        continue
+
                     try:
                         entry = self._parse_article(article, symbol, buffer_time)
                         if entry:
                             news_entries.append(entry)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                        logger.debug("Failed to parse company news article for %s: %s", symbol, exc)
+                        logger.debug(
+                            "Failed to parse company news article for %s (url=%s): %s",
+                            symbol,
+                            article.get("article_url", "unknown"),
+                            exc,
+                        )
                         continue
 
                 # Check for next page
@@ -159,8 +180,7 @@ class PolygonNewsProvider(NewsDataSource):
                 ValueError,
                 TypeError,
                 KeyError,
-            ) as exc:
-                logger.warning("Company news pagination failed for %s: %s", symbol, exc)
+            ):
                 raise
 
         return news_entries
@@ -182,13 +202,21 @@ class PolygonNewsProvider(NewsDataSource):
 
         Notes:
             Returns None when required fields are missing/invalid or the article is at/before
-            the buffer cutoff.
+            the request cutoff. Overlap refetch duplicates are expected and handled by
+            storage deduplication.
         """
         title = article.get("title", "").strip()
         article_url = article.get("article_url", "").strip()
         published_utc = article.get("published_utc", "").strip()
 
         if not title or not article_url or not published_utc:
+            logger.debug(
+                "Skipping company news article for %s due to missing required fields "
+                "(url=%s published_utc=%s)",
+                symbol,
+                article.get("article_url", ""),
+                article.get("published_utc", ""),
+            )
             return None
 
         # Parse RFC3339 timestamp
@@ -196,8 +224,10 @@ class PolygonNewsProvider(NewsDataSource):
             published = parse_rfc3339(published_utc)
         except (ValueError, TypeError) as exc:
             logger.debug(
-                "Skipping company news article for %s due to invalid timestamp %s: %s",
+                "Skipping company news article for %s due to invalid timestamp "
+                "(url=%s published_utc=%s): %s",
                 symbol,
+                article_url,
                 published_utc,
                 exc,
             )
@@ -208,8 +238,10 @@ class PolygonNewsProvider(NewsDataSource):
             cutoff_iso = _datetime_to_iso(buffer_time)
             published_iso = _datetime_to_iso(published)
             logger.warning(
-                "Polygon API returned article with published=%s at/before cutoff %s despite "
-                "published_utc.gt filter",
+                "Polygon API returned company article at/before cutoff despite "
+                "published_utc.gt filter (symbol=%s url=%s published=%s cutoff=%s)",
+                symbol,
+                article_url,
                 published_iso,
                 cutoff_iso,
             )

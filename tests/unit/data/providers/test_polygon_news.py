@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from config.providers.polygon import PolygonSettings
+from data import DataSourceError
 from data.providers.polygon import PolygonNewsProvider
 from data.storage.storage_utils import _datetime_to_iso
 
@@ -104,8 +105,8 @@ class TestPolygonNewsProvider:
         settings = PolygonSettings(api_key="test_key")
         provider = PolygonNewsProvider(settings, ["AAPL"])
         buffer_time = datetime(2024, 1, 20, 12, 0, tzinfo=UTC)
-        early = (buffer_time - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
-        late = (buffer_time + timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+        early = _datetime_to_iso(buffer_time - timedelta(minutes=1))
+        late = _datetime_to_iso(buffer_time + timedelta(minutes=1))
 
         response = {
             "results": [
@@ -134,10 +135,27 @@ class TestPolygonNewsProvider:
         caplog.set_level(logging.WARNING)
         result = await provider._fetch_symbol_news(
             "AAPL",
-            "2024-01-01T00:00:00Z",
+            _datetime_to_iso(buffer_time),
             buffer_time,
         )
 
         assert len(result) == 1
         assert result[0].article.headline == "Fresh"
         assert "published=" in caplog.text
+
+    async def test_fetch_symbol_news_missing_results_raises(self, monkeypatch):
+        """Missing results key is treated as a schema/contract error."""
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonNewsProvider(settings, ["AAPL"])
+
+        async def mock_get(path: str, params: dict | None = None):
+            return {"count": 1}
+
+        provider.client.get = mock_get
+
+        with pytest.raises(DataSourceError, match="missing 'results'"):
+            await provider._fetch_symbol_news(
+                "AAPL",
+                _datetime_to_iso(datetime(2024, 1, 1, tzinfo=UTC)),
+                datetime(2024, 1, 1, tzinfo=UTC),
+            )

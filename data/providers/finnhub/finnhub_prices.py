@@ -73,6 +73,7 @@ class FinnhubPriceProvider(PriceDataSource):
         """
         raw_price = quote.get("c")
         if raw_price is None:
+            logger.debug("Skipping quote for %s due to missing 'c' price field", symbol)
             return None
 
         try:
@@ -82,7 +83,7 @@ class FinnhubPriceProvider(PriceDataSource):
             return None
 
         if price <= 0:
-            logger.warning(
+            logger.debug(
                 "Finnhub /quote returned non-positive price for %s: %r - skipping",
                 symbol,
                 price,
@@ -94,7 +95,7 @@ class FinnhubPriceProvider(PriceDataSource):
             try:
                 timestamp = datetime.fromtimestamp(quote_timestamp, tz=UTC)
             except (ValueError, OSError, OverflowError) as exc:
-                logger.warning(
+                logger.debug(
                     "Invalid quote timestamp for %s: %r (%s) - using now()",
                     symbol,
                     quote_timestamp,

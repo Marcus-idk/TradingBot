@@ -1,10 +1,6 @@
 """Assign importance flags to news entries (stub implementation)."""
 
-import logging
-
 from data.models import NewsEntry
-
-logger = logging.getLogger(__name__)
 
 
 def label_importance(news_entries: list[NewsEntry]) -> list[NewsEntry]:
@@ -21,5 +17,4 @@ def label_importance(news_entries: list[NewsEntry]) -> list[NewsEntry]:
     for entry in news_entries:
         entry.is_important = True
 
-    logger.debug("Marked %s news entries as important (stub)", len(news_entries))
     return news_entries

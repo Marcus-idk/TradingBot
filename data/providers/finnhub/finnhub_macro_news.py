@@ -13,7 +13,6 @@ from config.providers.finnhub import FinnhubSettings
 from data import DataSourceError, NewsDataSource
 from data.models import NewsEntry, NewsItem, NewsType
 from data.providers.finnhub.finnhub_client import FinnhubClient
-from data.storage.storage_utils import _datetime_to_iso
 from utils.symbols import parse_symbols
 
 logger = logging.getLogger(__name__)
@@ -70,17 +69,19 @@ class FinnhubMacroNewsProvider(NewsDataSource):
 
             # First EVER loop won't hit this block
             if current_min_id is not None:
-                filtered_articles = [
-                    article
-                    for article in articles
-                    if isinstance(article.get("id"), int) and article["id"] > current_min_id
-                ]
-                if len(filtered_articles) < len(articles):
-                    logger.debug(
-                        "Filtered %s articles with id <= %s",
-                        len(articles) - len(filtered_articles),
-                        current_min_id,
-                    )
+                filtered_articles: list[dict[str, Any]] = []
+                for article in articles:
+                    if not isinstance(article, dict):
+                        logger.debug(
+                            "Skipping macro news item with unexpected type during pagination: %s",
+                            type(article).__name__,
+                        )
+                        continue
+
+                    article_id = article.get("id")
+                    if isinstance(article_id, int) and article_id > current_min_id:
+                        filtered_articles.append(article)
+
                 articles = filtered_articles
 
             # Stop if no more articles (done paginating)
@@ -90,6 +91,13 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             page_ids: list[int] = []
 
             for article in articles:
+                if not isinstance(article, dict):
+                    logger.debug(
+                        "Skipping macro news item with unexpected type: %s",
+                        type(article).__name__,
+                    )
+                    continue
+
                 article_id = article.get("id")
                 if isinstance(article_id, int) and article_id > 0:
                     page_ids.append(article_id)
@@ -152,6 +160,13 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         datetime_epoch = article.get("datetime", 0)
 
         if not headline or not url or datetime_epoch <= 0:
+            logger.debug(
+                "Skipping macro news article due to missing required fields "
+                "(id=%s url=%s datetime=%r)",
+                article.get("id", "unknown"),
+                article.get("url", ""),
+                article.get("datetime"),
+            )
             return []
 
         try:
@@ -165,16 +180,8 @@ class FinnhubMacroNewsProvider(NewsDataSource):
             # Return empty array because function might map to multiple entries
             return []
 
-        # Drop this article if it's older than the bootstrap/lookback cutoff
+        # Drop this article if it's older than the bootstrap/lookback cutoff (expected).
         if buffer_time and published <= buffer_time:
-            cutoff_iso = _datetime_to_iso(buffer_time)
-            published_iso = _datetime_to_iso(published)
-            logger.warning(
-                "Finnhub API returned article with published=%s at/before cutoff %s despite "
-                "default lookback window",
-                published_iso,
-                cutoff_iso,
-            )
             return []
 
         related = article.get("related", "").strip()

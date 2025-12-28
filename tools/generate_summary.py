@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 import inspect
-import sys
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +15,8 @@ ENV_EXAMPLE_PATH = ROOT / ".env.example"
 INCLUDE_ROOTS = ("analysis", "config", "data", "llm", "utils", "workflows", "ui", "tools")
 SKIP_PARTS = {"tests", "__pycache__", ".venv"}
 PROPERTY_DECORATORS = {"property", "cached_property"}
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -157,6 +159,7 @@ def parse_env_example(path: Path) -> list[tuple[str, str]]:
         key = line.split("=", 1)[0].strip()
         description = " ".join(comment_buffer).strip() or "(no description)"
         env_vars.append((key, description))
+        # comment_buffer.clear()
         last_line_was_comment = False
     return env_vars
 
@@ -244,7 +247,7 @@ def write_output(lines: list[str]) -> None:
 def main() -> int:
     """Entry point to regenerate the Summary inventory."""
     if not ENV_EXAMPLE_PATH.exists():
-        print(f".env.example not found at {ENV_EXAMPLE_PATH}", file=sys.stderr)
+        logger.error(".env.example not found at %s", ENV_EXAMPLE_PATH)
         return 1
 
     env_vars = parse_env_example(ENV_EXAMPLE_PATH)

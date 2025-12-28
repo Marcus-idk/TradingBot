@@ -83,7 +83,10 @@ class PolygonMacroNewsProvider(NewsDataSource):
                         f"Polygon API returned {type(response).__name__} instead of dict"
                     )
 
-                articles = response.get("results", [])
+                if "results" not in response:
+                    raise DataSourceError("Polygon macro news response missing 'results' field")
+
+                articles = response["results"]
 
                 if not isinstance(articles, list):
                     raise DataSourceError(
@@ -94,6 +97,13 @@ class PolygonMacroNewsProvider(NewsDataSource):
                     break
 
                 for article in articles:
+                    if not isinstance(article, dict):
+                        logger.debug(
+                            "Skipping macro news item with unexpected type: %s",
+                            type(article).__name__,
+                        )
+                        continue
+
                     try:
                         items = self._parse_article(article, start_time)
                         news_entries.extend(items)
@@ -150,6 +160,13 @@ class PolygonMacroNewsProvider(NewsDataSource):
         published_utc = article.get("published_utc", "").strip()
 
         if not title or not article_url or not published_utc:
+            logger.debug(
+                "Skipping macro news article due to missing required fields "
+                "(id=%s url=%s published_utc=%s)",
+                article.get("id", "unknown"),
+                article.get("article_url", ""),
+                article.get("published_utc", ""),
+            )
             return []
 
         # Parse RFC3339 timestamp
@@ -157,7 +174,10 @@ class PolygonMacroNewsProvider(NewsDataSource):
             published = parse_rfc3339(published_utc)
         except (ValueError, TypeError) as exc:
             logger.debug(
-                "Skipping macro news article due to invalid timestamp %s: %s",
+                "Skipping macro news article due to invalid timestamp "
+                "(id=%s url=%s published_utc=%s): %s",
+                article.get("id", "unknown"),
+                article_url,
                 published_utc,
                 exc,
             )
@@ -168,8 +188,10 @@ class PolygonMacroNewsProvider(NewsDataSource):
             cutoff_iso = _datetime_to_iso(buffer_time)
             published_iso = _datetime_to_iso(published)
             logger.warning(
-                "Polygon API returned article with published=%s despite published_utc.gt=%s "
-                "filter - possible API contract violation",
+                "Polygon API returned macro article at/before cutoff despite "
+                "published_utc.gt filter (id=%s url=%s published=%s cutoff=%s)",
+                article.get("id", "unknown"),
+                article_url,
                 published_iso,
                 cutoff_iso,
             )

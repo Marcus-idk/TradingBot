@@ -88,7 +88,12 @@ class FinnhubNewsProvider(NewsDataSource):
                         if entry:
                             news_entries.append(entry)
                     except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                        logger.debug("Failed to parse company news article for %s: %s", symbol, exc)
+                        logger.debug(
+                            "Failed to parse company news article for %s (url=%s): %s",
+                            symbol,
+                            article.get("url", "unknown"),
+                            exc,
+                        )
                         continue
             except DataSourceError:
                 raise
@@ -126,6 +131,13 @@ class FinnhubNewsProvider(NewsDataSource):
         datetime_epoch = article.get("datetime", 0)
 
         if not headline or not url or datetime_epoch <= 0:
+            logger.debug(
+                "Skipping company news article for %s due to missing required fields "
+                "(url=%s datetime=%r)",
+                symbol,
+                article.get("url", ""),
+                article.get("datetime"),
+            )
             return None
 
         try:
@@ -144,8 +156,10 @@ class FinnhubNewsProvider(NewsDataSource):
             cutoff_iso = _datetime_to_iso(buffer_time)
             published_iso = _datetime_to_iso(published)
             logger.warning(
-                "Finnhub API returned article with published=%s at/before cutoff %s despite "
-                "from/to date filter",
+                "Finnhub API returned company article at/before cutoff despite from/to date filter "
+                "(symbol=%s url=%s published=%s cutoff=%s)",
+                symbol,
+                url,
                 published_iso,
                 cutoff_iso,
             )

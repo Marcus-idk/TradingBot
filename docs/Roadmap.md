@@ -146,7 +146,6 @@ Automated Market Sentiment Analyzer that uses LLMs for fundamental analysis. Pol
 
 **Achieves**:
 - Production monitoring and health checks
-- **Logging framework**: Module-level loggers in all providers
 - Circuit breakers and redundant failover
 - Performance metrics beating buy-and-hold
 - 99%+ collection uptime

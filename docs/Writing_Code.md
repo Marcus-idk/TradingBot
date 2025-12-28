@@ -64,21 +64,6 @@ result = complex_function()  # noqa
 # Default: Fix the code instead of suppressing warnings
 ```
 
-Defensive checks for external contracts must log a warning or raise when triggered; otherwise remove them.
-
-```python
-# ✅ GOOD: Assert external API contract with visible signal
-if buffer_time and published <= buffer_time:
-    logger.warning(
-        "Provider returned item at/before cutoff %s (filter gt %s)", published, buffer_time
-    )
-    return None
-
-# ❌ BAD: Silent redundant check (hidden anomaly)
-if buffer_time and published <= buffer_time:
-    return None
-```
-
 ### VALIDATE_INPUTS
 Validate at boundaries, fail fast on invalid state, make types explicit.
 ```python
@@ -91,7 +76,7 @@ def store_price(symbol: str, price: Decimal) -> None:
 ### ERROR_HANDLING
 - Fail fast on structural/contract errors at boundaries by raising domain-specific exceptions (e.g., `DataSourceError`, `LLMError`); do not silently continue.
 - For external APIs, treat authentication/4xx as non-retryable data errors and 408/429/5xx as retryable; propagate these as `DataSourceError` or `RetryableError`, never swallow them.
-- Orchestrators may catch domain errors and a small, explicit set of runtime/OS errors to log and continue; truly unexpected exceptions should usually bubble to the top-level entrypoint rather than being hidden.
+- Orchestrators may catch domain errors and a small, explicit set of runtime/OS errors to continue; truly unexpected exceptions should usually bubble to the top-level entrypoint rather than being hidden.
 
 ### ERROR_HANDLING_EXPECTED_PARSING
 - Parsing helpers may return sentinel values (like `None`) without logging only when this behavior is part of the function contract and clearly documented.
@@ -99,10 +84,10 @@ def store_price(symbol: str, price: Decimal) -> None:
 
 ### CLEANUP_SHUTDOWN
 - Broad catches (`except Exception` or `except BaseException`) are allowed only in shutdown/cleanup code (e.g., UI/process teardown, DB rollback) or health-check probes.
-- In cleanup, log the failure and then either re-raise (for transactional helpers) or continue shutdown; never hide that cleanup failed.
+- In cleanup, either re-raise (for transactional helpers) or continue shutdown; never hide that cleanup failed (see `LOGGING`).
 
 ### PER_ITEM_CATCHES
-- In per-item parsing loops, catch only explicit data issues (`ValueError`, `TypeError`, `KeyError`, `AttributeError`, and provider-domain errors) and skip bad items with DEBUG logs.
+- In per-item parsing loops, catch only explicit data issues (`ValueError`, `TypeError`, `KeyError`, `AttributeError`, and provider-domain errors) and skip bad items (see `LOGGING`).
 - Do not use `except Exception` inside per-item loops; malformed items should not crash the batch, but unexpected errors should still surface.
 
 ### CAUSE_CHAINING
@@ -229,10 +214,30 @@ async def fetch_all(symbols):
     return await asyncio.gather(*tasks)
 ```
 
-### LOGGING_LAYERED
-Module-level loggers with appropriate levels.
-- **Avoid duplicate logging across layers** - provider logs details, orchestrator only summarizes
-- **Use lazy formatting for all log messages** (e.g., `logger.info("... %s", value)`) so string interpolation is skipped when the log level is off (common for DEBUG)
+### LOGGING
+Log what you need to debug issues, and avoid noise.
+
+Rules:
+- Use **module-level loggers** (one per file): `logger = logging.getLogger(__name__)`
+- **Avoid duplicate logging across layers**:
+  - Provider layer logs per-item details (drops, parse failures).
+  - Orchestrator layer logs per-cycle/provider summaries (counts, duration, failures).
+- **Do not log** normal/expected filtering (e.g., item older than watermark/cutoff).
+- **Do log** data-quality drops and unexpected shapes at `DEBUG` with identifying info (item id/url/symbol + reason).
+- Defensive checks for external contracts must **log a warning or raise** when triggered; otherwise remove them.
+- **Use lazy formatting** for all log messages (e.g., `logger.info("... %s", value)`) so work is skipped when a level is off (especially DEBUG).
+- In orchestrators, always log **summary counts** per provider/cycle so you can spot API drift:
+  - fetched/parsed/stored/dropped (and optionally top N drop reasons).
+- For exceptions, use `logger.exception("...")` inside `except` blocks (it logs at `ERROR` and includes a stack trace).
+
+Logging levels (project meaning):
+```
+DEBUG: Expected drops / bad external data (per-item)
+INFO:  Success summaries (per-cycle / lifecycle)
+WARNING: Partial failures / degraded mode (e.g., request failed but run continues)
+ERROR: Workflow failure (use logger.exception(...) for tracebacks)
+```
+
 ```python
 logger = logging.getLogger(__name__)
 
@@ -243,9 +248,15 @@ logger.warning("Failed to fetch %s", symbol)  # Request failures
 
 # Orchestrator layer:
 logger.info("Processed %s items", count)  # Success summaries only!
-logger.exception("Workflow failed")  # In except blocks for stack trace
-
-# Use logger.exception() instead of logger.error(..., exc_info=True) for clarity
+logger.info(
+    "%s summary: fetched=%s parsed=%s stored=%s dropped=%s",
+    provider_name,
+    fetched,
+    parsed,
+    stored,
+    dropped,
+)
+logger.exception("Workflow failed")  # In except blocks (ERROR + stack trace)
 ```
 
 ### DOCSTRINGS_REQUIRED
@@ -311,12 +322,4 @@ Public API? → facade import
 Private (_)? → import from source module
 Circular dep? → function-level with comment
 Optional dep? → function-level with try/except
-```
-
-## Logging Levels
-```
-DEBUG: Expected failures (invalid data)
-WARNING: Partial failures (request failed)
-ERROR: Workflow failures  
-EXCEPTION: Bugs (auto stack trace)
 ```

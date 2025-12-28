@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from config.providers.polygon import PolygonSettings
+from data import DataSourceError
 from data.providers.polygon import PolygonMacroNewsProvider
 from data.storage.storage_utils import _datetime_to_iso
 
@@ -118,6 +119,16 @@ class TestPolygonMacroNewsProvider:
 
         assert result == []
         assert call_count["n"] == 1
+
+    async def test_fetch_incremental_missing_results_raises(self):
+        """Missing results key is treated as a schema/contract error."""
+        settings = PolygonSettings(api_key="test_key")
+        provider = PolygonMacroNewsProvider(settings, ["AAPL"])
+
+        provider.client.get = AsyncMock(return_value={"count": 1})
+
+        with pytest.raises(DataSourceError, match="missing 'results'"):
+            await provider.fetch_incremental()
 
     async def test_next_url_without_cursor_stops_pagination(self, monkeypatch):
         """Test next url without cursor stops pagination."""

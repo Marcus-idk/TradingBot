@@ -122,7 +122,12 @@ class RedditSocialProvider(SocialDataSource):
                 if discussion:
                     discussions.append(discussion)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
-                logger.debug("Failed to parse Reddit submission for %s: %s", symbol, exc)
+                logger.debug(
+                    "Failed to parse Reddit submission for %s (id=%s): %s",
+                    symbol,
+                    getattr(submission, "id", "unknown"),
+                    exc,
+                )
                 continue
 
         return discussions
@@ -133,7 +138,11 @@ class RedditSocialProvider(SocialDataSource):
         """Parse a Reddit submission into a SocialDiscussion, returning None if invalid."""
         created_utc = getattr(submission, "created_utc", None)
         if created_utc is None:
-            logger.debug("Submission missing created_utc: %s", getattr(submission, "id", "unknown"))
+            logger.debug(
+                "Submission missing created_utc for %s (id=%s)",
+                symbol,
+                getattr(submission, "id", "unknown"),
+            )
             return None
 
         try:
@@ -154,7 +163,11 @@ class RedditSocialProvider(SocialDataSource):
 
         title = (getattr(submission, "title", "") or "").strip()
         if not title:
-            logger.debug("Submission missing title: %s", getattr(submission, "id", "unknown"))
+            logger.debug(
+                "Submission missing title for %s (id=%s)",
+                symbol,
+                getattr(submission, "id", "unknown"),
+            )
             return None
 
         subreddit_obj = getattr(submission, "subreddit", None)
@@ -163,7 +176,11 @@ class RedditSocialProvider(SocialDataSource):
             subreddit_name = getattr(subreddit_obj, "display_name", "") or str(subreddit_obj)
         subreddit_name = (subreddit_name or "").strip()
         if not subreddit_name:
-            logger.debug("Submission missing subreddit: %s", getattr(submission, "id", "unknown"))
+            logger.debug(
+                "Submission missing subreddit for %s (id=%s)",
+                symbol,
+                getattr(submission, "id", "unknown"),
+            )
             return None
 
         permalink = (getattr(submission, "permalink", "") or "").strip()
@@ -176,7 +193,9 @@ class RedditSocialProvider(SocialDataSource):
                 url = fallback_url
             else:
                 logger.debug(
-                    "Submission missing valid URL: %s", getattr(submission, "id", "unknown")
+                    "Submission missing valid URL for %s (id=%s)",
+                    symbol,
+                    getattr(submission, "id", "unknown"),
                 )
                 return None
 
@@ -184,7 +203,7 @@ class RedditSocialProvider(SocialDataSource):
         if not source_id:
             submission_id = (getattr(submission, "id", "") or "").strip()
             if not submission_id:
-                logger.debug("Submission missing both name and id fields")
+                logger.debug("Submission missing both name and id fields for %s", symbol)
                 return None
             source_id = f"t3_{submission_id}"
 

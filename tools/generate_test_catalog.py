@@ -2,7 +2,7 @@
 
 import ast
 import inspect
-import sys
+import logging
 from collections import OrderedDict
 from collections.abc import Iterable
 from contextlib import redirect_stderr, redirect_stdout
@@ -16,6 +16,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = ROOT / "tests"
 OUTPUT_PATH = ROOT / "docs" / "Test_Catalog.md"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -278,7 +280,7 @@ def write_output(lines: list[str]) -> None:
 def main() -> int:
     """Entry point used by pre-commit to regenerate the test catalog."""
     if not TESTS_DIR.exists():
-        print(f"tests directory not found at {TESTS_DIR}", file=sys.stderr)
+        logger.error("tests directory not found at %s", TESTS_DIR)
         return 1
 
     reports = collect_tests()

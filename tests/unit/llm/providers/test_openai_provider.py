@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -98,6 +99,7 @@ class TestOpenAIProvider:
             tool_choice=tool_choice_input,
             tools=[{"type": "code"}],
         )
+        caplog.set_level(logging.WARNING, logger=openai_module.__name__)
 
         await provider.generate("test prompt")
 
