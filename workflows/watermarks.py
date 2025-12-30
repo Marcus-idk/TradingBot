@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class CursorRule:
     """Describes how a provider/stream tracks watermarks."""
 
-    provider: ProviderEnum  # Which provider (FINNHUB, POLYGON)
+    provider: ProviderEnum  # Which provider (e.g., FINNHUB, REDDIT)
     stream: StreamEnum  # Which stream (COMPANY, MACRO)
     scope: ScopeEnum  # SYMBOL = one watermark per symbol, GLOBAL = one watermark total
     cursor: Literal["timestamp", "id"]  # "timestamp" = datetime cursor, "id" = integer cursor

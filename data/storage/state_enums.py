@@ -9,7 +9,6 @@ class Provider(Enum):
     """Supported news/data providers tracked by watermark state."""
 
     FINNHUB = "FINNHUB"
-    POLYGON = "POLYGON"
     REDDIT = "REDDIT"
 
 

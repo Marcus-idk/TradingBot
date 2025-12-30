@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS holdings (
 
 -- Provider cursor state
 CREATE TABLE IF NOT EXISTS last_seen_state (
-    provider TEXT NOT NULL CHECK(provider IN ('FINNHUB', 'POLYGON', 'REDDIT')),
+    provider TEXT NOT NULL CHECK(provider IN ('FINNHUB', 'REDDIT')),
     stream TEXT NOT NULL CHECK(stream IN ('COMPANY', 'MACRO', 'SOCIAL')),
     scope TEXT NOT NULL CHECK(scope IN ('GLOBAL', 'SYMBOL')),
     symbol TEXT NOT NULL DEFAULT '__GLOBAL__',

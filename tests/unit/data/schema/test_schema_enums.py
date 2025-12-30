@@ -67,9 +67,8 @@ class TestEnumValueLocks:
     def test_last_seen_state_enum_values_unchanged(self):
         """Lock Provider/Stream/Scope enum values used in last_seen_state."""
         assert Provider.FINNHUB.value == "FINNHUB"
-        assert Provider.POLYGON.value == "POLYGON"
         assert Provider.REDDIT.value == "REDDIT"
-        assert set(p.value for p in Provider) == {"FINNHUB", "POLYGON", "REDDIT"}
+        assert set(p.value for p in Provider) == {"FINNHUB", "REDDIT"}
 
         assert Stream.COMPANY.value == "COMPANY"
         assert Stream.MACRO.value == "MACRO"
@@ -344,7 +343,7 @@ class TestEnumConstraints:
             cursor.execute(
                 """
                 INSERT INTO last_seen_state (provider, stream, scope, symbol, timestamp, id)
-                VALUES ('POLYGON', 'MACRO', 'SYMBOL', 'AAPL', NULL, 5)
+                VALUES ('FINNHUB', 'MACRO', 'SYMBOL', 'AAPL', NULL, 5)
             """
             )
 

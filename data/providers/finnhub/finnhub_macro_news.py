@@ -52,7 +52,7 @@ class FinnhubMacroNewsProvider(NewsDataSource):
         overall_max_id: int | None = None
         reached_buffer_cutoff = False
 
-        # Not factored into a helper like polygon_news.py, this is a global stream
+        # This provider is a global stream (not per-symbol), so keep pagination inline.
         while True:
             params = base_params.copy()
 
