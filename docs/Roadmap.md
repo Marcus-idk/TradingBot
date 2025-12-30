@@ -100,7 +100,7 @@ Automated Market Sentiment Analyzer that uses LLMs for fundamental analysis. Pol
 - Complete ingestion with multi-source news and price dedup framework
 
 **Achieves**:
-- Polygon.io news providers (company + macro) for multi-source news coverage
+- Unified poller flow for Finnhub news/prices + Reddit social
 - Price deduplication framework (ready for multiple providers)
 - Reddit sentiment ingestion (PRAW, ~100 queries/min; posts + top comments for held symbols)
 - Retry logic for external APIs
@@ -187,10 +187,10 @@ Automated Market Sentiment Analyzer that uses LLMs for fundamental analysis. Pol
 
 ## Runtime Flow Snapshot
 - Startup
-  - Loads `.env`, configures logging, and reads `SYMBOLS`, `POLL_INTERVAL`, `DATABASE_PATH` (default `data/database/market_sentiment_analyzer.db`), and provider keys (`FINNHUB_API_KEY`, `POLYGON_API_KEY`, Reddit credentials); if `-v`, also reads `STREAMLIT_PORT`.
+  - Loads `.env`, configures logging, and reads `SYMBOLS`, `POLL_INTERVAL`, `DATABASE_PATH` (default `data/database/market_sentiment_analyzer.db`), and provider keys (`FINNHUB_API_KEY`, Reddit credentials); if `-v`, also reads `STREAMLIT_PORT`.
   - Ensures the database directory exists and runs `init_database`, which enforces SQLite JSON1 support and applies required PRAGMAs.
   - If `-v`, launches the optional Streamlit UI pointed at the same `DATABASE_PATH`; on failure, logs a warning and continues without UI.
-  - Creates configured providers (Finnhub company/macro/price; Polygon company/macro; Reddit social sentiment) and validates each API connection; failures abort startup.
+  - Creates configured providers (Finnhub company/macro/price; Reddit social sentiment) and validates each API connection; failures abort startup.
   - Registers graceful shutdown handlers, logs a startup banner, and enters the polling loop.
 - Every poll (interval ≈ `POLL_INTERVAL`, e.g., 300s; first cycle runs immediately)
   - Watermark planning:
@@ -198,10 +198,8 @@ Automated Market Sentiment Analyzer that uses LLMs for fundamental analysis. Pol
   - Fetch company and macro news (providers run concurrently):
     - Finnhub company: per-symbol timestamp cursors; each symbol uses its own watermark minus an overlap, or a first-run lookback window when no watermark exists.
     - Finnhub macro: global ID cursor via `minId`; on first run uses a time-based lookback window and tracks `last_fetched_max_id`, which becomes the committed ID watermark.
-    - Polygon company: global timestamp cursor with optional per-symbol bootstrap overrides for new or stale symbols; applies overlap and first-run windows and follows pagination via `cursor` / `next_url`.
-    - Polygon macro: global timestamp cursor only; applies overlap and first-run windows and follows the same pagination pattern.
   - Fetch social sentiment:
-    - Reddit social: per-symbol timestamp cursors via `WatermarkEngine`; bootstrap runs use a wider `time_filter` and lookback window, incremental runs use a narrower `time_filter` with overlap, and each symbol fetches posts and top comments from `stocks+investing+wallstreetbets`.
+    - Reddit social: per-symbol cursors via `WatermarkEngine`; new symbols run in bootstrap mode (wider `time_filter` + lookback window), existing symbols run incrementally (narrower `time_filter` + overlap), and each symbol fetches posts and top comments from `stocks+investing+wallstreetbets`.
   - Fetch prices:
     - Finnhub prices: calls `/quote` per symbol, normalizes timestamps to UTC, and classifies each observation into `PRE`, `REG`, `POST`, or `CLOSED` using ET market hours and the NYSE calendar.
   - Store results and run stub analysis:
@@ -211,6 +209,6 @@ Automated Market Sentiment Analyzer that uses LLMs for fundamental analysis. Pol
     - Urgency: news and social urgency detectors run as stubs, logging basic stats and returning no urgent items.
     - Prices: `DataPoller._process_prices` treats the first configured price provider as primary, stores only its price per symbol, and logs warnings for missing prices and errors for cross-provider mismatches ≥ $0.01.
   - Watermark commit:
-    - For each news and social provider, `WatermarkEngine.commit_updates` runs after storage to advance timestamp or ID watermarks in `last_seen_state` based on the data actually stored, including optional per-symbol marks for GLOBAL+bootstrap providers.
+    - For each news and social provider, `WatermarkEngine.commit_updates` runs after storage to advance timestamp or ID watermarks in `last_seen_state` based on the data actually stored.
   - Sleep until next cycle:
     - Logs per-cycle stats (news, social, prices, errors) and waits just long enough so that each loop boundary aligns with the configured `POLL_INTERVAL`, unless a shutdown signal or `stop()` request ends the loop.

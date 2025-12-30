@@ -97,10 +97,7 @@ class TestNewsMacroShared:
             return_value=provider_spec_macro.wrap_response([article_old, article_new])
         )
 
-        if "finnhub" in provider_spec_macro.name:
-            results = await provider.fetch_incremental(min_id=None)
-        else:
-            results = await provider.fetch_incremental(since=None)
+        results = await provider.fetch_incremental(min_id=None)
 
         assert len(results) == 1
         entry = results[0]
@@ -126,8 +123,7 @@ class TestNewsMacroShared:
         results = await provider.fetch_incremental()
 
         assert len(results) == 1
-        # Need to check the right field name based on provider
-        headline_field = "title" if "title" in good_article else "headline"
+        headline_field = "headline"
         entry = results[0]
         assert entry.headline == good_article[headline_field]
         assert entry.news_type is NewsType.MACRO
@@ -168,10 +164,7 @@ class TestNewsMacroShared:
         provider.client.get = AsyncMock(return_value="unexpected-type")
 
         with pytest.raises(DataSourceError):
-            if "finnhub" in provider_spec_macro.name:
-                await provider.fetch_incremental(min_id=None)
-            else:
-                await provider.fetch_incremental(since=None)
+            await provider.fetch_incremental(min_id=None)
 
     async def test_parse_exception_skips_article_and_continues(self, provider_spec_macro):
         """Test parse exception skips article and continues."""
@@ -181,12 +174,8 @@ class TestNewsMacroShared:
         payload = provider_spec_macro.wrap_response([malformed, valid])
         provider.client.get = AsyncMock(return_value=payload)
 
-        if "finnhub" in provider_spec_macro.name:
-            results = await provider.fetch_incremental(min_id=None)
-            headline_field = "headline"
-        else:
-            results = await provider.fetch_incremental(since=None)
-            headline_field = "title"
+        results = await provider.fetch_incremental(min_id=None)
+        headline_field = "headline"
 
         assert len(results) == 1
         entry = results[0]
@@ -199,31 +188,25 @@ class TestNewsMacroShared:
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 
-        if "finnhub" in provider_spec_macro.name:
-            article["datetime"] = 1234567890
+        article["datetime"] = 1234567890
 
-            class BadDatetime:
-                @staticmethod
-                def now(tz):
-                    return datetime.now(tz)
+        class BadDatetime:
+            @staticmethod
+            def now(tz):
+                return datetime.now(tz)
 
-                @staticmethod
-                def fromtimestamp(ts, tz):
-                    raise ValueError("bad timestamp")
+            @staticmethod
+            def fromtimestamp(ts, tz):
+                raise ValueError("bad timestamp")
 
-            monkeypatch.setattr(
-                "data.providers.finnhub.finnhub_macro_news.datetime",
-                BadDatetime,
-            )
-        else:
-            article["published_utc"] = "not-a-timestamp"
+        monkeypatch.setattr(
+            "data.providers.finnhub.finnhub_macro_news.datetime",
+            BadDatetime,
+        )
 
         provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 
-        if "finnhub" in provider_spec_macro.name:
-            results = await provider.fetch_incremental(min_id=None)
-        else:
-            results = await provider.fetch_incremental(since=None)
+        results = await provider.fetch_incremental(min_id=None)
 
         assert results == []
 
@@ -232,17 +215,11 @@ class TestNewsMacroShared:
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 
-        if "finnhub" in provider_spec_macro.name:
-            article["url"] = "ftp://invalid"
-        else:
-            article["article_url"] = "ftp://invalid"
+        article["url"] = "ftp://invalid"
 
         provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 
-        if "finnhub" in provider_spec_macro.name:
-            results = await provider.fetch_incremental(min_id=None)
-        else:
-            results = await provider.fetch_incremental(since=None)
+        results = await provider.fetch_incremental(min_id=None)
 
         assert results == []
 
@@ -253,20 +230,12 @@ class TestNewsMacroShared:
         provider = provider_spec_macro.make_provider(symbols=["AAPL"])
         article = provider_spec_macro.article_factory(symbols="AAPL")
 
-        if "finnhub" in provider_spec_macro.name:
-            monkeypatch.setattr(
-                provider,
-                "_extract_symbols_from_related",
-                lambda related: ["", "AAPL"],
-            )
-            fetch_kwargs = {"min_id": None}
-        else:
-            monkeypatch.setattr(
-                provider,
-                "_extract_symbols_from_tickers",
-                lambda tickers: ["", "AAPL"],
-            )
-            fetch_kwargs = {"since": None}
+        monkeypatch.setattr(
+            provider,
+            "_extract_symbols_from_related",
+            lambda related: ["", "AAPL"],
+        )
+        fetch_kwargs = {"min_id": None}
 
         provider.client.get = AsyncMock(return_value=provider_spec_macro.wrap_response([article]))
 

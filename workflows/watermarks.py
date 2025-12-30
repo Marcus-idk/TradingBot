@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -12,7 +11,6 @@ from typing import Literal
 from data import NewsDataSource, SocialDataSource
 from data.models import NewsEntry, SocialDiscussion
 from data.providers.finnhub import FinnhubMacroNewsProvider, FinnhubNewsProvider
-from data.providers.polygon import PolygonMacroNewsProvider, PolygonNewsProvider
 from data.providers.reddit import RedditSocialProvider
 from data.storage import (
     get_last_seen_id,
@@ -37,7 +35,6 @@ class CursorRule:
     stream: StreamEnum  # Which stream (COMPANY, MACRO)
     scope: ScopeEnum  # SYMBOL = one watermark per symbol, GLOBAL = one watermark total
     cursor: Literal["timestamp", "id"]  # "timestamp" = datetime cursor, "id" = integer cursor
-    bootstrap: bool  # True = detect new symbols and backfill for global scope providers
     overlap_family: Literal[
         "company", "macro", "social"
     ]  # Which config fields to read (*_news_overlap_minutes, *_news_first_run_days)
@@ -50,7 +47,6 @@ CURSOR_RULES: dict[type[NewsDataSource | SocialDataSource], CursorRule] = {
         stream=StreamEnum.COMPANY,
         scope=ScopeEnum.SYMBOL,  # Per-symbol watermarks
         cursor="timestamp",
-        bootstrap=False,  # Auto-detects new symbols (None watermark)
         overlap_family="company",
     ),
     # Finnhub macro: one ID for all macro news
@@ -59,25 +55,6 @@ CURSOR_RULES: dict[type[NewsDataSource | SocialDataSource], CursorRule] = {
         stream=StreamEnum.MACRO,
         scope=ScopeEnum.GLOBAL,  # One watermark total
         cursor="id",  # Uses integer IDs, not timestamps
-        bootstrap=False,  # N/A for macro news
-        overlap_family="macro",
-    ),
-    # Polygon company: one timestamp shared, but override for new symbols
-    PolygonNewsProvider: CursorRule(
-        provider=ProviderEnum.POLYGON,
-        stream=StreamEnum.COMPANY,
-        scope=ScopeEnum.GLOBAL,  # One watermark shared by all symbols
-        cursor="timestamp",
-        bootstrap=True,  # Must explicitly detect and backfill new symbols
-        overlap_family="company",
-    ),
-    # Polygon macro: one timestamp for all macro news
-    PolygonMacroNewsProvider: CursorRule(
-        provider=ProviderEnum.POLYGON,
-        stream=StreamEnum.MACRO,
-        scope=ScopeEnum.GLOBAL,  # One watermark total
-        cursor="timestamp",
-        bootstrap=False,  # N/A for macro news
         overlap_family="macro",
     ),
     # Reddit social: one timestamp per symbol
@@ -86,7 +63,6 @@ CURSOR_RULES: dict[type[NewsDataSource | SocialDataSource], CursorRule] = {
         stream=StreamEnum.SOCIAL,
         scope=ScopeEnum.SYMBOL,
         cursor="timestamp",
-        bootstrap=False,
         overlap_family="social",
     ),
 }
@@ -119,48 +95,6 @@ def _clamp_future(ts: datetime, now: datetime) -> datetime:
     return ts if ts <= cap else cap
 
 
-def _is_global_bootstrap_symbol(
-    db_path: str,
-    rule: CursorRule,
-    *,
-    symbol: str,
-    base_since: datetime,
-) -> bool:
-    """Return True when a GLOBAL-scope provider should bootstrap this symbol.
-
-    Notes:
-        Used only for providers that use GLOBAL scope + bootstrap=True
-        (e.g., Polygon company news). For per-symbol scope providers
-        (e.g., Finnhub company news), bootstrap behavior is handled
-        directly in build_plan.
-    """
-    try:
-        symbol_ts = get_last_seen_timestamp(
-            db_path,
-            rule.provider,
-            rule.stream,
-            ScopeEnum.SYMBOL,
-            symbol=symbol,
-        )
-    except (sqlite3.Error, OSError) as exc:
-        logger.warning(
-            "Bootstrap detection failed provider=%s stream=%s symbol=%s: %s",
-            rule.provider.value,
-            rule.stream.value,
-            symbol,
-            exc,
-        )
-        raise RuntimeError(
-            f"Bootstrap detection failed provider={rule.provider.value} "
-            f"stream={rule.stream.value} symbol={symbol}"
-        ) from exc
-
-    if symbol_ts is None:
-        return True
-
-    return normalize_to_utc(symbol_ts) < base_since
-
-
 @dataclass
 class WatermarkEngine:
     """Build fetch plans and persist provider watermarks."""
@@ -174,8 +108,6 @@ class WatermarkEngine:
             - First run: uses ``*_news_first_run_days`` from the provider settings.
             - Overlap: providers apply ``*_news_overlap_minutes`` when fetching; the plan
               returns base cursor positions (watermark values) only.
-            - GLOBAL+bootstrap providers (e.g., Polygon company) may return
-              ``symbol_since_map`` overrides for newly added/stale symbols.
         """
         rule = CURSOR_RULES.get(type(provider))
         if not rule:
@@ -200,16 +132,9 @@ class WatermarkEngine:
         if rule.scope is ScopeEnum.SYMBOL:
             return self._plan_symbol_timestamps(rule, provider, now, first_run_days)
 
-        # Global scope (e.g., Polygon company/macro): single shared cursor.
+        # Global scope: single shared cursor. nothing uses this as of now
         base_since = self._plan_global_timestamp(rule, now, first_run_days)
-        symbol_map = self._plan_global_bootstrap_overrides(
-            rule,
-            provider,
-            now,
-            first_run_days,
-            base_since,
-        )
-        return CursorPlan(since=base_since, symbol_since_map=symbol_map)
+        return CursorPlan(since=base_since)
 
     def _plan_id_cursor(self, rule: CursorRule) -> CursorPlan:
         """Build an ID-based cursor plan from the stored watermark."""
@@ -225,6 +150,7 @@ class WatermarkEngine:
     ) -> CursorPlan:
         """Build per-symbol timestamp cursors using stored watermarks."""
         per_symbol_map: dict[str, datetime] = {}
+        is_reddit_social = rule.provider is ProviderEnum.REDDIT and rule.stream is StreamEnum.SOCIAL
         for symbol in getattr(provider, "symbols", []) or []:
             prev = get_last_seen_timestamp(
                 self.db_path,
@@ -233,8 +159,15 @@ class WatermarkEngine:
                 ScopeEnum.SYMBOL,
                 symbol=symbol,
             )
-            since = now - timedelta(days=first_run_days) if prev is None else normalize_to_utc(prev)
-            per_symbol_map[symbol] = since
+
+            # Reddit: missing cursor triggers bootstrap time_filter.
+            if prev is None:
+                if is_reddit_social:
+                    continue
+                per_symbol_map[symbol] = now - timedelta(days=first_run_days)
+                continue
+
+            per_symbol_map[symbol] = normalize_to_utc(prev)
         return CursorPlan(symbol_since_map=per_symbol_map)
 
     def _plan_global_timestamp(
@@ -254,31 +187,6 @@ class WatermarkEngine:
         if prev is None:
             return now - timedelta(days=first_run_days)
         return normalize_to_utc(prev)
-
-    def _plan_global_bootstrap_overrides(
-        self,
-        rule: CursorRule,
-        provider: NewsDataSource | SocialDataSource,
-        now: datetime,
-        first_run_days: int,
-        base_since: datetime,
-    ) -> dict[str, datetime] | None:
-        """Return per-symbol override cursors for GLOBAL+bootstrap providers."""
-        if not (rule.bootstrap and getattr(provider, "symbols", None)):
-            return None
-
-        overrides: dict[str, datetime] = {}
-        override_since = now - timedelta(days=first_run_days)
-        for symbol in getattr(provider, "symbols", []) or []:
-            if _is_global_bootstrap_symbol(
-                self.db_path,
-                rule,
-                symbol=symbol,
-                base_since=base_since,
-            ):
-                overrides[symbol] = override_since
-
-        return overrides or None
 
     def commit_updates(
         self,
@@ -317,8 +225,6 @@ class WatermarkEngine:
             return
 
         self._commit_global_timestamp_update(rule, entries, now)
-        if rule.bootstrap:
-            self._commit_bootstrap_symbol_updates(rule, entries, now)
 
     def _commit_id_cursor(
         self,
@@ -395,34 +301,6 @@ class WatermarkEngine:
             ScopeEnum.GLOBAL,
             clamped,
         )
-
-    def _commit_bootstrap_symbol_updates(
-        self,
-        rule: CursorRule,
-        entries: Sequence[NewsEntry | SocialDiscussion],
-        now: datetime,
-    ) -> None:
-        """Persist per-symbol timestamps for bootstrap streams, clamping future values."""
-        per_symbol_max: dict[str, datetime] = {}
-        for entry in entries:
-            if not entry.symbol:
-                continue
-            published = normalize_to_utc(entry.published)
-            current = per_symbol_max.get(entry.symbol)
-            if current is None or published > current:
-                per_symbol_max[entry.symbol] = published
-
-        for symbol, ts in per_symbol_max.items():
-            clamped_symbol = _clamp_future(ts, now)
-            # SQL upsert is monotonic - only advances forward
-            set_last_seen_timestamp(
-                self.db_path,
-                rule.provider,
-                rule.stream,
-                ScopeEnum.SYMBOL,
-                clamped_symbol,
-                symbol=symbol,
-            )
 
     @staticmethod
     def _get_settings(provider: NewsDataSource | SocialDataSource) -> object | None:

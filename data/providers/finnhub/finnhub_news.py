@@ -153,16 +153,19 @@ class FinnhubNewsProvider(NewsDataSource):
 
         # Apply buffer filter (defensive check - API should already honor from/to dates)
         if buffer_time and published <= buffer_time:
-            cutoff_iso = _datetime_to_iso(buffer_time)
-            published_iso = _datetime_to_iso(published)
-            logger.warning(
-                "Finnhub API returned company article at/before cutoff despite from/to date filter "
-                "(symbol=%s url=%s published=%s cutoff=%s)",
-                symbol,
-                url,
-                published_iso,
-                cutoff_iso,
-            )
+            # Expected: /company-news is date-window based (YYYY-MM-DD), so we can still see
+            # items that are earlier than our exact timestamp cutoff. We filter them here.
+            if logger.isEnabledFor(logging.DEBUG):
+                cutoff_iso = _datetime_to_iso(buffer_time)
+                published_iso = _datetime_to_iso(published)
+                logger.debug(
+                    "Dropping company article at/before cutoff (expected for date-window API) "
+                    "(symbol=%s url=%s published=%s cutoff=%s)",
+                    symbol,
+                    url,
+                    published_iso,
+                    cutoff_iso,
+                )
             return None
 
         # Extract source and content

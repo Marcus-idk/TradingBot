@@ -12,7 +12,7 @@ These files demonstrate all style rules below. When writing or cleaning up tests
 - **Unit - Contract Tests**: `tests/unit/data/providers/shared/test_news_company_shared.py`
 - **Unit - Pure Logic**: `tests/unit/data/models/test_news_models.py`
 - **Integration - E2E Workflow**: `tests/integration/data/test_roundtrip_e2e.py`
-- **Integration - Live Network**: `tests/integration/data/providers/test_polygon_live.py`
+- **Integration - Live Network**: `tests/integration/data/providers/test_finnhub_live.py`
 
 ---
 
@@ -187,7 +187,7 @@ def test_enum_values_unchanged():
 When multiple similar classes share identical behavior, use shared behavior tests instead of copying tests.
 
 ### When to Use Shared Behavior Tests
-- ✅ **Same behavior, different data format**: Finnhub vs Polygon news parsing
+- ✅ **Same behavior across providers (when 2+ exist)**: Use shared behavior tests
 - ✅ **Multiple implementations of same interface**: Different provider implementations
 - ✅ **Shared validation logic**: All providers validate connections the same way
 - ❌ **Provider-specific quirks**: Pagination details, endpoint paths (keep separate)
@@ -253,10 +253,10 @@ Choose the right mocking approach based on what you're replacing.
 Use monkeypatch when testing code that **imports and calls** a function by name.
 
 ```python
-# Source: data/providers/polygon/polygon_client.py
+# Source: data/providers/finnhub/finnhub_client.py
 from utils.http import get_json_with_retry  # ← Module-level import
 
-class PolygonClient:
+class FinnhubClient:
     async def get(self, path: str):
         # Looks up 'get_json_with_retry' by name in module namespace
         return await get_json_with_retry(url, ...)
@@ -264,10 +264,10 @@ class PolygonClient:
 # Test: Monkeypatch the IMPORT where it's looked up
 def test_client(monkeypatch):
     monkeypatch.setattr(
-        'data.providers.polygon.polygon_client.get_json_with_retry',  # Where client finds it
+        'data.providers.finnhub.finnhub_client.get_json_with_retry',  # Where client finds it
         mock_function
     )
-    client = PolygonClient(settings)
+    client = FinnhubClient(settings)
     await client.get('/quote')  # Uses mocked version
 ```
 
@@ -275,20 +275,20 @@ def test_client(monkeypatch):
 Use direct assignment when testing code that **calls methods on an instance**.
 
 ```python
-# Source: data/providers/polygon/polygon_news.py
-class PolygonNewsProvider:
+# Source: data/providers/finnhub/finnhub_news.py
+class FinnhubNewsProvider:
     def __init__(self, settings, symbols):
-        self.client = PolygonClient(settings)  # ← Creates instance
+        self.client = FinnhubClient(settings)  # ← Creates instance
 
     async def fetch_incremental(self):
-        response = await self.client.get('/news')  # ← Calls instance method
+        response = await self.client.get('/company-news')  # ← Calls instance method
 
 # Test: Replace the METHOD on the instance
 async def test_provider():
-    provider = PolygonNewsProvider(settings, ['AAPL'])
+    provider = FinnhubNewsProvider(settings, ['AAPL'])
 
     async def mock_get(path, params=None):
-        return {'results': [...]}
+        return [{'headline': '...', 'url': '...', 'datetime': 123}]
 
     provider.client.get = mock_get  # ← Direct assignment to instance method
     result = await provider.fetch_incremental()  # Uses mocked version
@@ -303,10 +303,10 @@ Choose the right clock setup for each test.
 - Prefer the shared `clock` fixture when available; otherwise monkeypatch the provider module's `datetime`.
 
 ### When to use current time
-Shared behavior tests such as `tests/unit/data/providers/shared/test_news_company_shared.py` keep `datetime.now()` so Polygon's 2-day filter still returns the sample article. Nothing in that test asserts the exact timestamp.
+Shared behavior tests such as `tests/unit/data/providers/shared/test_news_company_shared.py` keep `datetime.now()` so the date window still returns the sample article. Nothing in that test asserts the exact timestamp.
 
 ### When to freeze time
-Provider-specific tests like `tests/unit/data/providers/test_finnhub_macro.py` or `tests/unit/data/providers/test_polygon_macro_news.py` freeze `datetime.now()` before calling the provider. That makes date math (e.g., buffer windows) deterministic.
+Provider-specific tests like `tests/unit/data/providers/test_finnhub_macro.py` freeze `datetime.now()` before calling the provider. That makes date math (e.g., buffer windows) deterministic.
 
 ### No Forced Passes
 - Tests must fail on real regressions; do not hide failures.

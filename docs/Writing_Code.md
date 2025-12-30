@@ -124,7 +124,7 @@ NEWS_LIMIT = 100  # Shared constant imported by providers
 NEWS_ORDER = "asc"
 
 # ❌ Premature user-facing config for fixed behavior
-class PolygonSettings:
+class ProviderSettings:
     news_limit: int  # avoid until real need
     news_order: str  # avoid; asc is required for incremental
 ```

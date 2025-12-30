@@ -1,15 +1,14 @@
-"""Shared env loading/validation across Finnhub, Polygon, OpenAI, Gemini."""
+"""Shared env loading/validation across Finnhub, OpenAI, Gemini."""
 
 import pytest
 
 from config.llm.gemini import GeminiSettings
 from config.llm.openai import OpenAISettings
 from config.providers.finnhub import FinnhubSettings
-from config.providers.polygon import PolygonSettings
 from config.retry import DEFAULT_DATA_RETRY, DEFAULT_LLM_RETRY
 
 
-# Unified parametrization for all 4 providers (2 data + 2 LLM)
+# Unified parametrization for data + LLM providers
 @pytest.fixture(
     params=[
         pytest.param(
@@ -22,17 +21,6 @@ from config.retry import DEFAULT_DATA_RETRY, DEFAULT_LLM_RETRY
                 "not found or empty",
             ),
             id="finnhub",
-        ),
-        pytest.param(
-            (
-                "polygon",
-                PolygonSettings,
-                "POLYGON_API_KEY",
-                DEFAULT_DATA_RETRY,
-                {"base_url": "https://api.polygon.io"},
-                "not found or empty",
-            ),
-            id="polygon",
         ),
         pytest.param(
             (

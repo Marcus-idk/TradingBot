@@ -9,7 +9,6 @@ from typing import Any
 import pytest
 
 from config.providers.finnhub import FinnhubSettings
-from config.providers.polygon import PolygonSettings
 from config.retry import DataRetryConfig
 from data import NewsDataSource, PriceDataSource
 from data.providers.finnhub import (
@@ -18,12 +17,6 @@ from data.providers.finnhub import (
     FinnhubPriceProvider,
 )
 from data.providers.finnhub.finnhub_client import FinnhubClient
-from data.providers.polygon import (
-    PolygonMacroNewsProvider,
-    PolygonNewsProvider,
-)
-from data.providers.polygon.polygon_client import PolygonClient
-from data.storage.storage_utils import _datetime_to_iso
 
 
 @dataclass(frozen=True)
@@ -40,14 +33,10 @@ class CompanyProviderSpec:
         return self.provider_factory(symbols_to_use)
 
     def wrap_response(self, payload: list[dict[str, Any]]) -> Any:
-        if "polygon" in self.name:
-            return {"results": payload}
         return payload
 
     def malformed(self, *, as_type: type[Any]) -> Any:
         if as_type is dict:
-            if "polygon" in self.name:
-                return {"results": "not-a-list"}
             return {"unexpected": "structure"}
         return "unexpected"
 
@@ -65,14 +54,10 @@ class MacroProviderSpec:
         return self.provider_factory(symbols_to_use)
 
     def wrap_response(self, payload: list[dict[str, Any]]) -> Any:
-        if "polygon" in self.name:
-            return {"results": payload}
         return payload
 
     def malformed(self, *, as_type: type[Any]) -> Any:
         if as_type is dict:
-            if "polygon" in self.name:
-                return {"results": "not-a-list"}
             return {"unexpected": "structure"}
         return "unexpected"
 
@@ -135,120 +120,66 @@ def _finnhub_settings() -> FinnhubSettings:
     return FinnhubSettings(api_key="test_key")
 
 
-def _polygon_settings() -> PolygonSettings:
-    return PolygonSettings(api_key="test_key")
+@pytest.fixture
+def provider_spec_company() -> CompanyProviderSpec:
+    """Parametrized company-news provider spec for Finnhub."""
+
+    def finnhub_company_article_factory(**kwargs) -> dict[str, Any]:
+        article: dict[str, Any] = {
+            "headline": kwargs.get("headline", "Market rally"),
+            "url": kwargs.get("url", "https://example.com/news"),
+            "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
+        }
+        if "source" in kwargs and kwargs["source"] is not None:
+            article["source"] = kwargs["source"]
+        else:
+            article["source"] = "Finnhub"
+        if "summary" in kwargs and kwargs["summary"] is not None:
+            article["summary"] = kwargs["summary"]
+        else:
+            article["summary"] = "Stocks up today"
+        return article
+
+    return CompanyProviderSpec(
+        name="finnhub",
+        endpoint="/company-news",
+        default_symbols=["AAPL"],
+        provider_factory=lambda symbols: FinnhubNewsProvider(_finnhub_settings(), symbols),
+        symbol_param_name="symbol",
+        article_factory=finnhub_company_article_factory,
+    )
 
 
-@pytest.fixture(params=["finnhub", "polygon"])
-def provider_spec_company(request: pytest.FixtureRequest) -> CompanyProviderSpec:
-    """Parametrized company-news provider spec for Finnhub and Polygon."""
-    if request.param == "finnhub":
+@pytest.fixture
+def provider_spec_macro() -> MacroProviderSpec:
+    """Parametrized macro-news provider spec for Finnhub."""
 
-        def finnhub_company_article_factory(**kwargs) -> dict[str, Any]:
-            article: dict[str, Any] = {
-                "headline": kwargs.get("headline", "Market rally"),
-                "url": kwargs.get("url", "https://example.com/news"),
-                "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
-            }
-            if "source" in kwargs and kwargs["source"] is not None:
-                article["source"] = kwargs["source"]
-            else:
-                article["source"] = "Finnhub"
-            if "summary" in kwargs and kwargs["summary"] is not None:
-                article["summary"] = kwargs["summary"]
-            else:
-                article["summary"] = "Stocks up today"
-            return article
+    def finnhub_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
+        related_str = symbols if isinstance(symbols, str) else ",".join(symbols)
+        article: dict[str, Any] = {
+            "id": kwargs.get("article_id", 101),
+            "headline": kwargs.get("headline", "Macro update"),
+            "url": kwargs.get("url", "https://example.com/macro"),
+            "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
+            "related": related_str,
+        }
+        if "source" in kwargs and kwargs["source"] is not None:
+            article["source"] = kwargs["source"]
+        else:
+            article["source"] = "Finnhub"
+        if "summary" in kwargs and kwargs["summary"] is not None:
+            article["summary"] = kwargs["summary"]
+        else:
+            article["summary"] = "Macro summary"
+        return article
 
-        return CompanyProviderSpec(
-            name="finnhub",
-            endpoint="/company-news",
-            default_symbols=["AAPL"],
-            provider_factory=lambda symbols: FinnhubNewsProvider(_finnhub_settings(), symbols),
-            symbol_param_name="symbol",
-            article_factory=finnhub_company_article_factory,
-        )
-    else:
-
-        def polygon_company_article_factory(**kwargs) -> dict[str, Any]:
-            epoch = kwargs.get("epoch", int(datetime.now(UTC).timestamp()))
-            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=UTC))
-            article: dict[str, Any] = {
-                "title": kwargs.get("headline", "Market rally"),
-                "article_url": kwargs.get("url", "https://example.com/news"),
-                "published_utc": published_utc,
-                "publisher": {"name": kwargs.get("source", "Polygon")},
-                "description": kwargs.get("summary", "Stocks up today"),
-            }
-            return article
-
-        return CompanyProviderSpec(
-            name="polygon",
-            endpoint="/v2/reference/news",
-            default_symbols=["AAPL"],
-            provider_factory=lambda symbols: PolygonNewsProvider(_polygon_settings(), symbols),
-            symbol_param_name="ticker",
-            article_factory=polygon_company_article_factory,
-        )
-
-
-@pytest.fixture(params=["finnhub", "polygon"])
-def provider_spec_macro(request: pytest.FixtureRequest) -> MacroProviderSpec:
-    """Parametrized macro-news provider spec for Finnhub and Polygon."""
-    if request.param == "finnhub":
-
-        def finnhub_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
-            related_str = symbols if isinstance(symbols, str) else ",".join(symbols)
-            article: dict[str, Any] = {
-                "id": kwargs.get("article_id", 101),
-                "headline": kwargs.get("headline", "Macro update"),
-                "url": kwargs.get("url", "https://example.com/macro"),
-                "datetime": kwargs.get("epoch", int(datetime.now(UTC).timestamp())),
-                "related": related_str,
-            }
-            if "source" in kwargs and kwargs["source"] is not None:
-                article["source"] = kwargs["source"]
-            else:
-                article["source"] = "Finnhub"
-            if "summary" in kwargs and kwargs["summary"] is not None:
-                article["summary"] = kwargs["summary"]
-            else:
-                article["summary"] = "Macro summary"
-            return article
-
-        return MacroProviderSpec(
-            name="finnhub_macro",
-            endpoint="/news",
-            default_symbols=["AAPL"],
-            provider_factory=lambda symbols: FinnhubMacroNewsProvider(_finnhub_settings(), symbols),
-            article_factory=finnhub_article_factory,
-        )
-    else:
-
-        def polygon_article_factory(symbols: str | list[str] = "AAPL", **kwargs) -> dict[str, Any]:
-            tickers_list = symbols.split(",") if isinstance(symbols, str) else list(symbols)
-            if tickers_list == [""]:
-                tickers_list = []
-            epoch = kwargs.get("epoch", int(datetime.now(UTC).timestamp()))
-            published_utc = _datetime_to_iso(datetime.fromtimestamp(epoch, tz=UTC))
-            article: dict[str, Any] = {
-                "id": kwargs.get("article_id", 101),
-                "title": kwargs.get("headline", "Macro update"),
-                "article_url": kwargs.get("url", "https://example.com/macro"),
-                "published_utc": published_utc,
-                "tickers": tickers_list,
-                "publisher": {"name": kwargs.get("source", "Polygon")},
-                "description": kwargs.get("summary", "Macro summary"),
-            }
-            return article
-
-        return MacroProviderSpec(
-            name="polygon_macro",
-            endpoint="/v2/reference/news",
-            default_symbols=["AAPL"],
-            provider_factory=lambda symbols: PolygonMacroNewsProvider(_polygon_settings(), symbols),
-            article_factory=polygon_article_factory,
-        )
+    return MacroProviderSpec(
+        name="finnhub_macro",
+        endpoint="/news",
+        default_symbols=["AAPL"],
+        provider_factory=lambda symbols: FinnhubMacroNewsProvider(_finnhub_settings(), symbols),
+        article_factory=finnhub_article_factory,
+    )
 
 
 @pytest.fixture
@@ -262,38 +193,21 @@ def provider_spec_prices() -> PriceProviderSpec:
     )
 
 
-@pytest.fixture(params=("finnhub_client", "polygon_client"))
-def client_spec(request: pytest.FixtureRequest) -> ClientSpec:
-    """Parametrized HTTP client spec for Finnhub and Polygon clients."""
-    if request.param == "finnhub_client":
-        api_key = "finnhub_test_key"
-        settings = FinnhubSettings(api_key=api_key)
-        return ClientSpec(
-            name="finnhub_client",
-            module_path="data.providers.finnhub.finnhub_client",
-            client_factory=lambda: FinnhubClient(settings),
-            base_url=settings.base_url,
-            sample_path="/company-news",
-            sample_params={"symbol": "AAPL"},
-            auth_param="token",
-            api_key=api_key,
-            retry_config=settings.retry_config,
-            validation_path="/quote",
-            validation_params={"symbol": "SPY"},
-        )
-
-    api_key = "polygon_test_key"
-    settings = PolygonSettings(api_key=api_key)
+@pytest.fixture
+def client_spec() -> ClientSpec:
+    """HTTP client spec for Finnhub client."""
+    api_key = "finnhub_test_key"
+    settings = FinnhubSettings(api_key=api_key)
     return ClientSpec(
-        name="polygon_client",
-        module_path="data.providers.polygon.polygon_client",
-        client_factory=lambda: PolygonClient(settings),
+        name="finnhub_client",
+        module_path="data.providers.finnhub.finnhub_client",
+        client_factory=lambda: FinnhubClient(settings),
         base_url=settings.base_url,
-        sample_path="/v2/reference/news",
-        sample_params={"ticker": "AAPL"},
-        auth_param="apiKey",
+        sample_path="/company-news",
+        sample_params={"symbol": "AAPL"},
+        auth_param="token",
         api_key=api_key,
         retry_config=settings.retry_config,
-        validation_path="/v1/marketstatus/now",
-        validation_params=None,
+        validation_path="/quote",
+        validation_params={"symbol": "SPY"},
     )

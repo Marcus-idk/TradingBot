@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from data.models import NewsEntry
 from data.providers.finnhub import FinnhubNewsProvider, FinnhubPriceProvider
 
 pytestmark = [pytest.mark.network, pytest.mark.asyncio]
@@ -45,18 +46,16 @@ async def test_live_news_fetch(finnhub_settings):
     since = datetime.now(UTC) - timedelta(days=3)
     results = await provider.fetch_incremental(since=since)
 
-    # May not always have news, so just validate structure if we get any
-    if results:
-        # Check first article
-        article = results[0]
+    assert isinstance(results, list)
+    assert all(isinstance(article, NewsEntry) for article in results)
+
+    for article in results:
         assert article.symbol == "AAPL"
         assert article.headline and len(article.headline) > 0
         assert article.url and article.url.startswith("http")
         assert article.published is not None
         assert article.published.tzinfo == UTC
         assert article.source is not None
-    else:
-        pass
 
 
 async def test_live_multiple_symbols(finnhub_settings):
@@ -86,7 +85,7 @@ async def test_live_error_handling(finnhub_settings):
 
     Notes:
     - Finnhub has both price and news providers; we exercise price here.
-    - Polygon live tests only cover news, so keeping this on price balances coverage.
+    - This keeps price coverage in the live provider tests.
     """
     # Test with invalid symbol
     provider = FinnhubPriceProvider(finnhub_settings, ["INVALID_SYMBOL_XYZ123"])

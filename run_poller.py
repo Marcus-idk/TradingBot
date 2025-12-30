@@ -18,17 +18,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from config.providers.finnhub import FinnhubSettings
-from config.providers.polygon import PolygonSettings
 from config.providers.reddit import RedditSettings
 from data import DataSourceError, NewsDataSource, PriceDataSource, SocialDataSource
 from data.providers.finnhub import (
     FinnhubMacroNewsProvider,
     FinnhubNewsProvider,
     FinnhubPriceProvider,
-)
-from data.providers.polygon import (
-    PolygonMacroNewsProvider,
-    PolygonNewsProvider,
 )
 from data.providers.reddit import RedditSocialProvider
 from data.storage import init_database
@@ -51,7 +46,6 @@ class PollerConfig:
     poll_interval: int
     ui_port: int | None
     finnhub_settings: FinnhubSettings
-    polygon_settings: PolygonSettings
     reddit_settings: RedditSettings
 
 
@@ -116,15 +110,6 @@ def build_config(with_viewer: bool) -> PollerConfig:
             "Please set FINNHUB_API_KEY environment variable"
         ) from exc
 
-    # Load Polygon settings
-    try:
-        polygon_settings = PolygonSettings.from_env()
-    except ValueError as exc:
-        raise ValueError(
-            f"Failed to load Polygon settings: {exc}. "
-            "Please set POLYGON_API_KEY environment variable"
-        ) from exc
-
     # Load Reddit settings
     try:
         reddit_settings = RedditSettings.from_env()
@@ -140,7 +125,6 @@ def build_config(with_viewer: bool) -> PollerConfig:
         poll_interval=poll_interval,
         ui_port=ui_port,
         finnhub_settings=finnhub_settings,
-        polygon_settings=polygon_settings,
         reddit_settings=reddit_settings,
     )
 
@@ -211,10 +195,6 @@ async def create_and_validate_providers(
     macro_news_provider = FinnhubMacroNewsProvider(config.finnhub_settings, config.symbols)
     finnhub_price_provider = FinnhubPriceProvider(config.finnhub_settings, config.symbols)
 
-    # Create Polygon providers
-    polygon_company_news_provider = PolygonNewsProvider(config.polygon_settings, config.symbols)
-    polygon_macro_news_provider = PolygonMacroNewsProvider(config.polygon_settings, config.symbols)
-
     # Create Reddit provider
     reddit_social_provider = RedditSocialProvider(config.reddit_settings, config.symbols)
 
@@ -222,8 +202,6 @@ async def create_and_validate_providers(
     news_providers: list[NewsDataSource] = [
         company_news_provider,
         macro_news_provider,
-        polygon_company_news_provider,
-        polygon_macro_news_provider,
     ]
     social_providers: list[SocialDataSource] = [reddit_social_provider]
     price_providers: list[PriceDataSource] = [finnhub_price_provider]
@@ -235,8 +213,6 @@ async def create_and_validate_providers(
             (company_news_provider, "Finnhub company news"),
             (macro_news_provider, "Finnhub macro news"),
             (finnhub_price_provider, "Finnhub price"),
-            (polygon_company_news_provider, "Polygon company news"),
-            (polygon_macro_news_provider, "Polygon macro news"),
             (reddit_social_provider, "Reddit social"),
         ]
 
@@ -244,12 +220,10 @@ async def create_and_validate_providers(
 
         for (_, name), valid in zip(providers_to_validate, results, strict=True):
             if not valid:
-                logger.error("Failed to validate %s API connection", name)
                 raise ValueError(f"{name} API connection validation failed")
             logger.info("%s API connection validated successfully", name)
 
     except (DataSourceError, RetryableError, RuntimeError) as exc:
-        logger.exception("Connection validation failed: %s", exc)
         raise ValueError(f"Provider validation failed: {exc}") from exc
 
     return news_providers, social_providers, price_providers

@@ -8,7 +8,7 @@ from data.models import NewsEntry, PriceData, SocialDiscussion
 
 
 class DataSource(ABC):
-    """Abstract base class for all data providers (Finnhub, Polygon, Reddit, etc.)."""
+    """Abstract base class for all data providers (Finnhub, Reddit, etc.)."""
 
     def __init__(self, source_name: str) -> None:
         """Validate and store a human-readable provider name."""

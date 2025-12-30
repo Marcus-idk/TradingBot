@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock
 import pytest
 
 from data import DataSourceError, NewsEntry, NewsType
-from data.storage.storage_utils import _datetime_to_iso
 
 pytestmark = pytest.mark.asyncio
 
@@ -182,15 +181,10 @@ class TestNewsCompanyShared:
 
         overlap_delta = timedelta(minutes=provider.settings.company_news_overlap_minutes)
 
-        if provider_spec_company.name == "finnhub":
-            expected_from = (since - overlap_delta).strftime("%Y-%m-%d")
-            assert params["from"] == expected_from
-            assert params["to"] == fixed_now.strftime("%Y-%m-%d")
-            assert params["symbol"] in provider_spec_company.default_symbols
-        else:
-            expected_gt = _datetime_to_iso(since - overlap_delta)
-            assert params["published_utc.gt"] == expected_gt
-            assert params["ticker"] in provider_spec_company.default_symbols
+        expected_from = (since - overlap_delta).strftime("%Y-%m-%d")
+        assert params["from"] == expected_from
+        assert params["to"] == fixed_now.strftime("%Y-%m-%d")
+        assert params["symbol"] in provider_spec_company.default_symbols
 
     async def test_date_window_params_without_since(self, provider_spec_company, monkeypatch):
         """Test date window params without since."""
@@ -226,15 +220,10 @@ class TestNewsCompanyShared:
 
         bootstrap_delta = timedelta(days=provider.settings.company_news_first_run_days)
 
-        if provider_spec_company.name == "finnhub":
-            expected_from = (fixed_now - bootstrap_delta).strftime("%Y-%m-%d")
-            assert params["from"] == expected_from
-            assert params["to"] == fixed_now.strftime("%Y-%m-%d")
-            assert params["symbol"] in provider_spec_company.default_symbols
-        else:
-            expected_gt = _datetime_to_iso(fixed_now - bootstrap_delta)
-            assert params["published_utc.gt"] == expected_gt
-            assert params["ticker"] in provider_spec_company.default_symbols
+        expected_from = (fixed_now - bootstrap_delta).strftime("%Y-%m-%d")
+        assert params["from"] == expected_from
+        assert params["to"] == fixed_now.strftime("%Y-%m-%d")
+        assert params["symbol"] in provider_spec_company.default_symbols
 
     async def test_symbol_normalization_uppercases(self, provider_spec_company):
         """Test symbol normalization uppercases."""
